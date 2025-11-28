@@ -15,19 +15,22 @@ import java.time.LocalDateTime;
 public class Letters {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "letter_id")
     private Long id;
 
-    @Column(name = "user_id")
-    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private Users user;
+
+    @OneToOne
+    @JoinColumn(name = "feedback_id", nullable = false)
+    private Feedbacks Feedback;
 
     @Column(name = "content", nullable = false, length = 500)
     private String content;
 
     @Column(name = "letter_date", nullable = false)
     private LocalDate letterDate;
-
-    @Column(name = "stamp_id")
-    private Long stampId;
 
     @Column(name = "status", nullable = false, length = 10)
     private String status;
@@ -43,7 +46,7 @@ public class Letters {
         this.createdAt = LocalDateTime.now();
     }
 
-    @PrePersist
+    @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
