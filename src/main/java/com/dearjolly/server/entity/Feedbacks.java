@@ -11,9 +11,11 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -53,4 +55,23 @@ public class Feedbacks {
         this.createdAt = LocalDateTime.now();
     }
 
+    public Feedbacks(
+            Long id,
+            Letters letter,
+            String correctedContent,
+            String tip,
+            LocalDateTime createdAt,
+            List<CorrectionSegments> correctionSegments
+    ) {
+        this.id = id;
+        this.letter = letter;
+        this.correctedContent = correctedContent;
+        this.tip = tip;
+        this.createdAt = createdAt;
+        this.correctionSegments = correctionSegments;
+    }
+
+    public void addCorrectionSegments(CorrectionSegments correctionSegment) {
+        this.correctionSegments.add(correctionSegment);
+    }
 }
