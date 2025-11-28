@@ -14,8 +14,10 @@ import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+
 import java.util.ArrayList;
 import java.util.List;
+
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -50,4 +52,21 @@ public class CorrectionSegments {
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 10)
     private CorrectionType type;
+
+    public CorrectionSegments(
+            Long id,
+            Feedbacks feedback,
+            Integer sequence,
+            String originalText,
+            String correctedText,
+            CorrectionType type
+    ) {
+        this.id = id;
+        this.feedback = feedback;
+        this.sequence = sequence;
+        this.originalText = originalText;
+        this.correctedText = correctedText;
+        this.type = type;
+        feedback.getCorrectionSegments().add(this);
+    }
 }
