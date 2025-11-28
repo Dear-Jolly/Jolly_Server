@@ -7,10 +7,13 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Lob;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -27,9 +30,9 @@ public class Feedbacks {
     @Column(name = "feedback_id")
     private Long id;
 
-//    @ManyToOne
-//    @JoinColumn(name = "letter_id", nullable = false)
-//    private Letter letter;
+    @OneToOne
+    @JoinColumn(name = "letter_id", nullable = false)
+    private Letters letter;
 
     @Lob
     @Column(name = "corrected_content", nullable = false)
@@ -41,6 +44,9 @@ public class Feedbacks {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @OneToMany(mappedBy = "correctionSegments")
+    private List<CorrectionSegments> correctionSegments = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {
