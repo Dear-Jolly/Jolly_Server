@@ -4,8 +4,6 @@ import jakarta.persistence.*;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.Id;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
