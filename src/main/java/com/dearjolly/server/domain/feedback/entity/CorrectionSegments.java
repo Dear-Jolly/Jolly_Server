@@ -1,6 +1,6 @@
-package com.dearjolly.server.entity;
+package com.dearjolly.server.domain.feedback.entity;
 
-import com.dearjolly.server.entity.enums.CorrectionType;
+import com.dearjolly.server.domain.feedback.enums.CorrectionType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -10,7 +10,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.EqualsAndHashCode;

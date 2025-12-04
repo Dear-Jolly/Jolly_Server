@@ -1,6 +1,8 @@
-package com.dearjolly.server.entity;
+package com.dearjolly.server.domain.letter.entity;
 
-import com.dearjolly.server.entity.enums.Status;
+import com.dearjolly.server.domain.feedback.entity.Feedbacks;
+import com.dearjolly.server.domain.letter.enums.Status;
+import com.dearjolly.server.domain.user.entity.Users;
 import jakarta.persistence.*;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
