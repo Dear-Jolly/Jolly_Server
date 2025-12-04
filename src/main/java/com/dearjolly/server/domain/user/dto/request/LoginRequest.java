@@ -1,5 +1,9 @@
 package com.dearjolly.server.domain.user.dto.request;
 
+import static com.dearjolly.server.domain.user.constants.UserValidationConstants.NICKNAME_MAX_LENGTH;
+import static com.dearjolly.server.domain.user.constants.UserValidationConstants.NICKNAME_MIN_LENGTH;
+import static com.dearjolly.server.domain.user.constants.UserValidationConstants.NICKNAME_REGEX;
+
 import com.dearjolly.server.domain.user.entity.Users;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -17,13 +21,9 @@ public record LoginRequest(
                 max = NICKNAME_MAX_LENGTH,
                 message = "닉네임은 {min}자 이상 {max}자 이하여야 합니다."
         )
-        @Pattern(regexp = NICKNAME_REGEX, message = "닉네임은 영문자와 숫자만 사용 가능합니다.")
+        @Pattern(regexp = NICKNAME_REGEX, message = "올바른 닉네임 형식이 아닙니다.")
         String nickname
 ) {
-    public static final int NICKNAME_MIN_LENGTH = 2;
-    public static final int NICKNAME_MAX_LENGTH = 10;
-    public static final String NICKNAME_REGEX = "^[a-zA-Z0-9]+$";
-
     public Users toEntity() {
         return Users.create("temp_social_id", "temp", email, nickname);
     }
