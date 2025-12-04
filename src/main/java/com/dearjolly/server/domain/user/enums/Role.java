@@ -1,4 +1,4 @@
-package com.dearjolly.server.entity.enums;
+package com.dearjolly.server.domain.user.enums;
 
 public enum Role {
     ROLE_USER,
