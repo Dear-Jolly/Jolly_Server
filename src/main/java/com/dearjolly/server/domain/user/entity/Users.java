@@ -1,7 +1,10 @@
-package com.dearjolly.server.entity;
+package com.dearjolly.server.domain.user.entity;
 
-import com.dearjolly.server.entity.enums.Role;
-import com.dearjolly.server.entity.enums.Status;
+import static com.dearjolly.server.domain.user.enums.Role.ROLE_ADMIN;
+import static com.dearjolly.server.domain.user.enums.Role.ROLE_USER;
+
+import com.dearjolly.server.domain.user.enums.Role;
+import com.dearjolly.server.domain.letter.entity.Letters;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -13,19 +16,17 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import lombok.EqualsAndHashCode;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "USERS")
 @Getter
-@NoArgsConstructor
-@EqualsAndHashCode(of = "id")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Users {
 
     @Id
@@ -56,7 +57,7 @@ public class Users {
     private List<Letters> letters = new ArrayList<>();
 
     @PrePersist
-    protected void onCreate(){
+    protected void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
 
@@ -68,15 +69,22 @@ public class Users {
         this.role = role;
     }
 
-    public static Users create(String socialId, String provider, String email, String nickname, Role role) {
-        Users user = new Users(socialId, provider, email, nickname, role);
-        return user;
+    // ========= 생성 메서드 =========
+    public static Users create(String socialId, String provider, String email, String nickname) {
+        return new Users(socialId, provider, email, nickname, ROLE_USER);
     }
 
-    public void addLetter(Letters letter){
+    public static Users createAdmin(String socialId, String provider, String email, String nickname) {
+        return new Users(socialId, provider, email, nickname, ROLE_ADMIN);
+    }
+
+    // ========= 연관관계 메서드 =========
+    public void addLetter(Letters letter) {
         this.letters.add(letter);
-        if (letter.getUser() != this) {
-            letter.setUser(this);
-        }
+    }
+
+    // ========= 비즈니스 로직 메서드 =========
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
     }
 }

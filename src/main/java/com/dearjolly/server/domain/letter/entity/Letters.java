@@ -1,26 +1,25 @@
-package com.dearjolly.server.entity;
+package com.dearjolly.server.domain.letter.entity;
 
-import com.dearjolly.server.entity.enums.Status;
+import com.dearjolly.server.domain.feedback.entity.Feedbacks;
+import com.dearjolly.server.domain.letter.enums.Status;
+import com.dearjolly.server.domain.user.entity.Users;
 import jakarta.persistence.*;
-import lombok.EqualsAndHashCode;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import lombok.Setter;
 
 @Entity
 @Table(name = "LETTERS")
 @Getter
-@NoArgsConstructor
-@EqualsAndHashCode(of = "id")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Letters {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "letter_id")
     private Long id;
 
-    @Setter
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private Users user;
@@ -62,16 +61,24 @@ public class Letters {
         this.status = status;
     }
 
+    // ========= 생성 메서드 =========
     public static Letters create(Users user, String content, LocalDate letterDate, Status status) {
         Letters letter = new Letters(user, content, letterDate, status);
         user.addLetter(letter);
         return letter;
     }
 
-    public void setFeedback(Feedbacks feedback) {
+    // ========= 연관관계 메서드 =========
+    public void registerFeedback(Feedbacks feedback) {
         this.feedback = feedback;
-        if (feedback.getLetter() != this) {
-            feedback.setLetter(this);
-        }
+    }
+
+    // ========= 비즈니스 로직 메서드 =========
+    public void updateContent(String newContent) {
+        this.content = newContent;
+    }
+
+    public void updateStatus(Status newStatus) {
+        this.status = newStatus;
     }
 }

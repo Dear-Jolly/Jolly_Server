@@ -1,4 +1,4 @@
-package com.dearjolly.server.entity.enums;
+package com.dearjolly.server.domain.letter.enums;
 
 public enum Status {
     DRAFT("작성중"),
