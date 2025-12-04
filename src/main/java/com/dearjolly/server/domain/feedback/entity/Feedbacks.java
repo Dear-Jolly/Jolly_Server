@@ -18,16 +18,14 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import lombok.EqualsAndHashCode;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Entity
 @Table(name = "FEEDBACKS")
 @Getter
-@NoArgsConstructor
-@EqualsAndHashCode(of = "id")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Feedbacks {
 
     @Id
@@ -35,7 +33,6 @@ public class Feedbacks {
     @Column(name = "feedback_id")
     private Long id;
 
-    @Setter
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "letter_id", nullable = false)
     private Letters letter;
@@ -63,19 +60,23 @@ public class Feedbacks {
         this.letter = letter;
         this.correctedContent = correctedContent;
         this.tip = tip;
-        this.correctionSegments = new ArrayList<>();
     }
 
+    // ========= 생성 메서드 =========
     public static Feedbacks create(Letters letter, String correctedContent, String tip) {
         Feedbacks feedback = new Feedbacks(letter, correctedContent, tip);
-        letter.setFeedback(feedback);
+        letter.registerFeedback(feedback);
         return feedback;
     }
 
+    // ========= 연관관계 메서드 =========
     public void addCorrectionSegment(CorrectionSegments segment) {
         this.correctionSegments.add(segment);
-        if (segment.getFeedback() != this) {
-            segment.setFeedback(this);
-        }
+    }
+
+    // ========= 비즈니스 로직 메서드 =========
+    public void updateFeedback(String correctedContent, String tip) {
+        this.correctedContent = correctedContent;
+        this.tip = tip;
     }
 }
