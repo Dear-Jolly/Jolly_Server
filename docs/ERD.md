@@ -7,7 +7,7 @@
 | --- | --- |
 | 최종 갱신 | 2026-08-22 |
 | DBMS | MySQL 8.x / `utf8mb4` · `utf8mb4_0900_ai_ci` |
-| 스키마 관리 | **Flyway** 로 형상 관리. JPA 는 전 환경 `ddl-auto: validate` 로 검증만 수행 |
+| 스키마 관리 | **Flyway** 로 형상 관리. 스키마의 소유자는 마이그레이션이며 JPA 가 아니다 |
 | ID 전략 | 전 테이블 `GenerationType.IDENTITY` (`BIGINT AUTO_INCREMENT`) |
 | Enum 저장 | 전부 `EnumType.STRING` (문자열 저장) |
 | 시각 컬럼 | `DATETIME(6)`. `@PrePersist` / `@PreUpdate` 로 주입. 서버 TZ `Asia/Seoul` |
