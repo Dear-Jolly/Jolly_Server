@@ -13,7 +13,6 @@ import static org.hamcrest.Matchers.nullValue;
 import com.dearjolly.server.domain.letter.entity.Letters;
 import com.dearjolly.server.domain.letter.entity.Stamps;
 import com.dearjolly.server.domain.letter.enums.Status;
-import com.dearjolly.server.domain.letter.repository.LetterRepository;
 import com.dearjolly.server.domain.user.entity.Users;
 import com.dearjolly.server.support.ApiTestSupport;
 import io.restassured.http.ContentType;
@@ -44,12 +43,9 @@ class LetterApiTest extends ApiTestSupport {
     );
     private static final List<String> TIPS = List.of(
             "문장에 동사에 따라 to 부정사와 동명사가 오는 경우가 달라요! 그 부분을 확인해보세요!",
-            "'that'은 선행사를 한정하는 필수 정보를, 'which'는 추가 정보를 제공하는 데 쓰여요! 또 'that'은 사람/사물 모두 가능하지만 'which'는 보통 사물에 쓰인답니다!"
+            "'that'은 선행사를 한정하는 필수 정보를, 'which'는 추가 정보를 제공하는 데 쓰여요!"
     );
     private static final LocalDate LETTER_DATE = LocalDate.of(2025, 10, 30);
-
-    @Autowired
-    LetterRepository letterRepository;
 
     @DisplayName("POST /api/v1/letters : 편지 작성 API")
     @Test
@@ -225,7 +221,6 @@ class LetterApiTest extends ApiTestSupport {
                 .statusCode(HttpStatus.UNAUTHORIZED.value())
                 .body("code", equalTo("AUTH_005"));
     }
-
 
     @DisplayName("GET /api/v1/letters : 편지 목록 조회 API")
     @Test
@@ -502,7 +497,7 @@ class LetterApiTest extends ApiTestSupport {
                 .body("feedback.correctionSegments", hasSize(3));
     }
 
-    @DisplayName("GET /api/v1/letters/{letterId} : 피드백 완료 전이면 stampImage 는 기본 우표이고 feedback 은 null 이다")
+    @DisplayName("GET /api/v1/letters/{letterId} : 피드백 완료 전이면 feedback 은 null 이고 stampImage 는 기본 우표다")
     @Test
     void getLetterBeforeFeedbackCompleted() {
         // given
