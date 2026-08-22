@@ -2,6 +2,7 @@ package com.dearjolly.server.global.exception.controller;
 
 import com.dearjolly.server.global.exception.response.ErrorCode;
 import com.dearjolly.server.global.exception.response.ErrorResponse;
+import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.boot.web.servlet.error.ErrorController;
@@ -10,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/** 서블릿 컨테이너가 내부적으로 포워딩하는 경로다. 앱이 호출하는 API 가 아니므로 OpenAPI 문서에서 숨긴다. */
+@Hidden
 @RestController
 public class CustomErrorController implements ErrorController {
 
