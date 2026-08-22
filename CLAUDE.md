@@ -34,8 +34,8 @@ Dear Jolly 백엔드 서버. Java 21 / Spring Boot 3.5.7 / Spring Data JPA / MyS
 
 ## 프로젝트 참고 문서
 
-- `docs/RUN.md` — 로컬 실행 방법 · 환경변수 · 테스트
+- `infra/RUN.md` — 로컬·원격 실행 방법 · 테스트
 - `docs/API명세.md` — API 명세
 - `docs/기능명세.md` — 기능 명세
 - `docs/ERD.md` — 데이터베이스 ERD
-- `infra/README.md` — 구축 · 배포 · 운영 (배포 관련 내용은 전부 여기에만 둔다)
+- `infra/README.md` — 설정값 · 구축 · 배포 (설정·배포 관련 내용은 전부 여기에만 둔다)
