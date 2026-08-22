@@ -45,6 +45,9 @@ dependencies {
 	implementation 'org.flywaydb:flyway-core'
 	implementation 'org.flywaydb:flyway-mysql'
 
+	// MinIO (우표 시드 이미지 업로드)
+	implementation 'io.minio:minio:8.5.17'
+
 	// API 문서
 	// 2.6.0 은 Spring Framework 6.2(= Boot 3.5)에서 제거된 ControllerAdviceBean(Object) 생성자를
 	// 호출해 /v3/api-docs 가 NoSuchMethodError 로 500 을 낸다. 2.8 부터 대응됐다.
