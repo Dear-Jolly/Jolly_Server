@@ -25,8 +25,8 @@
 | [9](#9-patch-apiv1usersnickname-) | `PATCH` | `/api/v1/users/nickname` | 닉네임 설정 | ✔ | — | ✅ |
 | [10](#10-post-apiv1letters-) | `POST` | `/api/v1/letters` | 편지 작성 | ✔ | ✔ | ✅ |
 | [11](#11-get-apiv1lettersletterid-) | `GET` | `/api/v1/letters/{letterId}` | 편지 상세 · 피드백 조회 | ✔ | ✔ | ❌ |
-| [12](#12-get-apiv1letters-) | `GET` | `/api/v1/letters` | 편지 목록 조회 (홈) | ✔ | ✔ | ❌ |
-| [13](#13-get-apiv1home-) | `GET` | `/api/v1/home` | 닉네임 · 모은 우표 수 조회 | ✔ | ✔ | ❌ |
+| [12](#12-get-apiv1letters-) | `GET` | `/api/v1/letters` | 편지 목록 조회 (홈) | ✔ | ✔ | ✅ |
+| [13](#13-get-apiv1home-) | `GET` | `/api/v1/home` | 닉네임 · 모은 우표 수 조회 | ✔ | ✔ | ✅ |
 | [14](#14-get-apiv1version-) | `GET` | `/api/v1/version` | 최소 지원 버전 · 정책 URL 조회 | — | — | ✅ |
 
 - **인증** ✔ — `Authorization` 헤더가 필요하다.
@@ -46,6 +46,7 @@
 - 앱이 할 일은 세 가지다. **① 이 주소를 연다 → ② 열린 페이지에서 유저가 로그인한다 → ③ 딥링크로 토큰을 받는다.** 코드 교환·회원 생성·토큰 발급은 서버가 처리한다.
 - **앱 SDK 로 받은 소셜 토큰을 서버에 전달하는 방식은 지원하지 않는다.**
 - 유저는 `(provider + provider 회원 식별자)` 로 구분한다. 이메일이 같아도 카카오와 애플은 별개 계정이다.
+- `provider` 가 `KAKAO` · `APPLE` 이 아니면(소문자 포함) `COMMON_001` 이다.
 
 ### [스펙]
 
@@ -70,11 +71,15 @@ HTTP/1.1 302 Found
 Location: https://kauth.kakao.com/oauth/authorize?client_id=...&redirect_uri=...&response_type=code&state=...
 ```
 
-### [실패 Error Response]
+### [실패 Response 400]
 
-| code | status | 상황 |
-| --- | --- | --- |
-| `COMMON_001` | 400 | `provider` 가 `KAKAO` · `APPLE` 이 아님 (소문자 포함) |
+```json
+{
+    "status": 400,
+    "code": "COMMON_001",
+    "message": "잘못된 요청입니다."
+}
+```
 
 ---
 
@@ -88,7 +93,7 @@ Location: https://kauth.kakao.com/oauth/authorize?client_id=...&redirect_uri=...
 - 가입 직후에는 약관 동의 이력이 없고 닉네임이 비어 있다.
 - 로그인은 **기기 1대만 유지**된다. 새로 로그인하면 이전 로그인은 풀린다.
 - **탈퇴한 계정으로 다시 로그인하면 항상 신규 가입**(`isNewUser=true`)이며, 이전 편지는 복원되지 않는다.
-- 콜백 단계의 실패는 딥링크가 아니라 **JSON 에러 응답**으로 나간다.
+- 콜백 단계의 실패는 딥링크가 아니라 **JSON 에러 응답**으로 나간다. 인가 코드 검증에 실패하면 `AUTH_002`, 카카오 서버와 통신하지 못하면 `AUTH_003` 이다.
 
 ### [스펙]
 
@@ -127,12 +132,25 @@ Location: dearjolly://auth/callback
 - [필수] `termsAgreed` (Boolean): 필수 약관 동의 완료 여부
 - [필수] `nicknameRegistered` (Boolean): 닉네임 등록 여부
 
-### [실패 Error Response]
+### [실패 Response 401]
 
-| code | status | 상황 |
-| --- | --- | --- |
-| `AUTH_002` | 401 | 인가 코드 검증 실패 |
-| `AUTH_003` | 502 | 카카오 서버 통신 실패 |
+```json
+{
+    "status": 401,
+    "code": "AUTH_002",
+    "message": "소셜 로그인 인증에 실패했습니다."
+}
+```
+
+### [실패 Response 502]
+
+```json
+{
+    "status": 502,
+    "code": "AUTH_003",
+    "message": "소셜 로그인 서버와 통신하지 못했습니다."
+}
+```
 
 ---
 
@@ -143,6 +161,7 @@ Location: dearjolly://auth/callback
 - 애플이 호출하는 주소다. **앱이 직접 호출하지 않는다.** 애플이 `form_post` 로 보내기 때문에 `POST` 다.
 - 응답 형태와 앱 분기 규칙은 [2) GET /api/v1/auth/kakao/callback](#2-get-apiv1authkakaocallback-) 과 완전히 같다.
 - 애플에서 이메일 제공을 거부한 유저는 **이메일이 비어 있다**(`null`). 서버가 대체 주소를 지어내지 않는다.
+- 인가 코드 · `id_token` 검증에 실패하면 `AUTH_002`, 애플 서버와 통신하지 못하면 `AUTH_003` 이다.
 
 ### [스펙]
 
@@ -164,12 +183,25 @@ POST /api/v1/auth/apple/callback
 
 카카오 콜백과 동일한 파라미터로 앱 딥링크에 리다이렉트한다.
 
-### [실패 Error Response]
+### [실패 Response 401]
 
-| code | status | 상황 |
-| --- | --- | --- |
-| `AUTH_002` | 401 | 인가 코드 · `id_token` 검증 실패 |
-| `AUTH_003` | 502 | 애플 서버 통신 실패 |
+```json
+{
+    "status": 401,
+    "code": "AUTH_002",
+    "message": "소셜 로그인 인증에 실패했습니다."
+}
+```
+
+### [실패 Response 502]
+
+```json
+{
+    "status": 502,
+    "code": "AUTH_003",
+    "message": "소셜 로그인 서버와 통신하지 못했습니다."
+}
+```
 
 ---
 
@@ -180,7 +212,7 @@ POST /api/v1/auth/apple/callback
 - 리프레시 토큰으로 액세스 토큰을 재발급한다.
 - **리프레시 토큰도 함께 새로 발급되고 이전 토큰은 즉시 무효**가 되므로, 앱은 응답의 두 토큰을 모두 갈아 끼운다.
 - 액세스 토큰 30분, 리프레시 토큰 14일이다.
-- **같은 리프레시 토큰을 두 번 쓸 수 없다.** 서버에 저장된 값과 다르면 `AUTH_004` 다.
+- **같은 리프레시 토큰을 두 번 쓸 수 없다.** 만료됐거나 위조됐거나 이미 사용된 값이면 `AUTH_004` 다.
 - **만료된 액세스 토큰이 헤더에 실려 있어도 정상 동작한다.** 앱의 토큰 인터셉터가 모든 요청에 헤더를 붙여도 문제없다.
 - 앱은 `AUTH_004` 를 받으면 저장된 토큰을 지우고 로그인 화면으로 이동한다.
 
@@ -216,7 +248,7 @@ POST /api/v1/auth/reissue
 - [필수] `accessToken` (String): 새 액세스 토큰
 - [필수] `refreshToken` (String): 새 리프레시 토큰 (기존 값을 이 값으로 교체 저장)
 
-### [실패 Error Response]
+### [실패 Response 401]
 
 ```json
 {
@@ -225,10 +257,6 @@ POST /api/v1/auth/reissue
     "message": "로그인이 만료되었습니다. 다시 로그인해주세요."
 }
 ```
-
-| code | status | 상황 |
-| --- | --- | --- |
-| `AUTH_004` | 401 | 리프레시 토큰 만료 · 위조 · 이미 사용된 토큰 |
 
 ---
 
@@ -239,6 +267,7 @@ POST /api/v1/auth/reissue
 - 로그아웃한다. **세션만 끊고 편지·계정 데이터는 그대로 보존**된다.
 - 카카오 세션 종료 등 소셜 로그아웃은 앱 SDK 에서 처리한다.
 - 온보딩 미완료 상태에서도 호출할 수 있다.
+- 실패는 공통 인증 오류(`AUTH_005` · `AUTH_007`)뿐이다.
 
 ### [스펙]
 
@@ -261,10 +290,6 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 ```
 (No Content)
 ```
-
-### [실패 Error Response]
-
-공통 인증 실패 코드(`AUTH_005` · `AUTH_007`)만 발생한다.
 
 ---
 
@@ -330,7 +355,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 - [필수] `termsAgreed` (Boolean): 이 요청 반영 후의 필수 약관 동의 완료 여부
 
-### [실패 Error Response]
+### [실패 Response 400]
 
 ```json
 {
@@ -340,10 +365,15 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 }
 ```
 
-| code | status | 상황 |
-| --- | --- | --- |
-| `USER_002` | 400 | 이 요청 반영 후에도 필수 약관이 미동의 상태 |
-| `USER_001` | 404 | 사용자를 찾을 수 없음 |
+### [실패 Response 404]
+
+```json
+{
+    "status": 404,
+    "code": "USER_001",
+    "message": "사용자를 찾을 수 없습니다."
+}
+```
 
 ---
 
@@ -386,7 +416,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - [선택] `email` (String): 소셜 계정 이메일 (제공되지 않으면 `null`)
 - [필수] `marketingAgreed` (Boolean): 마케팅 수신 동의 여부
 
-### [실패 Error Response]
+### [실패 Response 404]
 
 ```json
 {
@@ -395,10 +425,6 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
     "message": "사용자를 찾을 수 없습니다."
 }
 ```
-
-| code | status | 상황 |
-| --- | --- | --- |
-| `USER_001` | 404 | 사용자를 찾을 수 없음 |
 
 ---
 
@@ -434,7 +460,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 (No Content)
 ```
 
-### [실패 Error Response]
+### [실패 Response 404]
 
 ```json
 {
@@ -443,10 +469,6 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
     "message": "사용자를 찾을 수 없습니다."
 }
 ```
-
-| code | status | 상황 |
-| --- | --- | --- |
-| `USER_001` | 404 | 사용자를 찾을 수 없음 |
 
 ---
 
@@ -503,7 +525,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 - [필수] `nickname` (String): 변경된 닉네임
 
-### [실패 Error Response]
+### [실패 Response 400]
 
 ```json
 {
@@ -513,11 +535,23 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 }
 ```
 
-| code | status | 상황 |
-| --- | --- | --- |
-| `USER_003` | 400 | 공백 · 특수기호 · 한글 포함 |
-| `USER_004` | 400 | 1자 미만 또는 20자 초과 |
-| `USER_001` | 404 | 사용자를 찾을 수 없음 |
+```json
+{
+    "status": 400,
+    "code": "USER_004",
+    "message": "닉네임은 1자 이상 20자 이하여야 합니다."
+}
+```
+
+### [실패 Response 404]
+
+```json
+{
+    "status": 404,
+    "code": "USER_001",
+    "message": "사용자를 찾을 수 없습니다."
+}
+```
 
 ---
 
@@ -593,7 +627,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 60초 안에 같은 내용을 다시 보낸 경우이며, 응답 본문은 `createdAt` 까지 최초 편지의 `201` 응답과 완전히 같다.
 
-### [실패 Error Response]
+### [실패 Response 400]
 
 ```json
 {
@@ -603,14 +637,45 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 }
 ```
 
-| code | status | 상황 |
-| --- | --- | --- |
-| `LETTER_001` | 400 | `content` 가 비었거나 공백만 있음 |
-| `LETTER_003` | 400 | 500자 초과 |
-| `LETTER_004` | 400 | 한글 포함 |
-| `LETTER_005` | 400 | `writtenAt` · `timeZone` 이 누락됐거나 올바르지 않음 |
-| `COMMON_001` | 400 | `writtenAt` 이 날짜로 해석되지 않는 문자열 |
-| `USER_005` | 400 | 온보딩 미완료 |
+```json
+{
+    "status": 400,
+    "code": "LETTER_003",
+    "message": "편지 내용은 500자를 초과할 수 없습니다."
+}
+```
+
+```json
+{
+    "status": 400,
+    "code": "LETTER_004",
+    "message": "편지는 영어로만 작성할 수 있습니다."
+}
+```
+
+```json
+{
+    "status": 400,
+    "code": "LETTER_005",
+    "message": "편지 작성 시각 정보가 올바르지 않습니다."
+}
+```
+
+```json
+{
+    "status": 400,
+    "code": "COMMON_001",
+    "message": "잘못된 요청입니다."
+}
+```
+
+```json
+{
+    "status": 400,
+    "code": "USER_005",
+    "message": "온보딩을 먼저 완료해야 합니다."
+}
+```
 
 ---
 
@@ -620,7 +685,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 - 편지 상세와 도착한 피드백(교정문 · 팁)을 조회한다.
 - **조회에 성공하면 해당 편지는 읽음 처리된다.** 별도의 읽음 처리 API 는 없고, 한 번 읽으면 다시 미열람으로 돌아가지 않는다.
-- **본인 편지만** 조회할 수 있다. 남의 편지는 `LETTER_002`(404) 다.
+- **본인 편지만** 조회할 수 있다. 없는 편지든 남의 편지든 똑같이 `LETTER_002`(404) 다.
 - 피드백 완료 전에도 응답은 성공하지만 `feedback` 과 `stampImage` 가 `null` 이다. 앱은 완료 전 카드의 진입 자체를 막는다.
 - 팁은 편지마다 0~3개이며, `tips` 가 `[]` 면 팁 영역을 표시하지 않는다.
 - 우표는 AI 가 편지 내용에 맞춰 고르고 종류가 운영 중 늘거나 바뀔 수 있다. 앱은 **`stampImage` URL 을 그대로 표시하고 우표 종류로 분기하지 않는다.**
@@ -702,7 +767,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
         - [필수] `correctedText` (String): 교정된 텍스트 조각
         - [필수] `type` (String): 수정 여부 (`UNCHANGED`, `MODIFIED`)
 
-### [실패 Error Response]
+### [실패 Response 404]
 
 ```json
 {
@@ -712,14 +777,19 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 }
 ```
 
-| code | status | 상황 |
-| --- | --- | --- |
-| `LETTER_002` | 404 | 존재하지 않는 편지 **또는 남의 편지** |
-| `USER_005` | 400 | 온보딩 미완료 |
+### [실패 Response 400]
+
+```json
+{
+    "status": 400,
+    "code": "USER_005",
+    "message": "온보딩을 먼저 완료해야 합니다."
+}
+```
 
 ---
 
-## 12) GET /api/v1/letters ❌
+## 12) GET /api/v1/letters ✅
 
 ### [설명]
 
@@ -727,7 +797,9 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - **본인 편지만** 조회된다. 유저 정보는 토큰에서 가져오므로 파라미터로 보내지 않는다.
 - `totalStampCount` 는 **작성한 편지 수가 아니라 피드백이 완료된 편지 수**다. 편지 3건을 썼고 1건이 피드백 대기라면 `2` 다.
 - 편지를 쓰지 않은 날은 응답에 나타나지 않는다. **캘린더가 아니라 기록이 쌓이는 목록**이다.
-- 정렬은 서버가 처리하므로 앱은 받은 순서대로 그린다.
+- 정렬은 서버가 처리하므로 앱은 받은 순서대로 그린다. `page` · `size` · `sort` 가 허용 범위를 벗어나면 `COMMON_001` 이다.
+- 정렬 기준은 **편지 날짜**이며, 같은 날짜에 여러 통을 썼다면 `LATEST` 는 **나중에 쓴 편지가 먼저**, `OLDEST` 는 **먼저 쓴 편지가 먼저** 온다.
+- 편지가 한 통도 없으면 `letters` 는 빈 배열이고 `totalStampCount` 는 `0`, `hasNext` 는 `false` 다.
 - 헤더 값(`nickname`, `totalStampCount`)은 `page > 0` 요청에서도 동일하게 내려간다. 앱은 첫 페이지 값만 쓰면 된다.
 - `nickname` 은 **항상 값이 있다.**
 - 앱은 `SUBMITTED` 와 `FEEDBACK_IN_PROGRESS` 를 동일하게 처리한다. 이 상태의 카드는 **회색 `soon` 우표 · `ic_more_sm` 미노출 · 터치 불가**다.
@@ -802,7 +874,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
     - [선택] `stampImage` (String): 우표 이미지 URL (피드백 완료 전에는 `null`)
 - [필수] `hasNext` (Boolean): 다음 페이지 존재 여부
 
-### [실패 Error Response]
+### [실패 Response 404]
 
 ```json
 {
@@ -812,15 +884,27 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 }
 ```
 
-| code | status | 상황 |
-| --- | --- | --- |
-| `USER_001` | 404 | 사용자를 찾을 수 없음 |
-| `USER_005` | 400 | 온보딩 미완료 |
-| `COMMON_001` | 400 | `page` · `size` · `sort` 가 허용 범위를 벗어남 |
+### [실패 Response 400]
+
+```json
+{
+    "status": 400,
+    "code": "USER_005",
+    "message": "온보딩을 먼저 완료해야 합니다."
+}
+```
+
+```json
+{
+    "status": 400,
+    "code": "COMMON_001",
+    "message": "잘못된 요청입니다."
+}
+```
 
 ---
 
-## 13) GET /api/v1/home ❌
+## 13) GET /api/v1/home ✅
 
 ### [설명]
 
@@ -857,7 +941,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - [필수] `nickname` (String): 유저 닉네임
 - [필수] `totalStampCount` (Integer): 모은 우표 총 개수 (피드백 완료된 편지 수)
 
-### [실패 Error Response]
+### [실패 Response 404]
 
 ```json
 {
@@ -867,10 +951,15 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 }
 ```
 
-| code | status | 상황 |
-| --- | --- | --- |
-| `USER_001` | 404 | 사용자를 찾을 수 없음 |
-| `USER_005` | 400 | 온보딩 미완료 |
+### [실패 Response 400]
+
+```json
+{
+    "status": 400,
+    "code": "USER_005",
+    "message": "온보딩을 먼저 완료해야 합니다."
+}
+```
 
 ---
 
@@ -883,6 +972,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - `forceUpdate` 는 참고용 보조 신호다. 앱은 자기 버전과 `minSupportedVersion` 을 직접 비교한다.
 - **공지사항 · 개인정보처리방침 · 이용약관은 별도 API 가 없다.** 이 응답의 링크를 웹뷰로 연다.
 - 설정 화면 하단의 `현재 버전` 표기는 앱 로컬 값이며 이 응답과 무관하다.
+- `platform` 이 `IOS` · `AOS` 가 아니면 `COMMON_001` 이다.
 
 ### [스펙]
 
@@ -918,11 +1008,15 @@ GET /api/v1/version
 - [선택] `termsOfServiceUrl` (String): 서비스 이용약관 URL
 - [선택] `noticeUrl` (String): 공지사항 URL
 
-### [실패 Error Response]
+### [실패 Response 400]
 
-| code | status | 상황 |
-| --- | --- | --- |
-| `COMMON_001` | 400 | `platform` 이 `IOS` · `AOS` 가 아님 |
+```json
+{
+    "status": 400,
+    "code": "COMMON_001",
+    "message": "잘못된 요청입니다."
+}
+```
 
 ---
 
