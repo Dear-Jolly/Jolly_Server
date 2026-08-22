@@ -208,10 +208,10 @@ curl -sk -H "Authorization: Bearer $TOKEN" https://localhost:8080/api/v1/home
 curl -sk -H "Authorization: Bearer $TOKEN" https://localhost:8080/api/v1/letters
 ```
 
-최소 지원 버전 변경은 관리자 권한이 필요한 유일한 API 다. 재배포 없이 즉시 반영된다.
+관리자 경로(`/api/v1/admin/**`)는 로그인을 빼고 모두 관리자 권한이 필요하다. 변경은 재배포 없이 즉시 반영된다.
 
 ```bash
-curl -sk -X PATCH 'https://localhost:8080/api/v1/version?platform=AOS' \
+curl -sk -X PATCH 'https://localhost:8080/api/v1/admin/version?platform=AOS' \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"minSupportedVersion":"1.2.0"}'
 ```
@@ -233,6 +233,5 @@ curl -sk -X PATCH 'https://localhost:8080/api/v1/version?platform=AOS' \
 | 문서 | 내용 |
 | --- | --- |
 | [README.md](./README.md) | 설정값 · 구축 · 배포 · 운영 정책 |
-| [기능명세.md](../docs/기능명세.md) | 도메인 규칙 · 처리 흐름 |
 | [API명세.md](../docs/API명세.md) | 요청/응답 계약의 정본 |
 | [ERD.md](../docs/ERD.md) | 데이터 모델의 정본 |

@@ -7,7 +7,7 @@
 | 인증 | `Authorization: Bearer {accessToken}` |
 | Content-Type | `application/json; charset=UTF-8` |
 | 날짜 포맷 | 날짜 → `yyyy-MM-dd` / 날짜+시각 → `yyyy-MM-dd'T'HH:mm:ss` |
-| Swagger UI | `/swagger-ui/index.html` — 이 문서와 같은 내용을 담고 직접 호출까지 된다. 우측 상단에서 전체 · 인증 · 사용자 · 편지·홈 · 버전 · 관리자 그룹을 고른다 |
+| Swagger UI | `/swagger-ui/index.html` — 이 문서와 같은 내용을 담고 직접 호출까지 된다. 우측 상단에서 전체 · 인증 · 사용자 · 편지 · 버전 · 관리자 그룹을 고른다 |
 
 ---
 
@@ -29,7 +29,7 @@
 | [12](#12-get-apiv1letters-) | `GET` | `/api/v1/letters` | 편지 목록 조회 (홈) | ✔ | ✔ | ✅ |
 | [13](#13-get-apiv1home-) | `GET` | `/api/v1/home` | 닉네임, 모은 우표 수 조회 (홈) | ✔ | ✔ | ✅ |
 | [14](#14-get-apiv1version-) | `GET` | `/api/v1/version` | 최소 지원 버전 조회, 강제 업데이트 판정 | — | — | ✅ |
-| [15](#15-patch-apiv1version-) | `PATCH` | `/api/v1/version` | 최소 지원 버전 변경 (관리자) | ✔ | — | ✅ |
+| [15](#15-patch-apiv1adminversion-) | `PATCH` | `/api/v1/admin/version` | 최소 지원 버전 변경 (관리자) | ✔ | — | ✅ |
 | [16](#16-post-apiv1adminlogin-) | `POST` | `/api/v1/admin/login` | 관리자 로그인 (아이디 · 비밀번호) | — | — | ✅ |
 
 - **인증** ✔ — `Authorization` 헤더가 필요하다.
@@ -309,7 +309,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - 필수 2건이 모두 동의 상태가 아니면 `USER_002` 이며, **이때 그 요청은 아무것도 저장되지 않는다.** 온보딩에서는 필수 2건을 항상 함께 보낸다.
 - **보내지 않은 항목은 그대로 유지된다.** 마케팅만 철회하려면 `MARKETING` 한 건만 보내면 된다.
 - **약관이 개정돼도 다시 묻지 않는다.**
-- 약관 본문은 이 API 가 주지 않는다. [14) GET /api/v1/version](#14-get-apiv1version-) 의 웹뷰 링크로 연다.
+- 약관 본문은 이 API 가 주지 않는다. **앱이 관리하는 웹뷰 링크로 연다.**
 
 ### [스펙]
 
@@ -771,7 +771,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - 앱은 `SUBMITTED` 와 `FEEDBACK_IN_PROGRESS` 를 동일하게 처리한다. 이 상태의 카드는 **회색 `soon` 우표 · `ic_more_sm` 미노출 · 터치 불가**다. 우표는 상태와 무관하게 `stampImage` 를 그대로 표시한다.
 - `FEEDBACK_COMPLETED` 카드는 **`stampImage` 표시 · `ic_more_sm` 노출 · 카드 전체 영역 터치 시 상세 이동**이다.
 - `FEEDBACK_COMPLETED` 이면서 `isRead == false` 면 **날짜 앞에 빨간 점**을 찍는다. 완료 전 편지도 `isRead` 는 `false` 지만 빨간 점을 표시하지 않는다.
-- 목록에 `FEEDBACK_COMPLETED` 가 아닌 항목이 있으면, 앱은 화면 재진입 · 새로고침 때 다시 조회해 상태 변화를 확인한다.
+- 목록에 `FEEDBACK_COMPLETED` 가 아닌 항목이 있으면, 앱은 화면 재진입 · 새로고침 때 다시 조회해 상태 변화를 확인한다. **상태 변화를 알리는 별도 폴링 API 는 없다.**
 
 ### [스펙]
 
@@ -918,7 +918,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - `platform` 과 `appVersion` 은 **둘 다 필수**다. 하나라도 빠지면 `COMMON_001` 이다.
 - `platform` 이 `IOS` · `AOS` 가 아니면 `COMMON_001` 이다.
 - `appVersion` 이 `x.y.z` 형식이 아니면 `VERSION_001` 이다.
-- **공지사항 · 개인정보처리방침 · 이용약관은 별도 API 가 없다.** 이 응답의 링크를 웹뷰로 연다.
+- **공지사항 · 개인정보처리방침 · 이용약관 URL 은 서버가 주지 않는다.** 앱이 직접 관리한다.
 - 설정 화면 하단의 `현재 버전` 표기는 앱 로컬 값이며 이 응답과 무관하다.
 
 ### [스펙]
@@ -941,18 +941,12 @@ GET /api/v1/version
 ```json
 {
     "minSupportedVersion": "1.2.0",
-    "forceUpdate": true,
-    "privacyPolicyUrl": "https://dearjolly.com/privacy",
-    "termsOfServiceUrl": "https://dearjolly.com/terms",
-    "noticeUrl": "https://dearjolly.com/notice"
+    "forceUpdate": true
 }
 ```
 
 - [필수] `minSupportedVersion` (String): 이 버전 미만이면 강제 업데이트 대상이다
 - [필수] `forceUpdate` (Boolean): 보낸 `appVersion` 이 강제 업데이트 대상인지 여부
-- [선택] `privacyPolicyUrl` (String): 개인정보처리방침 URL
-- [선택] `termsOfServiceUrl` (String): 서비스 이용약관 URL
-- [선택] `noticeUrl` (String): 공지사항 URL
 
 ### [실패 Response 400]
 
@@ -984,7 +978,7 @@ GET /api/v1/version
 
 ---
 
-## 15) PATCH /api/v1/version ✅
+## 15) PATCH /api/v1/admin/version ✅
 
 ### [설명]
 
@@ -1000,7 +994,7 @@ GET /api/v1/version
 **Endpoint**
 
 ```
-PATCH /api/v1/version
+PATCH /api/v1/admin/version
 ```
 
 **Authorization 헤더**: 필요 (관리자 토큰)
@@ -1060,7 +1054,7 @@ PATCH /api/v1/version
 - 관리자 아이디와 비밀번호로 로그인해 **소셜 로그인과 똑같은 토큰 한 쌍**을 받는다.
 - **회원가입 API 는 없다.** 관리자 계정은 서버가 미리 만들어 둔 것 하나뿐이고, 이 API 는 로그인만 한다.
 - 관리자도 **일반 사용자와 똑같은 계정**이다. 다른 점은 권한뿐이라, 이 토큰으로 편지 · 홈 · 계정 API 를 그대로 호출할 수 있다.
-- 발급된 토큰은 [15) PATCH /api/v1/version](#15-patch-apiv1version-) 같은 관리자 전용 API 에도 쓴다.
+- 발급된 토큰은 [15) PATCH /api/v1/admin/version](#15-patch-apiv1adminversion-) 같은 관리자 전용 API 에도 쓴다.
 - `refreshToken` 은 [4) POST /api/v1/auth/reissue](#4-post-apiv1authreissue-) 에 그대로 쓴다.
 - 아이디나 비밀번호가 틀리면 `AUTH_008` 이다. **둘 중 무엇이 틀렸는지는 구분해 주지 않는다.**
 - 관리자 계정이 준비되지 않은 환경에서도 `AUTH_008` 이다.
@@ -1204,7 +1198,7 @@ POST /api/v1/admin/login
 | 액세스 토큰 만료 | 30분 |
 | 리프레시 토큰 만료 | 14일 |
 | 인증 불필요 | 소셜 로그인 시작 · 콜백 2종, 토큰 재발급, 버전 조회, 관리자 로그인 |
-| 관리자 토큰 필요 | 최소 지원 버전 변경 |
+| 관리자 토큰 필요 | `/api/v1/admin/**` (관리자 로그인 제외) |
 
 - 리프레시 토큰은 재발급 때마다 새 값으로 교체되며, **이전 값으로는 재발급할 수 없다.**
 - 로그인은 **기기 1대만 유지**된다. 다른 기기에서 로그인하면 이전 로그인은 풀린다.
