@@ -52,3 +52,6 @@ out/
 
 ## Mac ##
 .DS_Store
+
+## Local Run Script ##
+/run.sh
