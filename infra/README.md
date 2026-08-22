@@ -266,8 +266,8 @@ JVM 힙은 `compose.prod.yaml` 의 `JAVA_OPTS` 가 `MaxRAMPercentage=35` 로 묶
 
 | 변수 | 기본값 | 설명 |
 | --- | --- | --- |
-| `JPA_DDL_AUTO` | 앱 기본값 `validate` | `FLYWAY_ENABLED` 와 **항상 같이 움직인다** |
-| `FLYWAY_ENABLED` | `true` | |
+| `JPA_DDL_AUTO` | `validate` | 전 환경 고정. 스키마는 Flyway 가 소유한다 |
+| `FLYWAY_ENABLED` | `true` | 전 환경 고정 |
 | `JPA_SHOW_SQL` | `true` | 실행 SQL 로그 |
 
 ### 인증 · 정책
@@ -307,18 +307,11 @@ JVM 힙은 `compose.prod.yaml` 의 `JAVA_OPTS` 가 `MaxRAMPercentage=35` 로 묶
 스키마의 정본은 [db/migration](../src/main/resources/db/migration) 의 Flyway 마이그레이션이고,
 데이터 모델 문서는 [ERD.md](../docs/ERD.md) 다.
 
-`JPA_DDL_AUTO` 와 `FLYWAY_ENABLED` 는 **스키마 소유자를 정하는 한 쌍**이라 항상 같이 움직인다.
+**전 환경이 `JPA_DDL_AUTO=validate` · `FLYWAY_ENABLED=true` 고정이다.** 로컬도 운영도 예외가 없다.
+Flyway 가 스키마를 소유하고 Hibernate 는 대조만 하며, 엔티티와 스키마가 어긋나면 **기동이 실패한다.**
+엔티티를 고쳤다면 마이그레이션 파일을 함께 추가한다.
 
-| 상황 | `JPA_DDL_AUTO` | `FLYWAY_ENABLED` | 의미 |
-| --- | --- | --- | --- |
-| 기본 · 출시 | `validate` | `true` | Flyway 가 스키마를 소유하고, Hibernate 는 대조만 한다 |
-| 출시 전 개발 중 | `update` | `false` | 엔티티 변경이 스키마에 바로 반영된다 |
-
-> 현재 [.env.local.example](env/.env.local.example) 은 개발 편의를 위해 `JPA_DDL_AUTO=update` 로 배포되어 있다.
-> 출시 시점에는 `validate` / `true` 조합으로 되돌린다.
-
-`update` 는 컬럼을 **추가만** 하고 삭제·타입 축소는 하지 않는다. 엔티티에서 필드를 빼면 DB 에 죽은 컬럼이 남으므로,
-그럴 때 `./run.sh reset-db` 로 한 번 비운다. `V1__init.sql` 을 수정했을 때도 checksum 불일치로 기동이 거부되므로 같은 명령을 쓴다.
+`V1__init.sql` 을 수정하면 checksum 불일치로 기동이 거부된다. 그럴 때는 `./run.sh reset-db` 로 한 번 비운다.
 
 ### 초기 데이터 — 우표 시드
 
