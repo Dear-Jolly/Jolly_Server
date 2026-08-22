@@ -72,7 +72,8 @@ docker compose -f infra/docker/compose.yaml --env-file infra/env/.env.local ps
 | Swagger UI | https://localhost:8080/swagger-ui/index.html | - |
 | 헬스체크 | https://localhost:8080/actuator/health | - |
 | MySQL | localhost:3306 (`dearjolly`) | `MYSQL_USER` / `MYSQL_PASSWORD` |
-| MinIO API | http://localhost:9000 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` |
+| 우표 이미지 | https://localhost:8080/dear-jolly-stamps/... (Caddy 종단) | 공개 |
+| MinIO API | http://localhost:9000 (직접 접근, 디버깅용) | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` |
 | MinIO 콘솔 | http://localhost:9001 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` |
 
 DB·이미지 데이터는 컨테이너가 아니라 호스트의 `dear-jolly/mount/{mysql,minio}` 에 쌓인다.
@@ -108,7 +109,8 @@ DB·이미지 데이터는 컨테이너가 아니라 호스트의 `dear-jolly/mo
 | 대상 | 주소 | 비고 |
 | --- | --- | --- |
 | 애플리케이션 | `https://{SITE_ADDRESS}` (443) | Caddy 종단. 80 으로 들어오면 HTTPS 로 리다이렉트 |
-| MinIO API | `http://{EC2_HOST}:9000` | 우표 이미지 공개 제공 |
+| 우표 이미지 | `https://{SITE_ADDRESS}/{MINIO_BUCKET}/...` | Caddy 가 MinIO 로 넘긴다. 앱이 받는 `stampImage` 주소 |
+| MinIO API | `http://{EC2_HOST}:9000` | 직접 접근, 디버깅용 |
 | 앱 컨테이너 | `127.0.0.1:8081` · `8082` | blue / green. 루프백 바인딩이라 외부 비공개 |
 | MySQL · MinIO 콘솔 | `127.0.0.1:3306` · `9001` | 루프백 바인딩. SSH 터널로만 접근 |
 | SSH | `ssh -i {EC2_SSH_KEY_PATH} ubuntu@{EC2_HOST}` | `aws-manage.sh ssh` 로도 접속 |
