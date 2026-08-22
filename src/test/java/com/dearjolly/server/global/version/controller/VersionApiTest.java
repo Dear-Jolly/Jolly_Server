@@ -5,6 +5,8 @@ import static com.dearjolly.server.global.version.enums.Platform.IOS;
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.not;
 
 import com.dearjolly.server.support.ApiTestSupport;
 import io.restassured.http.ContentType;
@@ -24,7 +26,7 @@ class VersionApiTest extends ApiTestSupport {
         최소지원버전을_저장한다(AOS, "1.0.0");
     }
 
-    @DisplayName("GET /api/v1/version : 인증 없이 최소 지원 버전과 정책 URL 을 반환한다")
+    @DisplayName("GET /api/v1/version : 인증 없이 최소 지원 버전과 판정 결과만 반환한다")
     @Test
     void getVersion() {
         given()
@@ -35,9 +37,9 @@ class VersionApiTest extends ApiTestSupport {
                 .statusCode(HttpStatus.OK.value())
                 .body("minSupportedVersion", equalTo("1.0.0"))
                 .body("forceUpdate", equalTo(false))
-                .body("privacyPolicyUrl", equalTo("https://dearjolly.com/privacy"))
-                .body("termsOfServiceUrl", equalTo("https://dearjolly.com/terms"))
-                .body("noticeUrl", equalTo("https://dearjolly.com/notice"));
+                .body("$", not(hasKey("privacyPolicyUrl")))
+                .body("$", not(hasKey("termsOfServiceUrl")))
+                .body("$", not(hasKey("noticeUrl")));
     }
 
     @DisplayName("GET /api/v1/version : 플랫폼마다 최소 지원 버전이 따로 적용된다")
@@ -112,7 +114,7 @@ class VersionApiTest extends ApiTestSupport {
                 .body("code", equalTo("COMMON_001"));
     }
 
-    @DisplayName("PATCH /api/v1/version : 관리자 토큰으로 최소 지원 버전을 바꾼다")
+    @DisplayName("PATCH /api/v1/admin/version : 관리자 토큰으로 최소 지원 버전을 바꾼다")
     @Test
     void updateMinSupportedVersion() {
         given()
@@ -120,7 +122,7 @@ class VersionApiTest extends ApiTestSupport {
                 .contentType(ContentType.JSON)
                 .queryParam("platform", "AOS")
                 .body(Map.of("minSupportedVersion", "2.0.0"))
-                .when().patch("/api/v1/version")
+                .when().patch("/api/v1/admin/version")
                 .then()
                 .statusCode(HttpStatus.OK.value())
                 .body("platform", equalTo("AOS"))
@@ -130,14 +132,14 @@ class VersionApiTest extends ApiTestSupport {
                 .isEqualTo("2.0.0");
     }
 
-    @DisplayName("PATCH /api/v1/version : 변경 결과가 곧바로 조회 API 의 판정에 반영된다")
+    @DisplayName("PATCH /api/v1/admin/version : 변경 결과가 곧바로 조회 API 의 판정에 반영된다")
     @Test
     void updateAffectsGetImmediately() {
         given().header(HttpHeaders.AUTHORIZATION, 관리자_액세스토큰())
                 .contentType(ContentType.JSON)
                 .queryParam("platform", "AOS")
                 .body(Map.of("minSupportedVersion", "3.0.0"))
-                .when().patch("/api/v1/version")
+                .when().patch("/api/v1/admin/version")
                 .then().statusCode(HttpStatus.OK.value());
 
         given().queryParam("platform", "AOS").queryParam("appVersion", "2.9.9")
@@ -148,20 +150,20 @@ class VersionApiTest extends ApiTestSupport {
                 .body("forceUpdate", equalTo(true));
     }
 
-    @DisplayName("PATCH /api/v1/version : 토큰이 없으면 AUTH_005")
+    @DisplayName("PATCH /api/v1/admin/version : 토큰이 없으면 AUTH_005")
     @Test
     void updateWithoutToken() {
         given()
                 .contentType(ContentType.JSON)
                 .queryParam("platform", "AOS")
                 .body(Map.of("minSupportedVersion", "2.0.0"))
-                .when().patch("/api/v1/version")
+                .when().patch("/api/v1/admin/version")
                 .then()
                 .statusCode(HttpStatus.UNAUTHORIZED.value())
                 .body("code", equalTo("AUTH_005"));
     }
 
-    @DisplayName("PATCH /api/v1/version : 일반 사용자 토큰이면 AUTH_006")
+    @DisplayName("PATCH /api/v1/admin/version : 일반 사용자 토큰이면 AUTH_006")
     @Test
     void updateWithUserToken() {
         given()
@@ -169,13 +171,13 @@ class VersionApiTest extends ApiTestSupport {
                 .contentType(ContentType.JSON)
                 .queryParam("platform", "AOS")
                 .body(Map.of("minSupportedVersion", "2.0.0"))
-                .when().patch("/api/v1/version")
+                .when().patch("/api/v1/admin/version")
                 .then()
                 .statusCode(HttpStatus.FORBIDDEN.value())
                 .body("code", equalTo("AUTH_006"));
     }
 
-    @DisplayName("PATCH /api/v1/version : 버전 형식이 잘못되면 COMMON_001")
+    @DisplayName("PATCH /api/v1/admin/version : 버전 형식이 잘못되면 COMMON_001")
     @Test
     void updateWithMalformedVersion() {
         given()
@@ -183,7 +185,7 @@ class VersionApiTest extends ApiTestSupport {
                 .contentType(ContentType.JSON)
                 .queryParam("platform", "AOS")
                 .body(Map.of("minSupportedVersion", "2.0"))
-                .when().patch("/api/v1/version")
+                .when().patch("/api/v1/admin/version")
                 .then()
                 .statusCode(HttpStatus.BAD_REQUEST.value())
                 .body("code", equalTo("COMMON_001"));

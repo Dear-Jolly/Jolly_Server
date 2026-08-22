@@ -38,11 +38,13 @@ class OpenApiDocsTest extends ApiTestSupport {
                 .body("paths", hasKey("/api/v1/letters/{letterId}"))
                 .body("paths", hasKey("/api/v1/home"))
                 .body("paths", hasKey("/api/v1/version"))
+                .body("paths", hasKey("/api/v1/admin/login"))
+                .body("paths", hasKey("/api/v1/admin/version"))
                 .body("components.securitySchemes.bearerAuth.scheme", equalTo("bearer"));
     }
 
     @DisplayName("GET /v3/api-docs : 도메인별 그룹 문서가 각각 열린다")
-    @ValueSource(strings = {"all", "auth", "user", "letter", "version"})
+    @ValueSource(strings = {"all", "auth", "user", "letter", "version", "admin"})
     @ParameterizedTest
     void groupedApiDocs(String group) {
         given()
@@ -73,7 +75,9 @@ class OpenApiDocsTest extends ApiTestSupport {
                 .body("paths.'/api/v1/version'.get.security", empty())
                 .body("paths.'/api/v1/auth/{provider}'.get.security", empty())
                 .body("paths.'/api/v1/auth/reissue'.post.security", empty())
-                .body("paths.'/api/v1/auth/logout'.post", not(hasKey("security")));
+                .body("paths.'/api/v1/auth/logout'.post", not(hasKey("security")))
+                .body("paths.'/api/v1/admin/login'.post.security", empty())
+                .body("paths.'/api/v1/admin/version'.patch", not(hasKey("security")));
     }
 
     @DisplayName("GET /v3/api-docs : 편지 상태에 내부 전용 FEEDBACK_FAILED 는 실리지 않는다")

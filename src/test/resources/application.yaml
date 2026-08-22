@@ -35,10 +35,6 @@ dearjolly:
     current-version: 1.0.0
   withdrawal:
     retention-days: 30
-  policy:
-    privacy-policy-url: https://dearjolly.com/privacy
-    terms-of-service-url: https://dearjolly.com/terms
-    notice-url: https://dearjolly.com/notice
   admin:
     username: test-admin
     password: test-admin-password

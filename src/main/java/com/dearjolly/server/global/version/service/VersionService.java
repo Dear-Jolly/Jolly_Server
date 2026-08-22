@@ -2,7 +2,6 @@ package com.dearjolly.server.global.version.service;
 
 import com.dearjolly.server.global.exception.exception.BusinessException;
 import com.dearjolly.server.global.exception.response.ErrorCode;
-import com.dearjolly.server.global.version.PolicyProperties;
 import com.dearjolly.server.global.version.SemanticVersion;
 import com.dearjolly.server.global.version.dto.request.VersionUpdateRequest;
 import com.dearjolly.server.global.version.dto.response.VersionGetResponse;
@@ -19,14 +18,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class VersionService {
     private final AppVersionRepository appVersionRepository;
-    private final PolicyProperties policyProperties;
 
     public VersionGetResponse getVersion(Platform platform, String appVersion) {
         String minSupportedVersion = findByPlatform(platform).getMinSupportedVersion();
         boolean forceUpdate = SemanticVersion.parse(appVersion)
                 .isOlderThan(SemanticVersion.parse(minSupportedVersion));
 
-        return VersionGetResponse.of(minSupportedVersion, forceUpdate, policyProperties);
+        return VersionGetResponse.of(minSupportedVersion, forceUpdate);
     }
 
     @Transactional

@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "관리자", description = "운영자용 API. 소셜 로그인과 무관한 별도 계정을 쓴다.")
+@Tag(name = "관리자", description = "운영자용 API. 관리자 권한 토큰이 필요하다.")
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
@@ -33,7 +33,7 @@ public class AdminController {
             description = """
                     - 아이디와 비밀번호로 **관리자 Access Token** 을 받는다. 회원가입 API 는 없다.
                     - 계정은 서버 설정값 하나뿐이며, 앱 사용자 계정과 별개다.
-                    - 발급된 토큰은 `PATCH /api/v1/version` 같은 관리자 전용 API 에서 쓴다.
+                    - 발급된 토큰은 `PATCH /api/v1/admin/version` 같은 관리자 전용 API 에서 쓴다.
                     - **Refresh Token 은 없다.** 만료되면 다시 로그인한다.""")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "로그인 성공"),
