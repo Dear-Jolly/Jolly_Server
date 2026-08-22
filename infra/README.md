@@ -176,8 +176,8 @@ Caddy 가 TLS 를 종단한다. `SITE_ADDRESS` 값에 따라 인증서 방식이
 | IP 주소 | Caddy 내장 CA (자체 서명) | 발생 |
 
 **IP 로는 공인 인증서를 받을 수 없다.** 도메인을 사지 않고 해결하려고 `sslip.io` 를 쓴다 —
-`{SITE_ADDRESS}` 처럼 IP 를 그대로 해석해 주는 공개 DNS 라서, Caddy 입장에서는 정상 도메인이고
-Let's Encrypt 인증서를 자동으로 받아온다.
+`{SITE_ADDRESS}` 에 `<IP-를-하이픈으로>.sslip.io` 형태를 넣으면 IP 를 그대로 해석해 주는 공개 DNS 라서,
+Caddy 입장에서는 정상 도메인이고 Let's Encrypt 인증서를 자동으로 받아온다.
 
 `aws-setup.sh` 가 `SITE_ADDRESS` 를 비워두면 IP 에서 sslip.io 호스트명을 만들어 채우고,
 `MINIO_PUBLIC_ENDPOINT` 와 OAuth 콜백 URL 도 같은 주소로 맞춘다.
