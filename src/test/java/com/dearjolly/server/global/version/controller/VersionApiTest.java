@@ -32,7 +32,8 @@ class VersionApiTest extends ApiTestSupport {
                 .then()
                 .statusCode(HttpStatus.OK.value())
                 .body("latestVersion", equalTo("1.2.0"))
-                .body("minSupportedVersion", equalTo("1.1.0"));
+                .body("minSupportedVersion", equalTo("1.1.0"))
+                .body("forceUpdate", equalTo(true));
     }
 
     @DisplayName("GET /api/v1/version : 재정의가 없는 플랫폼은 공통 값을 그대로 받는다")
@@ -42,7 +43,8 @@ class VersionApiTest extends ApiTestSupport {
                 .when().get("/api/v1/version")
                 .then()
                 .statusCode(HttpStatus.OK.value())
-                .body("minSupportedVersion", equalTo("1.0.0"));
+                .body("minSupportedVersion", equalTo("1.0.0"))
+                .body("forceUpdate", equalTo(false));
     }
 
     @DisplayName("GET /api/v1/version : 알 수 없는 platform 은 COMMON_001")

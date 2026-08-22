@@ -2,6 +2,7 @@ package com.dearjolly.server.global.version;
 
 import com.dearjolly.server.global.version.enums.Platform;
 import java.util.Map;
+import java.util.function.Function;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /** @param platforms 플랫폼별 재정의. 비어 있으면 공통 값을 그대로 쓴다. / */
@@ -9,6 +10,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record VersionProperties(
         String latest,
         String minSupported,
+        Boolean forceUpdate,
         String privacyPolicyUrl,
         String termsOfServiceUrl,
         String noticeUrl,
@@ -16,26 +18,38 @@ public record VersionProperties(
 ) {
     public record Override(
             String latest,
-            String minSupported
+            String minSupported,
+            Boolean forceUpdate
     ) {
     }
 
     public String latestFor(Platform platform) {
-        return resolve(platform, Override::latest, latest);
+        String value = override(platform, Override::latest);
+        return isBlank(value) ? latest : value;
     }
 
     public String minSupportedFor(Platform platform) {
-        return resolve(platform, Override::minSupported, minSupported);
+        String value = override(platform, Override::minSupported);
+        return isBlank(value) ? minSupported : value;
     }
 
-    private String resolve(Platform platform, java.util.function.Function<Override, String> field, String fallback) {
+    public boolean forceUpdateFor(Platform platform) {
+        Boolean value = override(platform, Override::forceUpdate);
+        if (value != null) {
+            return value;
+        }
+        return forceUpdate != null && forceUpdate;
+    }
+
+    private <T> T override(Platform platform, Function<Override, T> field) {
         if (platform == null || platforms == null) {
-            return fallback;
+            return null;
         }
-        Override override = platforms.get(platform);
-        if (override == null || field.apply(override) == null || field.apply(override).isBlank()) {
-            return fallback;
-        }
-        return field.apply(override);
+        Override found = platforms.get(platform);
+        return found == null ? null : field.apply(found);
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

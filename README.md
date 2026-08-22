@@ -104,3 +104,15 @@ flowchart TB
 | [docs/API명세.md](docs/API명세.md) | 요청/응답 계약의 정본 |
 | [docs/ERD.md](docs/ERD.md) | 데이터 모델의 정본 |
 | [infra/README.md](infra/README.md) | 구축 · 배포 · 운영 |
+
+## 로컬 시드 데이터 ✨
+
+인증이 필요한 API 를 소셜 로그인 없이 시험하도록, **로컬에서만** 목 사용자 한 명(약관 동의·닉네임 등록 완료, 편지 몇 통)을 시드로 넣는다.
+기본값은 꺼짐이고 `infra/env/.env.local` 에서 `MOCK_USER_SEED_ENABLED=true` 로 켠 뒤 `./run.sh restart` 로 반영한다. 몇 번을 재기동해도 데이터가 불어나지 않는다.
+
+```bash
+eval $(./infra/scripts-local/seed/mock-token.sh --export)   # Access·Refresh Token 발급
+curl -k -H "Authorization: Bearer $ACCESS_TOKEN" https://localhost:8080/api/v1/home
+```
+
+자세한 내용은 [infra/RUN.md](infra/RUN.md) 를 본다.

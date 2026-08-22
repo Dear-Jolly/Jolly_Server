@@ -7,6 +7,8 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 
 import com.dearjolly.server.domain.user.entity.Users;
+import com.dearjolly.server.domain.user.enums.OauthProvider;
+import com.dearjolly.server.global.auth.oauth.OauthStateProvider;
 import com.dearjolly.server.support.ApiTestSupport;
 import io.restassured.http.ContentType;
 import java.util.Map;
@@ -14,10 +16,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 
 class AuthApiTest extends ApiTestSupport {
+    @Autowired
+    private OauthStateProvider oauthStateProvider;
+
     @DisplayName("GET /api/v1/auth/{provider} : 카카오 로그인 페이지로 302 리다이렉트한다")
     @Test
     void authorizeKakao() {
@@ -26,7 +32,8 @@ class AuthApiTest extends ApiTestSupport {
                 .then()
                 .statusCode(HttpStatus.FOUND.value())
                 .header(HttpHeaders.LOCATION, containsString("kauth.kakao.com/oauth/authorize"))
-                .header(HttpHeaders.LOCATION, containsString("response_type=code"));
+                .header(HttpHeaders.LOCATION, containsString("response_type=code"))
+                .header(HttpHeaders.LOCATION, containsString("state="));
     }
 
     @DisplayName("GET /api/v1/auth/{provider} : 애플은 form_post 로 콜백받도록 요청한다")
@@ -59,6 +66,54 @@ class AuthApiTest extends ApiTestSupport {
                 .then()
                 .statusCode(HttpStatus.BAD_REQUEST.value())
                 .body("code", equalTo("COMMON_001"));
+    }
+
+    @DisplayName("GET /api/v1/auth/kakao/callback : state 가 없으면 AUTH_002")
+    @Test
+    void kakaoCallbackWithoutState() {
+        given().redirects().follow(false)
+                .queryParam("code", "any-code")
+                .when().get("/api/v1/auth/kakao/callback")
+                .then()
+                .statusCode(HttpStatus.UNAUTHORIZED.value())
+                .body("code", equalTo("AUTH_002"));
+    }
+
+    @DisplayName("GET /api/v1/auth/kakao/callback : 서버가 발급하지 않은 state 면 AUTH_002")
+    @Test
+    void kakaoCallbackWithForgedState() {
+        given().redirects().follow(false)
+                .queryParam("code", "any-code")
+                .queryParam("state", "forged-state")
+                .when().get("/api/v1/auth/kakao/callback")
+                .then()
+                .statusCode(HttpStatus.UNAUTHORIZED.value())
+                .body("code", equalTo("AUTH_002"));
+    }
+
+    @DisplayName("GET /api/v1/auth/kakao/callback : 다른 provider 로 발급한 state 면 AUTH_002")
+    @Test
+    void kakaoCallbackWithOtherProviderState() {
+        given().redirects().follow(false)
+                .queryParam("code", "any-code")
+                .queryParam("state", oauthStateProvider.issue(OauthProvider.APPLE))
+                .when().get("/api/v1/auth/kakao/callback")
+                .then()
+                .statusCode(HttpStatus.UNAUTHORIZED.value())
+                .body("code", equalTo("AUTH_002"));
+    }
+
+    @DisplayName("POST /api/v1/auth/apple/callback : state 가 없으면 AUTH_002")
+    @Test
+    void appleCallbackWithoutState() {
+        given().redirects().follow(false)
+                .contentType(ContentType.URLENC)
+                .formParam("code", "any-code")
+                .formParam("id_token", "any-id-token")
+                .when().post("/api/v1/auth/apple/callback")
+                .then()
+                .statusCode(HttpStatus.UNAUTHORIZED.value())
+                .body("code", equalTo("AUTH_002"));
     }
 
     @DisplayName("POST /api/v1/auth/reissue : 토큰 재발급 API - 회전된 값이 저장된다")

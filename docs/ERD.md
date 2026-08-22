@@ -233,6 +233,13 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 | 재실행 | 같은 키에 같은 크기로 올라가 있으면 업로드를 건너뛰고, 같은 `name` 행이 있으면 `image_key` 가 다를 때만 갱신한다 |
 
 `soon` 은 편지 등록 시점에 붙는 "준비 중" 우표다. `stamp_id = 1` 에 고정되고 LLM 우표 선택 후보에서는 빠진다 (A9-1).
+
+#### API 테스트용 목 사용자 시드 (로컬 전용)
+
+`global/seed/MockUserSeeder` 가 약관 동의·닉네임까지 끝난 계정 하나와 편지 몇 통을 넣는다.
+`USERS` · `TERMS_AGREEMENTS` · `LETTERS` · `FEEDBACKS` · `CORRECTION_SEGMENTS` · `FEEDBACK_TIPS` 를 가로질러 만들며,
+`(oauth_provider, oauth_id)` 와 `LETTERS.content` 를 자연키로 삼아 재기동해도 행이 불어나지 않는다.
+기본값은 꺼짐이고 `.env.local` 에서만 켠다. 실행 방법은 [infra/RUN.md](../infra/RUN.md) 를 본다.
 편지가 실제로 받는 우표는 피드백이 완료되는 시점에 정해진다.
 
 파일명이 곧 `name` 이자 파일 키라서 **파일을 넣는 것 외에 채울 값이 없다.** 우표를 추가하려면 이미지를 이 폴더에 두고 배포하면 된다.

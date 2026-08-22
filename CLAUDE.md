@@ -16,6 +16,7 @@ Dear Jolly 백엔드 서버. Java 21 / Spring Boot 3.5.7 / Spring Data JPA / MyS
 | Request/Response DTO 작성, 입력값 검증 추가 | `spring-dto` |
 | 예외 던지기, 새 에러 코드 추가, 에러 응답 포맷 | `spring-exception` |
 | 테스트 코드 작성 | `spring-test` |
+| 시드 데이터 추가·수정, 목 사용자·로컬 토큰 발급 | `seed-data` |
 | 코드 리뷰, PR 점검, 컨벤션 준수 확인 | `spring-code-review` |
 | `docs/API명세.md` 작성·갱신, 구현 완료 표기 변경 | `api-spec-doc` |
 | 주석·Javadoc 을 달지 말지 판단 | `code-comment` |

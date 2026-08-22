@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 최종 갱신 | 2026-08-22 |
+| 최종 갱신 | 2026-08-23 |
 | Base URL | `https://{host}` |
 | 인증 | `Authorization: Bearer {accessToken}` |
 | Content-Type | `application/json; charset=UTF-8` |
@@ -48,6 +48,7 @@
 - **앱 SDK 로 받은 소셜 토큰을 서버에 전달하는 방식은 지원하지 않는다.**
 - 유저는 `(provider + provider 회원 식별자)` 로 구분한다. 이메일이 같아도 카카오와 애플은 별개 계정이다.
 - `provider` 는 대소문자를 가리지 않는다. `KAKAO` · `APPLE` 중 어느 것도 아니면 `COMMON_001` 이다.
+- **이 주소를 연 뒤 10분 안에 provider 로그인을 마쳐야 한다.** 넘기면 콜백에서 `AUTH_002` 가 나가므로 앱은 로그인을 처음부터 다시 시작한다.
 
 ### [스펙]
 
@@ -94,7 +95,8 @@ Location: https://kauth.kakao.com/oauth/authorize?client_id=...&redirect_uri=...
 - 가입 직후에는 약관 동의 이력이 없고 닉네임이 비어 있다.
 - 로그인은 **기기 1대만 유지**된다. 새로 로그인하면 이전 로그인은 풀린다.
 - **탈퇴한 계정으로 다시 로그인하면 항상 신규 가입**(`isNewUser=true`)이며, 이전 편지는 복원되지 않는다.
-- 콜백 단계의 실패는 딥링크가 아니라 **JSON 에러 응답**으로 나간다. 인가 코드 검증에 실패하면 `AUTH_002`, 카카오 서버와 통신하지 못하면 `AUTH_003` 이다.
+- 콜백 단계의 실패는 딥링크가 아니라 **JSON 에러 응답**으로 나간다. 인가 코드나 `state` 검증에 실패하면 `AUTH_002`, 카카오 서버와 통신하지 못하면 `AUTH_003` 이다.
+- `state` 는 **로그인 시작 때 서버가 발급한 값이어야 하고 10분이 지나면 만료**된다. 비었거나 위조됐거나 만료됐으면 `AUTH_002` 다.
 
 ### [스펙]
 
@@ -109,7 +111,7 @@ GET /api/v1/auth/kakao/callback
 **Request Parameter**
 
 - [필수] `code` (String): 카카오가 발급한 인가 코드
-- [선택] `state` (String): 로그인 시작 때 서버가 붙여 보낸 값
+- [필수] `state` (String): 로그인 시작 때 서버가 붙여 보낸 값
 
 ### [성공 Response 302]
 
@@ -162,7 +164,7 @@ Location: dearjolly://auth/callback
 - 애플이 호출하는 주소다. **앱이 직접 호출하지 않는다.** 애플이 `form_post` 로 보내기 때문에 `POST` 다.
 - 응답 형태와 앱 분기 규칙은 [2) GET /api/v1/auth/kakao/callback](#2-get-apiv1authkakaocallback-) 과 완전히 같다.
 - 애플에서 이메일 제공을 거부한 유저는 **이메일이 비어 있다**(`null`). 서버가 대체 주소를 지어내지 않는다.
-- 인가 코드 · `id_token` 검증에 실패하면 `AUTH_002`, 애플 서버와 통신하지 못하면 `AUTH_003` 이다.
+- 인가 코드 · `id_token` · `state` 검증에 실패하면 `AUTH_002`, 애플 서버와 통신하지 못하면 `AUTH_003` 이다.
 
 ### [스펙]
 
@@ -178,7 +180,7 @@ POST /api/v1/auth/apple/callback
 
 - [필수] `code` (String): 애플이 발급한 인가 코드
 - [필수] `id_token` (String): 회원 식별자와 이메일이 담긴 토큰
-- [선택] `state` (String): 로그인 시작 때 서버가 붙여 보낸 값
+- [필수] `state` (String): 로그인 시작 때 서버가 붙여 보낸 값
 
 ### [성공 Response 302]
 
@@ -684,7 +686,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
     "date": "2025-11-01",
     "originalContent": "I got flowers from a friend today...",
     "status": "FEEDBACK_COMPLETED",
-    "stampImage": "http://localhost:9000/dear-jolly-stamps/stamp/%EA%BD%83_%EC%9E%A5%EB%AF%B8.png",
+    "stampImage": "https://{host}/dear-jolly-stamps/stamp/%EA%BD%83_%EC%9E%A5%EB%AF%B8.png",
     "feedback": {
         "feedbackId": 101,
         "correctedContent": "I received flowers from a friend today...",
@@ -799,7 +801,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
             "summary": "I got flowers from a friend today. It really touch",
             "status": "FEEDBACK_COMPLETED",
             "isRead": false,
-            "stampImage": "http://localhost:9000/dear-jolly-stamps/stamp/%EA%BD%83_%EC%9E%A5%EB%AF%B8.png"
+            "stampImage": "https://{host}/dear-jolly-stamps/stamp/%EA%BD%83_%EC%9E%A5%EB%AF%B8.png"
         },
         {
             "letterId": 12,
@@ -807,7 +809,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
             "summary": "Hi! Jolly. I made a new friend at a Halloween part",
             "status": "FEEDBACK_COMPLETED",
             "isRead": true,
-            "stampImage": "http://localhost:9000/dear-jolly-stamps/stamp/%ED%98%B8%EB%B0%95_%ED%95%A0%EB%A1%9C%EC%9C%88.png"
+            "stampImage": "https://{host}/dear-jolly-stamps/stamp/%ED%98%B8%EB%B0%95_%ED%95%A0%EB%A1%9C%EC%9C%88.png"
         },
         {
             "letterId": 11,
@@ -815,7 +817,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
             "summary": "Lately I've been really worried about my new job a",
             "status": "SUBMITTED",
             "isRead": false,
-            "stampImage": "http://localhost:9000/dear-jolly-stamps/stamp/soon.png"
+            "stampImage": "https://{host}/dear-jolly-stamps/stamp/soon.png"
         }
     ],
     "hasNext": true
@@ -907,7 +909,8 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 - 앱 최소 지원 버전과 정책 페이지 URL 을 조회한다. **로그인 전에도 호출할 수 있다.**
 - 앱 버전이 `minSupportedVersion` 미만이면 강제 업데이트를 유도한다. **판정은 앱이 한다.** 서버는 앱 버전을 받지 않는다.
-- `forceUpdate` 는 참고용 보조 신호다. 앱은 자기 버전과 `minSupportedVersion` 을 직접 비교한다.
+- `forceUpdate` 는 **서버가 켜고 끄는 보조 신호**이며 `latestVersion` · `minSupportedVersion` 에서 계산한 값이 아니다. 두 값이 같아도 자동으로 `true` 가 되지 않는다.
+- 앱은 `forceUpdate` 를 믿고 판정하지 않는다. 자기 버전과 `minSupportedVersion` 을 직접 비교한다.
 - **공지사항 · 개인정보처리방침 · 이용약관은 별도 API 가 없다.** 이 응답의 링크를 웹뷰로 연다.
 - 설정 화면 하단의 `현재 버전` 표기는 앱 로컬 값이며 이 응답과 무관하다.
 - `platform` 이 `IOS` · `AOS` 가 아니면 `COMMON_001` 이다.
@@ -1018,6 +1021,8 @@ GET /api/v1/version
 | `COMMON_004` | 429 | 요청이 너무 많습니다. 잠시 후 다시 시도해주세요. | 요청 횟수 초과 |
 | `COMMON_005` | 500 | 일시적인 오류가 발생했습니다. | 서버 오류 |
 
+- `COMMON_002` 는 **인증을 통과한 요청에만** 나간다. 인증이 필요한 경로에서 토큰이 없거나 유효하지 않으면, 경로가 없더라도 `AUTH_005`(401) 가 먼저 나간다.
+
 ---
 
 # 5. 그 외 규약 정의
@@ -1053,6 +1058,8 @@ GET /api/v1/version
 - [필수] `status` (Integer): HTTP 상태 코드
 - [필수] `code` (String): `{도메인}_{일련번호}` 형식 (`AUTH_`, `USER_`, `LETTER_`, `COMMON_`)
 - [필수] `message` (String): 사용자에게 그대로 보여줘도 되는 문구
+
+- **같은 `code` 라도 `message` 는 상황에 따라 더 구체적인 문구로 내려올 수 있다.** 앱은 `code` 로만 분기하고 `message` 는 받은 그대로 표시한다.
 
 ## 3) 시간 · 타임존 정의
 

@@ -29,12 +29,10 @@ public record VersionGetResponse(
         String noticeUrl
 ) {
     public static VersionGetResponse of(VersionProperties properties, Platform platform) {
-        String latest = properties.latestFor(platform);
-        String minSupported = properties.minSupportedFor(platform);
         return new VersionGetResponse(
-                latest,
-                minSupported,
-                latest.equals(minSupported),
+                properties.latestFor(platform),
+                properties.minSupportedFor(platform),
+                properties.forceUpdateFor(platform),
                 properties.privacyPolicyUrl(),
                 properties.termsOfServiceUrl(),
                 properties.noticeUrl()

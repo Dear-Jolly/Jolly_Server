@@ -79,6 +79,40 @@ docker compose -f infra/docker/compose.yaml --env-file infra/env/.env.local ps
 DB·이미지 데이터는 컨테이너가 아니라 호스트의 `dear-jolly/mount/{mysql,minio}` 에 쌓인다.
 컨테이너를 지워도 남고, 지우려면 `./run.sh clean` 을 쓴다.
 
+### 목 사용자로 API 두드리기
+
+인증이 필요한 API 를 소셜 로그인 없이 시험하려고, 기동할 때 계정 하나를 시드로 넣는다.
+약관 동의·닉네임 등록까지 끝난 상태라 온보딩 인터셉터를 그대로 통과하고,
+피드백까지 완료된 편지 몇 통과 아직 제출 상태인 편지가 함께 들어간다.
+
+`.env.local` 에서 켠다 (기본값은 꺼짐, 운영에는 넣지 않는다).
+
+```bash
+MOCK_USER_SEED_ENABLED=true
+MOCK_USER_OAUTH_ID=mock-user     # 계정을 구분하는 자연키
+```
+
+껐다 켠 뒤 `./run.sh restart` 로 시드를 돌린다.
+같은 `oauth_id`·같은 편지 본문은 다시 만들지 않으므로 몇 번을 재기동해도 데이터가 불어나지 않는다.
+
+토큰은 로컬 스크립트로 발급한다. `.env.local` 의 `JWT_SECRET` 으로 서버와 같은 HS256 토큰을 서명하고,
+Refresh Token 은 `USERS.refresh_token` 에도 기록해 `/api/v1/auth/reissue` 까지 그대로 시험할 수 있다.
+
+```bash
+./infra/scripts-local/seed/mock-token.sh              # 사람이 읽는 형식
+eval $(./infra/scripts-local/seed/mock-token.sh --export)
+curl -k -H "Authorization: Bearer $ACCESS_TOKEN" https://localhost:8080/api/v1/home
+
+./infra/scripts-local/seed/mock-token.sh --json       # jq 로 파싱
+./infra/scripts-local/seed/mock-token.sh --user-id 3  # 다른 계정으로 발급
+```
+
+| 증상 | 원인 |
+| --- | --- |
+| `목 사용자(...)가 없습니다` | 시드가 꺼져 있거나 아직 재기동하지 않았다 |
+| 편지에 우표가 안 붙는다 | 우표 시드가 먼저 끝나야 한다. `STAMP_SEED_ENABLED` 와 MinIO 버킷을 확인한다 |
+| 401 `ACCESS_TOKEN_INVALID` | `JWT_SECRET` 을 바꾸고 앱을 재기동하지 않았다 |
+
 ---
 
 ## 3. 원격 실행
