@@ -1,0 +1,9 @@
+# SchemaMigrationTest 전용. datasource 는 Testcontainers 가 동적으로 주입한다.
+# 나머지 테스트의 H2 설정을 그대로 물려받으면 안 되므로 프로파일로 분리한다.
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    baseline-on-migrate: false

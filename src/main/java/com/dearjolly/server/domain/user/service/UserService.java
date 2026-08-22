@@ -30,7 +30,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserService implements OnboardingChecker {
-
     private final UserRepository userRepository;
     private final TermsAgreementRepository termsAgreementRepository;
     private final OauthClientResolver oauthClientResolver;
@@ -39,10 +38,6 @@ public class UserService implements OnboardingChecker {
     @Value("${dearjolly.terms.current-version}")
     private String currentTermsVersion;
 
-    /**
-     * 약관 동의를 이력으로 누적한다. UPDATE 하지 않고 요청에 담긴 항목마다 INSERT 한다 (ERD §2.2).
-     * 요청에 없는 항목은 건드리지 않으므로, 마케팅만 철회하려면 그 한 건만 보내면 된다.
-     */
     @Transactional
     public TermsAgreeResponse agreeTerms(Long userId, TermsAgreeRequest request) {
         Users user = findActiveUser(userId);
@@ -66,14 +61,6 @@ public class UserService implements OnboardingChecker {
         return UserGetResponse.of(user, marketingAgreed);
     }
 
-    /**
-     * 소셜 연결 해제는 트랜잭션 밖에서 먼저 수행한다. 외부 HTTP 호출이 DB 커넥션을
-     * 응답 시간만큼 점유하지 않게 하기 위함이다 (기능명세 §3.1.3).
-     *
-     * <p>클래스 레벨 {@code readOnly = true} 를 그대로 두면 상태 변경이 저장되지 않고,
-     * 같은 클래스의 {@code @Transactional} 메서드를 호출해도 프록시를 타지 않아 무시된다.
-     * 그래서 이 메서드는 트랜잭션을 잠시 끊고, 쓰기 구간만 {@link TransactionTemplate} 으로 연다.
-     */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void withdraw(Long userId) {
         Users user = findActiveUser(userId);
@@ -83,10 +70,6 @@ public class UserService implements OnboardingChecker {
         transactionTemplate.executeWithoutResult(status -> findActiveUser(userId).withdraw());
     }
 
-    /**
-     * 길이 → 문자 순서로 검증한다. 앱이 사유별로 다른 문구를 보여줘야 하므로
-     * 두 조건을 동시에 어겨도 먼저 걸린 사유 하나만 반환한다 (기능명세 §3.2.2).
-     */
     @Transactional
     public NicknameUpdateResponse updateNickname(Long userId, NicknameUpdateRequest request) {
         String nickname = request.nickname();
@@ -121,7 +104,7 @@ public class UserService implements OnboardingChecker {
     }
 
     private void validateNicknameLength(String nickname) {
-        int length = nickname.codePointCount(0, nickname.length());
+        int length = nickname == null ? 0 : nickname.codePointCount(0, nickname.length());
         if (length < NICKNAME_MIN_LENGTH || length > NICKNAME_MAX_LENGTH) {
             throw new BusinessException(ErrorCode.NICKNAME_INVALID_LENGTH);
         }

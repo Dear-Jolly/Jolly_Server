@@ -37,19 +37,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
-/**
- * 애플 로그인 (authorization code 플로우).
- *
- * <p>Apple 은 콜백을 {@code response_mode=form_post} 로 보내므로 POST 로 받으며,
- * 이때 {@code code} 와 함께 {@code id_token} 이 실려 온다. 회원 식별자(sub)와 이메일은
- * id_token 에서 꺼내고, revoke 에 쓸 refresh token 은 code 교환으로 얻는다.
- *
- * <p>공개키(JWK)는 TTL 1시간으로 캐싱하고 kid 미스 시 강제 갱신한다 (기능명세 §3.1.1).
- */
 @Slf4j
 @Component
 public class AppleOauthClient implements OauthClient {
-
     private static final String ISSUER = "https://appleid.apple.com";
     private static final String AUTHORIZE_URI = ISSUER + "/auth/authorize";
     private static final String JWK_URI = ISSUER + "/auth/keys";
@@ -79,7 +69,6 @@ public class AppleOauthClient implements OauthClient {
         params.put("redirect_uri", properties.redirectUri());
         params.put("response_type", "code id_token");
         params.put("scope", "name email");
-        // scope 를 요청하면 Apple 이 form_post 를 강제한다. 콜백을 POST 로 받는 이유다.
         params.put("response_mode", "form_post");
         params.put("state", state);
         return AUTHORIZE_URI + "?" + toQueryString(params);
@@ -95,10 +84,6 @@ public class AppleOauthClient implements OauthClient {
         return new OauthUserInfo(APPLE, claims.getSubject(), extractEmail(claims), token.refreshToken());
     }
 
-    /**
-     * 로그인 시 저장해 둔 refresh token 으로 연결을 해제한다.
-     * 토큰이 없으면 revoke 할 수 없지만 탈퇴 자체는 계속 진행한다 (기능명세 §3.1.3).
-     */
     @Override
     public void unlink(String oauthId, String oauthRefreshToken) {
         if (oauthRefreshToken == null || oauthRefreshToken.isBlank()) {
@@ -160,7 +145,6 @@ public class AppleOauthClient implements OauthClient {
         }
     }
 
-    /** Apple 은 private relay 를 거부하면 email 을 주지 않는다. 그때는 null 이다. */
     private String extractEmail(JWTClaimsSet claims) {
         try {
             return claims.getStringClaim("email");
@@ -222,7 +206,6 @@ public class AppleOauthClient implements OauthClient {
         }
     }
 
-    /** Apple 은 client_secret 자리에 ES256 으로 서명한 JWT 를 요구한다. */
     private String createClientSecret() throws Exception {
         byte[] keyBytes = Base64.getDecoder().decode(
                 properties.privateKey()

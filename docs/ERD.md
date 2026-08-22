@@ -7,11 +7,11 @@
 | --- | --- |
 | 최종 갱신 | 2026-08-22 |
 | DBMS | MySQL 8.x / `utf8mb4` · `utf8mb4_0900_ai_ci` |
-| 스키마 관리 | **Flyway** 로 형상 관리. JPA 는 전 환경 `ddl-auto: validate` 로 검증만 수행 |
+| 스키마 관리 | **Flyway** 로 형상 관리. 스키마의 소유자는 마이그레이션이며 JPA 가 아니다 |
 | ID 전략 | 전 테이블 `GenerationType.IDENTITY` (`BIGINT AUTO_INCREMENT`) |
 | Enum 저장 | 전부 `EnumType.STRING` (문자열 저장) |
 | 시각 컬럼 | `DATETIME(6)`. `@PrePersist` / `@PreUpdate` 로 주입. 서버 TZ `Asia/Seoul` |
-| 날짜 컬럼 | `DATE`. **요청에 담긴 클라이언트 타임존 기준**으로 환산해 저장한다 (§5.2 A3) |
+| 날짜 컬럼 | `DATE`. **클라이언트가 보낸 작성 시각의 날짜 부분**을 그대로 저장하고, 해석에 쓴 타임존을 `LETTERS.time_zone` 에 함께 남긴다 (불변식 A3) |
 
 ---
 
@@ -66,7 +66,8 @@ erDiagram
         BIGINT letter_id PK "편지 식별자"
         BIGINT user_id FK "작성자"
         VARCHAR_500 content "편지 원문 (영어 1~500자)"
-        DATE letter_date "요청 타임존 기준 작성 날짜"
+        DATE letter_date "작성 시각의 날짜 부분"
+        VARCHAR_64 time_zone "작성 시점 기기의 IANA 타임존 ID"
         VARCHAR_30 status "피드백 진행 상태 (Status)"
         BIGINT stamp_id FK "피드백 완료 시 부여되는 우표"
         BOOLEAN is_read "피드백 열람 여부"
@@ -78,9 +79,7 @@ erDiagram
     STAMPS {
         BIGINT stamp_id PK "우표 식별자"
         VARCHAR_30 name UK "우표 한글 이름 (AI 선택 키)"
-        VARCHAR_100 description "한 줄 한글 설명"
         VARCHAR_255 image_key "우표 이미지 파일 키 (URL 아님)"
-        BOOLEAN is_active "선택 후보 노출 여부"
     }
 
     FEEDBACKS {
@@ -95,8 +94,8 @@ erDiagram
         BIGINT correction_segment_id PK "교정 조각 식별자"
         BIGINT feedback_id FK,UK "소속 피드백"
         INT sequence UK "조각 순서 (1부터 연속)"
-        VARCHAR_500 original_text "원본 텍스트 조각"
-        VARCHAR_500 corrected_text "교정 텍스트 조각 (삭제면 빈 문자열)"
+        VARCHAR_1000 original_text "원본 텍스트 조각"
+        VARCHAR_1000 corrected_text "교정 텍스트 조각 (삭제면 빈 문자열)"
         VARCHAR_20 correction_type "교정 여부 구분 (CorrectionType)"
     }
 
@@ -145,7 +144,7 @@ erDiagram
 - 로그인 시 회원 조회 키는 `(oauth_provider, oauth_id)` 다. `email` 은 표시용이며 provider 가 다르면 같은 주소가 존재할 수 있다.
 - 닉네임은 중복을 허용한다. 표시용 이름이며 식별자로 쓰지 않는다.
 - **온보딩 완료 여부는 별도 컬럼 없이 파생한다.** 약관 동의 여부는 `TERMS_AGREEMENTS` 조회로, 닉네임 등록 여부는 `nickname IS NOT NULL` 로 판별한다.
-- `email` · `nickname` 이 NULL 일 수 있으므로 응답 DTO 에서도 nullable 이다 (API명세 §3.5).
+- `email` · `nickname` 이 NULL 일 수 있으므로 응답 DTO 에서도 nullable 이다.
 
 ### 2.2 `TERMS_AGREEMENTS` — 약관 동의 이력
 
@@ -163,7 +162,7 @@ erDiagram
 - INDEX `(user_id, type, agreed_at DESC)` — 항목별 최신 행 조회.
 - **현재 동의 상태 = `(user_id, type)` 별 `agreed_at` 이 가장 최신인 행의 `agreed`** 다. UNIQUE 제약을 두지 않는 이유가 이것이다.
 - `POST /api/v1/users/terms` 는 요청에 담긴 항목마다 **행을 새로 INSERT** 한다. UPDATE 하지 않는다.
-- `terms_version` 은 **기록·입증 목적**이다. 약관이 개정돼도 기존 유저에게 재동의를 요구하지 않으며, `termsAgreed` 판별에 버전을 쓰지 않는다. 재동의 유도는 MVP 범위 밖이다 (기능명세 §7).
+- `terms_version` 은 **기록·입증 목적**이다. 약관이 개정돼도 기존 유저에게 재동의를 요구하지 않으며, `termsAgreed` 판별에 버전을 쓰지 않는다. 재동의 유도는 MVP 범위 밖이다.
 - 마케팅 동의를 철회하면 `agreed = false` 인 행이 하나 더 쌓인다. 이전 동의 이력은 그대로 남는다.
 - 필수 약관(`SERVICE` · `PRIVACY`)에 동의하기 전까지 유저는 온보딩 미완료 상태이며, 본 기능 API 접근이 차단된다 (`USER_005`).
 
@@ -174,35 +173,40 @@ erDiagram
 | `letter_id` | BIGINT | PK, AUTO_INCREMENT | API 의 `letterId` |
 | `user_id` | BIGINT | FK → `USERS.user_id`, NOT NULL | 작성자 |
 | `content` | VARCHAR(500) | NOT NULL | 편지 원문. 영어 전용, 1~500자 (R2). API 의 `originalContent` |
-| `letter_date` | DATE | NOT NULL | 요청의 `writtenAt` 을 `timeZone` 기준으로 환산한 날짜 (R9). API 의 `date`. 목록 정렬·표시 기준 |
+| `letter_date` | DATE | NOT NULL | 요청 `writtenAt` 의 날짜 부분 (R9). API 의 `date`. 목록 정렬·표시 기준 |
+| `time_zone` | VARCHAR(64) | NOT NULL | 작성 시점 기기의 IANA 타임존 ID (예: `Asia/Seoul`). 요청의 `timeZone` 을 그대로 남긴다 |
 | `status` | VARCHAR(30) | NOT NULL | `SUBMITTED` / `FEEDBACK_IN_PROGRESS` / `FEEDBACK_COMPLETED` / `FEEDBACK_FAILED` |
 | `stamp_id` | BIGINT | FK → `STAMPS.stamp_id`, NULL | `FEEDBACK_COMPLETED` 전이 시 부여한다. 그 전에는 NULL |
 | `is_read` | BOOLEAN | NOT NULL, DEFAULT `false` | 피드백 열람 여부 (R6). 상세 조회 시 `true` 로 전환 |
-| `retry_count` | INT | NOT NULL, DEFAULT `0` | 피드백 재시도 횟수. 3회 초과 시 `FEEDBACK_FAILED` |
+| `retry_count` | INT | NOT NULL, DEFAULT `0` | 피드백 재시도 횟수. 3회를 소진하면 `FEEDBACK_FAILED` |
 | `created_at` | DATETIME(6) | NOT NULL | 서버 저장 시각(KST). 응답의 `createdAt` 은 이 값을 요청 타임존으로 변환해 내려준다 |
 | `updated_at` | DATETIME(6) | NOT NULL | 상태 전이 시각. 이벤트 유실·처리 유실 판별의 기준이다 |
 
 - INDEX `(user_id, letter_date DESC, letter_id DESC)` — 목록 정렬·페이징.
-- INDEX `(status, updated_at)` — 미처리 편지 스캔 배치. `SUBMITTED` 이벤트 유실(1시간 초과)과 `FEEDBACK_IN_PROGRESS` 처리 유실(15분 초과)을 이 인덱스로 찾는다 (기능명세 §3.5.1).
+- 중복 전달 판정(A17)의 "직전 편지 1건" 조회도 이 인덱스를 탄다. 편지는 append-only 이고 PK 가 AUTO_INCREMENT 라 `letter_id DESC` 가 곧 작성 역순이므로, `created_at` 정렬용 인덱스를 따로 두지 않는다.
+- INDEX `(status, updated_at)` — 미처리 편지 스캔 배치. `SUBMITTED` 이벤트 유실(1시간 초과)과 `FEEDBACK_IN_PROGRESS` 처리 유실(15분 초과)을 이 인덱스로 찾는다.
 - 워커 픽업은 `UPDATE letters SET status = 'FEEDBACK_IN_PROGRESS' WHERE letter_id = ? AND status = 'SUBMITTED'` 조건부 UPDATE 로 수행한다. 갱신 건수 0이면 다른 워커가 이미 집은 것이므로 처리를 건너뛴다.
-- 편지는 append-only 다 (R1). 등록 후 `content` 와 `letter_date` 는 변경되지 않으며, 사용자 요청으로 삭제되지도 않는다. 변경되는 컬럼은 `status` · `stamp_id` · `is_read` · `retry_count` · `updated_at` 뿐이다.
+- 편지는 append-only 다 (R1). 등록 후 `content` · `letter_date` · `time_zone` 은 변경되지 않으며, 사용자 요청으로 삭제되지도 않는다. 변경되는 컬럼은 `status` · `stamp_id` · `is_read` · `retry_count` · `updated_at` 뿐이다.
+- **`time_zone` 을 저장하는 이유**는 `created_at` 때문이다. 저장은 서버 시각(KST)으로 하고 응답은 작성지 기준으로 내려주는데, 타임존을 남기지 않으면 그 변환이 **편지 작성 요청에서 단 한 번만** 가능하다. 이후의 모든 조회는 요청 바디가 없어 변환 근거를 잃고 KST 로 굳는다. 작성지 정보 자체도 편지의 맥락이라 함께 남긴다.
 - 우표 카운트(R4)는 `status = 'FEEDBACK_COMPLETED'` 인 행 수로 계산한다.
 - **재시도 백오프 상태는 DB 에 두지 않는다.** 워커가 인메모리 `TaskScheduler` 로 재호출을 예약하며, 예약이 유실된 경우에만 보완 스케줄러가 `updated_at` 기준으로 주워 담는다.
 
 ### 2.4 `STAMPS` — 우표 마스터
 
-피드백 완료 시 편지에 부여하는 우표의 마스터 데이터다. 우표 종류는 코드가 아니라 이 테이블의 행으로 관리하므로, 추가·교체·문구 수정에 배포가 필요 없다.
+피드백 완료 시 편지에 부여하는 우표의 마스터 데이터다. 우표 종류는 코드가 아니라 이 테이블의 행으로 관리하므로, 추가·교체에 배포가 필요 없다.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 | --- | --- | --- | --- |
 | `stamp_id` | BIGINT | PK, AUTO_INCREMENT | |
 | `name` | VARCHAR(30) | NOT NULL, UNIQUE | 우표 한글 이름 (예: `장미`). LLM 이 고른 이름을 이 컬럼으로 조회해 행을 특정한다 |
-| `description` | VARCHAR(100) | NOT NULL | 한 줄 한글 설명. 우표의 분위기를 서술하며, LLM 프롬프트에 함께 넣는다 |
 | `image_key` | VARCHAR(255) | NOT NULL | 오브젝트 스토리지의 **파일 키** (예: `stamps/rose.png`). URL 은 저장하지 않는다 |
-| `is_active` | BOOLEAN | NOT NULL, DEFAULT `true` | `false` 면 선택 후보에서 제외한다. 기존 편지에 부여된 우표는 그대로 유지된다 |
 
+**우표는 이름과 이미지가 전부다.** 컬럼을 이 둘로 좁힌 이유는 각각 분명하다.
+
+- **설명 컬럼을 두지 않는다.** 이름 자체가 이미 분위기를 담고 있어(`장미` · `초승달` · `네잎클로버`) LLM 이 편지에 어울리는 것을 고르는 데 부연이 필요 없고, 앱은 이미지만 렌더링하므로 설명이 노출될 지점도 없다. 아무도 읽지 않는 문구를 우표를 추가할 때마다 지어내야 하는 비용만 남는다.
+- **활성 여부 컬럼을 두지 않는다.** 이 테이블에 있는 행은 **전부 선택 후보**다. 우표 4종으로 시작하는 MVP 에서 "있지만 안 쓰는 우표" 라는 상태는 실체가 없고, 그 상태가 없으면 우표 부여 로직에서 후보를 거르는 분기도 사라진다.
 - `name` 이 UNIQUE 인 이유는 LLM 응답을 행으로 되돌리는 조회 키이기 때문이다.
-- 마스터 데이터이므로 삭제하지 않는다. 운영을 중단할 우표는 `is_active = false` 로 내린다. `LETTERS.stamp_id` 가 참조하는 행이 사라지지 않아야 하기 때문이다.
+- **행을 지울 때는 `LETTERS.stamp_id` 가 참조하지 않는지 확인해야 한다.** FK 가 걸려 있어 참조 중이면 DB 가 거부한다. 우표를 바꾸고 싶을 때의 정상 경로는 삭제가 아니라 `image_key` 교체다 — 이미 그 우표를 받은 편지의 이미지까지 함께 바뀐다.
 - 이미지 교체는 `image_key` 갱신으로 처리한다. 앱 배포와 무관하다.
 - **DB 에는 파일 키만 저장하고 URL 은 저장하지 않는다.** 응답의 `stampImage` 는 서버가 조회 시점에 조립한다.
 
@@ -214,13 +218,14 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
   URL 을 저장해 두면 그때마다 전체 행을 일괄 수정해야 하지만, 파일 키만 저장하면 환경변수만 갈아끼우면 된다.
   조립은 `global/storage/FileUrlProvider` 가 담당하며, `image_key` 가 비어 있으면 `null` 을 반환한다.
 - **우표 종류는 Java enum 으로 정의하지 않는다.** 코드에 우표 이름이 하드코딩되면 이 테이블의 존재 이유가 사라진다.
+- 우표를 추가할 때 채울 값은 **이름과 파일 키 두 개뿐**이다.
 
 #### 우표 부여 절차
 
-1. 피드백 워커가 `SELECT name, description FROM stamps WHERE is_active = true` 로 후보를 조회한다.
-2. 조회한 **한글 이름 목록과 설명을 프롬프트에 동적으로 삽입**하고, 편지 내용에 가장 어울리는 우표 이름 하나를 고르게 한다. 우표 종류가 늘거나 줄어도 프롬프트 템플릿은 그대로다.
+1. 피드백 워커가 `SELECT name FROM stamps` 로 후보를 조회한다. 필터 조건이 없다 — 모든 행이 후보다.
+2. 조회한 **한글 이름 목록을 프롬프트에 동적으로 삽입**하고, 편지 내용에 가장 어울리는 우표 이름 하나를 고르게 한다. 우표 종류가 늘거나 줄어도 프롬프트 템플릿은 그대로다.
 3. LLM 이 반환한 이름을 `name` 으로 조회해 `LETTERS.stamp_id` 에 채운다.
-4. 반환값이 후보 목록에 없으면 활성 우표 중 랜덤 1개로 대체한다. 우표 선택 실패가 피드백 저장 전체를 실패시키지 않는다.
+4. 반환값이 후보 목록에 없으면 랜덤 1개로 대체한다. 우표 선택 실패가 피드백 저장 전체를 실패시키지 않는다.
 
 우표 부여는 `status = 'FEEDBACK_COMPLETED'` 전이와 동일한 트랜잭션에서 이뤄진다 (R3).
 
@@ -246,14 +251,15 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 | `correction_segment_id` | BIGINT | PK, AUTO_INCREMENT | |
 | `feedback_id` | BIGINT | FK → `FEEDBACKS.feedback_id`, NOT NULL | |
 | `sequence` | INT | NOT NULL | 조각 순서. 1부터 연속 증가 |
-| `original_text` | VARCHAR(500) | NOT NULL | 원본 텍스트 조각 |
-| `corrected_text` | VARCHAR(500) | NOT NULL | 교정된 텍스트 조각. 삭제 제안이면 빈 문자열 |
+| `original_text` | VARCHAR(1000) | NOT NULL | 원본 텍스트 조각 |
+| `corrected_text` | VARCHAR(1000) | NOT NULL | 교정된 텍스트 조각. 삭제 제안이면 빈 문자열 |
 | `correction_type` | VARCHAR(20) | NOT NULL | `UNCHANGED` / `MODIFIED`. **API 응답에서는 `type` 이라는 이름으로 내려간다** |
 
 - UNIQUE `(feedback_id, sequence)`.
 - 조회 시 항상 `ORDER BY sequence ASC` 로 정렬한다 (`@OrderBy("sequence ASC")`).
 - 공백은 조각 문자열에 포함해 저장한다. 앱은 조각 사이에 공백을 넣지 않는다.
-- `correction_type` 은 저장 시 `original_text` 와 `corrected_text` 의 일치 여부로 결정된다 (§5.2 A5).
+- `correction_type` 은 저장 시 `original_text` 와 `corrected_text` 의 일치 여부로 결정된다 (불변식 A5).
+- **두 텍스트 컬럼의 상한은 `FEEDBACKS.corrected_content` 와 같은 1000자다.** A7 이 "조각을 이어붙이면 교정문 전체" 를 요구하므로, 교정문이 길고 diff 가 단일 `MODIFIED` 로 뭉치면 조각 하나가 문장 전체가 된다. 원문 상한은 500 이라 `original_text` 는 절반만 쓰지만, 두 컬럼을 같은 길이로 맞춰야 조각 분할·병합 로직에 길이 제약이 생기지 않는다.
 
 ### 2.7 `FEEDBACK_TIPS` — 학습 팁
 
@@ -286,6 +292,8 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 | `Feedbacks` ↔ `FeedbackTips` | `FeedbackTips.feedback` `@ManyToOne` | `Feedbacks.tips` `@OneToMany(mappedBy="feedback")` | LAZY | ALL | true |
 
 `Stamps` 는 마스터 데이터라 편지 쪽에서만 참조하는 단방향이다. cascade 를 걸지 않으므로 편지·유저 삭제가 우표 행에 영향을 주지 않는다.
+
+> **Fetch 열의 예외 하나** — `Letters.feedback` 은 `@OneToOne(mappedBy)` 라 `LAZY` 로 선언해도 실제로는 즉시 로딩된다. FK 를 갖지 않는 쪽이라 Hibernate 가 "행이 있는지" 를 알아야 프록시 여부를 정할 수 있기 때문이다. 선언은 의도 표시로 남겨 두되, 성능을 논할 때는 조회 전략을 기준으로 판단한다.
 
 ### 3.2 연관관계 편의 메서드
 
@@ -321,7 +329,7 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 
 모두 `EnumType.STRING` 으로 저장한다. `ORDINAL` 은 사용하지 않는다.
 
-우표 종류는 enum 이 아니라 `STAMPS` 테이블의 행으로 관리한다 (§2.4).
+우표 종류는 enum 이 아니라 `STAMPS` 테이블의 행으로 관리한다.
 
 ### 4.1 `OauthProvider` — `USERS.oauth_provider`
 
@@ -339,14 +347,14 @@ API 요청/응답의 `provider` 필드가 이 enum 이다. 문서 전체에서 �
 | `ROLE_USER` | 일반 사용자. `Users.create(…)` 의 기본값 |
 | `ROLE_ADMIN` | 관리자. `Users.createAdmin(…)` 로만 생성 |
 
-MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 재처리(§6.1) 같은 후속 경로를 위해 스키마에만 존재한다.
+MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 재처리 같은 후속 경로를 위해 스키마에만 존재한다.
 
 ### 4.3 `UserStatus` — `USERS.status`
 
 | 값 | 설명 |
 | --- | --- |
 | `ACTIVE` | 정상 이용 중 |
-| `WITHDRAWN` | 탈퇴 처리됨. 모든 API 접근 차단(`AUTH_007`). 유예기간 경과 후 행 삭제 (§6.2) |
+| `WITHDRAWN` | 탈퇴 처리됨. 모든 API 접근 차단(`AUTH_007`). 유예기간 경과 후 행 삭제 |
 
 ### 4.4 `TermsType` — `TERMS_AGREEMENTS.type`
 
@@ -367,7 +375,7 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 | `FEEDBACK_COMPLETED` | 피드백 완료 | 컬러 우표, 상세 진입 가능 |
 | `FEEDBACK_FAILED` | 피드백 실패 (내부 전용) | API 응답에서는 `SUBMITTED` 로 변환해 내려보낸다 |
 
-전이 규칙은 [기능명세 §2.2](./기능명세.md#22-편지-상태-전이) 를 따른다. 임시저장 상태는 두지 않으며, 편지는 항상 `SUBMITTED` 로 생성된다.
+전이 규칙은 기능명세를 따른다. 임시저장 상태는 두지 않으며, 편지는 항상 `SUBMITTED` 로 생성된다.
 
 - 컬럼 길이가 VARCHAR(30) 인 이유는 가장 긴 값 `FEEDBACK_IN_PROGRESS` 가 20자이기 때문이다. 여유를 포함해 30으로 잡는다.
 - `FEEDBACK_IN_PROGRESS` 는 워커 중복 실행 방지와 처리 유실 판별을 위한 상태다. 두 워커가 같은 편지를 집지 못하도록 진입을 조건부 UPDATE 로 막고, 이 상태로 15분 이상 머문 편지는 호출 도중 종료된 것으로 보고 `SUBMITTED` 로 되돌려 재큐잉한다.
@@ -380,7 +388,7 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 | `UNCHANGED` | 교정 없음 | 검은 글씨 그대로 |
 | `MODIFIED` | 교정됨 | 원문에 빨간 취소선 + 뒤에 교정문 초록 하이라이트 |
 
-문법·어휘·철자 등 세부 교정 카테고리는 두지 않는다. API 응답에서의 필드명은 `type` 이다 (§2.6).
+문법·어휘·철자 등 세부 교정 카테고리는 두지 않는다. API 응답에서의 필드명은 `type` 이다.
 
 ---
 
@@ -394,7 +402,7 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 | FOREIGN KEY | `TERMS_AGREEMENTS.user_id` → `USERS`, `LETTERS.user_id` → `USERS`, `LETTERS.stamp_id` → `STAMPS`, `FEEDBACKS.letter_id` → `LETTERS`, `CORRECTION_SEGMENTS.feedback_id` → `FEEDBACKS`, `FEEDBACK_TIPS.feedback_id` → `FEEDBACKS` |
 | UNIQUE | `USERS (oauth_provider, oauth_id)`, `STAMPS.name`, `FEEDBACKS.letter_id`, `CORRECTION_SEGMENTS (feedback_id, sequence)`, `FEEDBACK_TIPS (feedback_id, sort_order)` |
 | INDEX | `LETTERS (user_id, letter_date DESC, letter_id DESC)`, `LETTERS (status, updated_at)`, `TERMS_AGREEMENTS (user_id, type, agreed_at DESC)` |
-| DEFAULT | `LETTERS.is_read = false`, `LETTERS.retry_count = 0`, `STAMPS.is_active = true` |
+| DEFAULT | `LETTERS.is_read = false`, `LETTERS.retry_count = 0` |
 | NULL 허용 | `USERS.email`, `USERS.nickname`, `USERS.refresh_token`, `USERS.oauth_refresh_token`, `USERS.deleted_at`, `LETTERS.stamp_id` — 나머지 전 컬럼 NOT NULL |
 
 `TERMS_AGREEMENTS` 에는 UNIQUE 를 두지 않는다. 이력 테이블이므로 같은 `(user_id, type)` 조합이 여러 번 나타나는 것이 정상이다.
@@ -404,24 +412,24 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 | # | 규칙 | 근거 | 강제 위치 |
 | --- | --- | --- | --- |
 | A1 | `content` 는 한글을 포함하지 않고 1~500자 | R2 | Bean Validation + 서비스 |
-| A2 | 편지는 등록 후 `content` · `letter_date` 불변, 사용자 삭제 불가 | R1 | 편지 엔티티에 해당 수정 메서드를 두지 않음 |
-| A3 | `letter_date` 는 요청의 `writtenAt` 을 `timeZone` 기준으로 환산한 날짜다. 환산 시각이 서버 현재 시각 ±24시간을 벗어나면 거부한다 | R9 | 편지 작성 서비스 |
+| A2 | 편지는 등록 후 `content` · `letter_date` · `time_zone` 불변, 사용자 삭제 불가 | R1 | 편지 엔티티에 해당 수정 메서드를 두지 않음 |
+| A3 | `letter_date` 는 요청 `writtenAt` 의 날짜 부분이다. `writtenAt` 을 `timeZone` 으로 해석한 절대 시각이 서버 현재 시각 ±24시간을 벗어나면 거부한다 | R9 | 편지 작성 서비스 |
+| A3-1 | `time_zone` 은 `ZoneId` 로 파싱에 성공한 값만 저장한다. 엔티티가 문자열이 아니라 `ZoneId` 를 받으므로 해석 불가능한 값은 저장될 수 없다 | R9 | `Letters` 생성자 |
 | A4 | `nickname` 은 영문·숫자 1~20자 (NULL 이 아닌 경우) | R7 | `UserValidationConstants` |
 | A5 | `correction_type` 은 `original_text.equals(corrected_text)` 이면 `UNCHANGED`, 아니면 `MODIFIED` | — | `CorrectionSegments` 생성자 |
-| A6 | `concat(original_text ORDER BY sequence)` == `LETTERS.content` | 기능명세 §3.5.3 | 피드백 저장 트랜잭션 |
-| A7 | `concat(corrected_text ORDER BY sequence)` == `FEEDBACKS.corrected_content` | 기능명세 §3.5.3 | 피드백 저장 트랜잭션 |
-| A8 | `FEEDBACK_TIPS` 는 피드백당 최대 3행 | 기능명세 §3.5.2 | 피드백 저장 트랜잭션 |
+| A6 | `concat(original_text ORDER BY sequence)` == `LETTERS.content` | 교정 세그먼트 생성 규칙 | 피드백 저장 트랜잭션 |
+| A7 | `concat(corrected_text ORDER BY sequence)` == `FEEDBACKS.corrected_content` | 교정 세그먼트 생성 규칙 | 피드백 저장 트랜잭션 |
+| A8 | `FEEDBACK_TIPS` 는 피드백당 최대 3행. LLM 이 더 많이 반환하면 **앞 3개만 저장**하고 나머지는 버린다 | LLM 응답 계약 | 워커가 저장 전 절삭 (`Feedbacks.MAX_TIP_COUNT`). 엔티티의 개수 검사는 절삭을 빠뜨렸을 때의 방어선이다 |
 | A9 | `status = 'FEEDBACK_COMPLETED'` 이면 `stamp_id` 는 NOT NULL, 그 외 상태면 NULL | R3 | 상태 전이 메서드 |
-| A9-1 | `stamp_id` 는 `is_active = true` 인 우표 중에서만 부여한다. 부여 후 우표가 비활성화돼도 기존 값은 유지한다 | — | 우표 부여 로직 |
-| A9-2 | LLM 이 반환한 우표 이름이 후보 목록에 없으면 활성 우표 중 랜덤 1개로 대체한다 | — | 우표 부여 로직 |
+| A9-1 | LLM 이 반환한 우표 이름이 후보 목록에 없으면 랜덤 1개로 대체한다. `STAMPS` 의 모든 행이 후보다 | — | 우표 부여 로직 |
 | A10 | `FEEDBACKS` 행이 존재하면 `LETTERS.status` 는 `FEEDBACK_COMPLETED` | — | 피드백 저장 트랜잭션 |
-| A11 | `SUBMITTED → FEEDBACK_IN_PROGRESS` 전이는 조건부 UPDATE 로만 수행하고, 갱신 건수 0이면 처리를 중단한다 | 기능명세 §3.5.1 | 피드백 워커 |
-| A12 | `retry_count > 3` 이면 `status = 'FEEDBACK_FAILED'` | 기능명세 §2.2 | 피드백 워커 |
+| A11 | `SUBMITTED → FEEDBACK_IN_PROGRESS` 전이는 조건부 UPDATE 로만 수행하고, 갱신 건수 0이면 처리를 중단한다 | 워커 중복 실행 방지 | 피드백 워커 |
+| A12 | `retry_count >= 3` 이면 `status = 'FEEDBACK_FAILED'`. 백오프 3단계(30s → 2m → 10m)를 모두 소진한 상태다 | 편지 상태 전이 | 피드백 워커 |
 | A13 | `status = 'WITHDRAWN'` 이면 `deleted_at` NOT NULL, `refresh_token` · `oauth_refresh_token` NULL | R8 | 탈퇴 서비스 |
 | A14 | `refresh_token` 은 유저당 1개만 유지 (단일 세션) | — | 인증 서비스 |
-| A15 | 온보딩 완료 = `SERVICE` · `PRIVACY` 의 최신 행이 모두 `agreed = true` **그리고** `nickname IS NOT NULL` | 기능명세 §3.2 | 온보딩 가드 (`USER_005`) |
-| A16 | `TERMS_AGREEMENTS` 는 UPDATE 하지 않고 INSERT 만 한다 | §2.2 | 약관 동의 서비스 |
-| A17 | 동일 유저가 60초 이내에 같은 `content` 를 다시 보내면 새 행을 만들지 않고 최초 편지를 반환한다 | 기능명세 §3.4.4 | 편지 작성 서비스 |
+| A15 | 온보딩 완료 = `SERVICE` · `PRIVACY` 의 최신 행이 모두 `agreed = true` **그리고** `nickname IS NOT NULL` | 온보딩 규칙 | 온보딩 가드 (`USER_005`) |
+| A16 | `TERMS_AGREEMENTS` 는 UPDATE 하지 않고 INSERT 만 한다 | 약관 동의 이력 | 약관 동의 서비스 |
+| A17 | 동일 유저가 60초 이내에 같은 `content` 를 다시 보내면 새 행을 만들지 않고 최초 편지를 반환한다 | 중복 전달 방지 | 편지 작성 서비스 |
 
 ---
 
@@ -448,21 +456,22 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 | --- | --- | --- |
 | 1. 탈퇴 요청 | 즉시 | `status = 'WITHDRAWN'`, `deleted_at = now()`, `refresh_token`·`oauth_refresh_token = NULL`. 이후 모든 API 접근이 `AUTH_007` 로 차단된다 |
 | 2. 유예기간 | 30일 | 데이터는 보존한다. 사용자에게 노출되는 복구 수단은 없다 |
-| 3. 완전 삭제 | `deleted_at + 30일` 경과 | 배치가 `USERS` 행을 삭제하고, cascade 로 약관 이력·편지·피드백·교정 조각·팁까지 전량 제거한다 (§3.3) |
+| 3. 완전 삭제 | `deleted_at + 30일` 경과 | 배치가 `USERS` 행을 삭제하고, cascade 로 약관 이력·편지·피드백·교정 조각·팁까지 전량 제거한다 |
 
 - **탈퇴한 계정으로 다시 로그인하면 항상 신규 가입으로 처리한다.** 이전 편지는 복원되지 않는다.
 - 유예기간 중인 계정은 `(oauth_provider, oauth_id)` UNIQUE 를 점유하므로, 재로그인 시점에 기존 행의 `oauth_id` 를 `{oauth_id}#withdrawn#{deleted_at 에폭밀리}` 형태로 치환해 UNIQUE 를 비우고 새 행을 만든다. 치환 후에도 삭제 배치는 `deleted_at` 으로 대상을 식별하므로 영향이 없다.
-- 2단계는 오삭제 복구·분쟁 대응을 위한 **내부 보존**이다. 앱 문구에는 노출하지 않으며, 개인정보처리방침의 보유기간 항목에 명시한다 (기능명세 §4.1).
+- 치환 결과가 255자를 넘으면 **앞쪽 원본 식별자를 잘라내 접미사를 보존**한다. 접미사에 담긴 에폭밀리가 UNIQUE 를 실제로 비우는 부분이기 때문이다. Kakao `id`(숫자)·Apple `sub`(약 44자) 모두 실제로는 잘릴 일이 없고, 이 처리는 provider 가 긴 식별자를 발급할 때를 대비한 것이다.
+- 2단계는 오삭제 복구·분쟁 대응을 위한 **내부 보존**이다. 앱 문구에는 노출하지 않으며, 개인정보처리방침의 보유기간 항목에 명시한다.
 - 3단계 삭제는 되돌릴 수 없다 (R8).
 
 ### 6.3 약관 동의 이력
 
-`TERMS_AGREEMENTS` 는 UPDATE 하지 않고 INSERT 만 하는 이력 테이블이다 (§2.2, A16).
+`TERMS_AGREEMENTS` 는 UPDATE 하지 않고 INSERT 만 하는 이력 테이블이다 (불변식 A16).
 
 - 온보딩에서 약관에 동의하면 `SERVICE` · `PRIVACY` · `MARKETING` 3행이 한 번에 쌓인다.
 - 설정에서 마케팅 동의를 철회하면 `type = 'MARKETING'`, `agreed = false` 행이 하나 더 쌓인다. 이전 행은 그대로 남는다.
 - 현재 동의 상태를 알고 싶으면 `(user_id, type)` 별 `agreed_at` 최신 행을 본다.
-- 유저 행이 삭제되면 동의 이력도 cascade 로 함께 삭제된다 (§3.3). 탈퇴 이력은 개인정보를 제외한 최소 정보만 애플리케이션 로그로 별도 보관한다.
+- 유저 행이 삭제되면 동의 이력도 cascade 로 함께 삭제된다. 탈퇴 이력은 개인정보를 제외한 최소 정보만 애플리케이션 로그로 별도 보관한다.
 
 ---
 
@@ -503,9 +512,7 @@ CREATE TABLE terms_agreements (
 CREATE TABLE stamps (
     stamp_id    BIGINT       NOT NULL AUTO_INCREMENT,
     name        VARCHAR(30)  NOT NULL,
-    description VARCHAR(100) NOT NULL,
     image_key   VARCHAR(255) NOT NULL,
-    is_active   BOOLEAN      NOT NULL DEFAULT TRUE,
     PRIMARY KEY (stamp_id),
     UNIQUE KEY uk_stamps_name (name)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
@@ -516,6 +523,7 @@ CREATE TABLE letters (
     stamp_id    BIGINT       NULL,
     content     VARCHAR(500) NOT NULL,
     letter_date DATE         NOT NULL,
+    time_zone   VARCHAR(64)  NOT NULL,
     status      VARCHAR(30)  NOT NULL,
     is_read     BOOLEAN      NOT NULL DEFAULT FALSE,
     retry_count INT          NOT NULL DEFAULT 0,
@@ -543,8 +551,8 @@ CREATE TABLE correction_segments (
     correction_segment_id BIGINT       NOT NULL AUTO_INCREMENT,
     feedback_id           BIGINT       NOT NULL,
     sequence              INT          NOT NULL,
-    original_text         VARCHAR(500) NOT NULL,
-    corrected_text        VARCHAR(500) NOT NULL,
+    original_text         VARCHAR(1000) NOT NULL,
+    corrected_text        VARCHAR(1000) NOT NULL,
     correction_type       VARCHAR(20)  NOT NULL,
     PRIMARY KEY (correction_segment_id),
     UNIQUE KEY uk_segments_order (feedback_id, sequence),
@@ -562,16 +570,4 @@ CREATE TABLE feedback_tips (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 ```
 
-### 초기 데이터
-
-```sql
-INSERT INTO stamps (name, description, image_key, is_active) VALUES
-    ('장미',      '마음을 담아 건네는 붉은 장미',        'stamps/flower_stamp.png',  TRUE),
-    ('호박',      '포근하고 든든한 가을 호박',           'stamps/pumpkin_stamp.png', TRUE),
-    ('네잎클로버', '오늘 하루에 깃든 작은 행운',          'stamps/clover_stamp.png',  TRUE),
-    ('초승달',    '조용히 하루를 마무리하는 밤의 달',     'stamps/moon_stamp.png',    TRUE);
-```
-
-> 파일 키만 넣는다. 호스트·버킷은 응답 시점에 붙으므로 초기 데이터가 환경에 종속되지 않는다.
-
-우표를 추가할 때는 이 테이블에 행을 넣는 것으로 끝난다. 프롬프트 후보 목록과 앱 응답에 자동으로 반영된다.
+우표는 마이그레이션이 아니라 운영 중 행을 넣어 등록한다. 넣는 즉시 프롬프트 후보 목록과 앱 응답에 반영된다.

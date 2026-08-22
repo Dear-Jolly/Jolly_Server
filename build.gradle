@@ -30,7 +30,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 
-	// 운영 헬스체크 (기능명세 §4.3)
+	// 운영 헬스체크
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
 	// JWT
@@ -58,7 +58,7 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 	testImplementation 'io.rest-assured:rest-assured'
 
-	// Flyway 마이그레이션과 엔티티 매핑을 실제 MySQL 로 대조한다 (기능명세 §4.3)
+	// Flyway 마이그레이션과 엔티티 매핑을 실제 MySQL 로 대조한다
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
 	testImplementation 'org.testcontainers:junit-jupiter'
 	testImplementation 'org.testcontainers:mysql'

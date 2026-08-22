@@ -8,6 +8,7 @@ import com.dearjolly.server.global.exception.response.ErrorResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -24,8 +25,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
-
-    /** 인증 없이 접근 가능한 경로 (API명세 §2.1) */
     private static final String[] PUBLIC_PATHS = {
             "/api/v1/auth/reissue",
             "/api/v1/version",
@@ -34,6 +33,16 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/v3/api-docs/**"
     };
+
+    private static final List<String> JWT_FILTER_SKIP_PATHS = List.of(
+            "/api/v1/auth/reissue",
+            "/api/v1/auth/*/callback",
+            "/api/v1/version",
+            "/actuator/**",
+            "/error",
+            "/swagger-ui/**",
+            "/v3/api-docs/**"
+    );
 
     private final JwtProvider jwtProvider;
     private final UserRepository userRepository;
@@ -48,15 +57,13 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS).permitAll()
-                        // 소셜 로그인 시작·콜백은 토큰 없이 들어온다.
-                        // 메서드까지 함께 지정해야 POST /api/v1/auth/logout 이 열리지 않는다.
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/*/callback").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/*/callback").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtProvider, userRepository, objectMapper),
+                        new JwtAuthenticationFilter(jwtProvider, userRepository, objectMapper, JWT_FILTER_SKIP_PATHS),
                         UsernamePasswordAuthenticationFilter.class
                 )
                 .exceptionHandling(handling -> handling

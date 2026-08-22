@@ -22,17 +22,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.BatchSize;
 
-/**
- * 편지 한 통당 최대 1건이다. 피드백 저장·교정 조각·팁 저장·편지 상태 전이·우표 부여는
- * 하나의 트랜잭션에서 처리하므로 부분 저장 상태는 존재하지 않는다.
- */
 @Entity
 @Table(name = "FEEDBACKS")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Feedbacks {
-
-    private static final int MAX_TIP_COUNT = 3;
+    public static final int MAX_TIP_COUNT = 3;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -46,7 +41,6 @@ public class Feedbacks {
     @Column(name = "corrected_content", nullable = false, length = 1000)
     private String correctedContent;
 
-    /** 재현·과금 추적용으로 사용한 LLM 모델 ID 를 남긴다. */
     @Column(name = "model", nullable = false, length = 50)
     private String model;
 
@@ -57,7 +51,6 @@ public class Feedbacks {
     @OrderBy("sequence ASC")
     private List<CorrectionSegments> correctionSegments = new ArrayList<>();
 
-    /** 컬렉션이 둘이라 fetch join 을 겹치면 MultipleBagFetchException 이 난다. 이쪽은 배치 로딩한다. */
     @OneToMany(mappedBy = "feedback", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sortOrder ASC")
     @BatchSize(size = 100)
@@ -68,14 +61,12 @@ public class Feedbacks {
         this.createdAt = LocalDateTime.now();
     }
 
-    // ========= 생성 메서드 =========
     public static Feedbacks create(Letters letter, String correctedContent, String model) {
         Feedbacks feedback = new Feedbacks(letter, correctedContent, model);
         letter.registerFeedback(feedback);
         return feedback;
     }
 
-    // ========= 연관관계 메서드 =========
     public void addCorrectionSegment(CorrectionSegments segment) {
         this.correctionSegments.add(segment);
     }
@@ -85,12 +76,10 @@ public class Feedbacks {
         this.tips.add(tip);
     }
 
-    // ========= 비즈니스 로직 메서드 =========
     public boolean hasTips() {
         return !this.tips.isEmpty();
     }
 
-    // ========= 생성자 =========
     private Feedbacks(Letters letter, String correctedContent, String model) {
         validateCorrectedContent(correctedContent);
         validateModel(model);
@@ -99,7 +88,6 @@ public class Feedbacks {
         this.model = model;
     }
 
-    // ========= 검증 메서드 =========
     private void validateCorrectedContent(String correctedContent) {
         if (correctedContent == null || correctedContent.isBlank()) {
             throw new IllegalArgumentException("교정문은 필수입니다.");

@@ -14,25 +14,27 @@
 
 ## 1. 엔드포인트 목록
 
-| # | 패키지 | Method | 엔드포인트 | 설명 | 인증 | 온보딩 |
-| --- | --- | --- | --- | --- | :---: | :---: |
-| 1 | user | `GET` | `/api/v1/auth/{provider}` | 소셜 로그인 시작 (provider 로그인 페이지로 리다이렉트) | — | — |
-| 1-1 | user | `GET` | `/api/v1/auth/kakao/callback` | 카카오 콜백 (앱 딥링크로 리다이렉트) | — | — |
-| 1-2 | user | `POST` | `/api/v1/auth/apple/callback` | 애플 콜백 (`form_post`, 앱 딥링크로 리다이렉트) | — | — |
-| 2 | user | `POST` | `/api/v1/auth/reissue` | 토큰 재발급 | — | — |
-| 3 | user | `POST` | `/api/v1/auth/logout` | 로그아웃 | ✔ | — |
-| 4 | user | `POST` | `/api/v1/users/terms` | 약관 동의 · 마케팅 동의 철회 | ✔ | — |
-| 5 | user | `GET` | `/api/v1/users` | 계정 정보 조회 | ✔ | — |
-| 6 | user | `DELETE` | `/api/v1/users` | 회원 탈퇴 | ✔ | — |
-| 7 | user | `PATCH` | `/api/v1/users/nickname` | 닉네임 설정 | ✔ | — |
-| 8 | letter | `POST` | `/api/v1/letters` | 편지 작성 + 피드백 요청 | ✔ | ✔ |
-| 9 | letter | `GET` | `/api/v1/letters/{letterId}` | 편지 및 피드백 상세 조회 | ✔ | ✔ |
-| 10 | letter | `GET` | `/api/v1/letters` | 전체 편지 리스트 조회 | ✔ | ✔ |
-| 11 | letter | `GET` | `/api/v1/home` | 닉네임, 모은 우표 수 조회 | ✔ | ✔ |
-| 12 | global | `GET` | `/api/v1/version` | 최소 지원 버전 조회 | — | — |
+| # | 패키지 | Method | 엔드포인트 | 설명 | 인증 | 온보딩 | 구현 |
+| --- | --- | --- | --- | --- | :---: | :---: | :---: |
+| 1 | user | `GET` | `/api/v1/auth/{provider}` | 소셜 로그인 시작 (provider 로그인 페이지로 리다이렉트) | — | — | ✅ |
+| 1-1 | user | `GET` | `/api/v1/auth/kakao/callback` | 카카오 콜백 (앱 딥링크로 리다이렉트) | — | — | ✅ |
+| 1-2 | user | `POST` | `/api/v1/auth/apple/callback` | 애플 콜백 (`form_post`, 앱 딥링크로 리다이렉트) | — | — | ✅ |
+| 2 | user | `POST` | `/api/v1/auth/reissue` | 토큰 재발급 | — | — | ✅ |
+| 3 | user | `POST` | `/api/v1/auth/logout` | 로그아웃 | ✔ | — | ✅ |
+| 4 | user | `POST` | `/api/v1/users/terms` | 약관 동의 · 마케팅 동의 철회 | ✔ | — | ✅ |
+| 5 | user | `GET` | `/api/v1/users` | 계정 정보 조회 | ✔ | — | ✅ |
+| 6 | user | `DELETE` | `/api/v1/users` | 회원 탈퇴 | ✔ | — | ✅ |
+| 7 | user | `PATCH` | `/api/v1/users/nickname` | 닉네임 설정 | ✔ | — | ✅ |
+| 8 | letter | `POST` | `/api/v1/letters` | 편지 작성 + 피드백 요청 | ✔ | ✔ | ❌ |
+| 9 | letter | `GET` | `/api/v1/letters/{letterId}` | 편지 및 피드백 상세 조회 | ✔ | ✔ | ❌ |
+| 10 | letter | `GET` | `/api/v1/letters` | 전체 편지 리스트 조회 | ✔ | ✔ | ❌ |
+| 11 | letter | `GET` | `/api/v1/home` | 닉네임, 모은 우표 수 조회 | ✔ | ✔ | ❌ |
+| 12 | global | `GET` | `/api/v1/version` | 최소 지원 버전 조회 | — | — | ✅ |
 
-- **패키지** 열은 서버 구현 위치다. `version` 은 도메인이 아니라 `global` 하위이며, `/api/v1/home` 은 편지 집계가 본질이므로 `letter` 도메인에 둔다 ([기능명세 §2.1](./기능명세.md#21-패키지-구조)).
-- **온보딩** 열이 ✔ 인 API 는 온보딩 미완료 시 `USER_005` 로 차단된다 (§2.6).
+- **패키지** 열은 서버 구현 위치다. `version` 은 도메인이 아니라 `global` 하위이며, `/api/v1/home` 은 편지 집계가 본질이므로 `letter` 도메인에 둔다.
+- **온보딩** 열이 ✔ 인 API 는 온보딩 미완료 시 `USER_005` 로 차단된다.
+- **구현** 열은 현재 서버에 코드가 있는지를 뜻한다. ✅ 는 통합 테스트까지 있는 상태, ❌ 는 명세만 확정되고 아직 구현 전이다. `letter` 도메인 4종은 엔티티만 있고 컨트롤러·서비스가 없다. 각 절의 제목에도 같은 표시를 단다.
+- **`{provider}` 는 대문자**(`KAKAO` · `APPLE`)다. 콜백 경로만 provider 콘솔에 등록된 소문자 고정 문자열(`/auth/kakao/callback`)이며, 소문자로 `/api/v1/auth/kakao` 를 호출하면 `COMMON_001` 이다.
 
 ---
 
@@ -45,10 +47,11 @@
 | 헤더 | `Authorization: Bearer {accessToken}` |
 | Access Token 만료 | 30분 |
 | Refresh Token 만료 | 14일 |
-| 인증 불필요 | `GET /api/v1/auth/{provider}`, 콜백 2종, `POST /api/v1/auth/reissue`, `GET /api/v1/version` |
+| 인증 불필요 | `GET /api/v1/auth/{provider}`, 콜백 2종, `POST /api/v1/auth/reissue`, `GET /api/v1/version`, `GET /actuator/health`, Swagger UI (`/swagger-ui/**` · `/v3/api-docs/**`) |
 
 - Refresh Token 은 재발급 시 **회전(rotate)** 되며, 서버에 저장된 값과 다르면 `AUTH_004` 로 거절한다.
 - 인증 필터는 토큰 서명·만료를 검증한 뒤 **계정 상태까지 확인**한다. 탈퇴 처리된 계정의 토큰은 `AUTH_007`(401) 로 거절한다. 탈퇴 직후 최대 30분간 유효한 Access Token 이 남아 있기 때문이다.
+- **인증 불필요 경로는 필터가 실행되지 않는다.** 인가 설정(`permitAll`)은 필터 실행을 막지 못하므로 필터가 경로 목록을 직접 보고 건너뛴다. 재발급은 **만료된 Access Token 을 헤더에 달고 오는 것이 정상**이므로 이 구분이 필수다.
 
 ### 2.2 성공 응답
 
@@ -60,12 +63,13 @@
 | 생성 성공 | `201 Created` |
 | 처리 성공, 본문 없음 | `204 No Content` |
 
-**예외 2건**
+**예외 3건**
 
 | API | 코드 | 이유 |
 | --- | --- | --- |
-| 소셜 로그인 3종 (§3.1) | `302 Found` | JSON 을 반환하지 않는다. provider 로그인 페이지 또는 앱 딥링크로 리다이렉트한다 |
-| `POST /api/v1/letters` (중복) | `200 OK` | 60초 내 동일 본문 재요청은 새 편지를 만들지 않고 최초 편지를 반환하므로 생성이 아니다 (§4.1) |
+| 소셜 로그인 3종 | `302 Found` | JSON 을 반환하지 않는다. provider 로그인 페이지 또는 앱 딥링크로 리다이렉트한다 |
+| `POST /api/v1/letters` (중복) | `200 OK` | 60초 내 동일 본문 재요청은 새 편지를 만들지 않고 최초 편지를 반환하므로 생성이 아니다 |
+| `POST /api/v1/users/terms` | `200 OK` | 동의 이력 행을 INSERT 하지만 앱이 참조할 리소스가 새로 생기는 것이 아니라 **동의 상태가 갱신되는** 것이다. 응답도 생성된 행이 아니라 반영 후 상태(`termsAgreed`)를 돌려준다 |
 
 ### 2.3 에러 응답
 
@@ -90,10 +94,10 @@
 | `AUTH_005` | 401 | 토큰 누락 · 서명 위조 · 만료 (`AuthenticationEntryPoint`) |
 | `AUTH_006` | 403 | 인증은 됐으나 권한이 부족 (`AccessDeniedHandler`). MVP 에 관리자 API 가 없어 실제로는 발생하지 않는다 |
 | `AUTH_007` | 401 | 탈퇴 처리된 계정의 토큰 (인증 필터) |
-| `COMMON_001` | 400 | 요청 바디 파싱 실패, 타입 불일치, 쿼리 파라미터 제약 위반 |
+| `COMMON_001` | 400 | 요청 바디 파싱 실패, 타입 불일치, 쿼리 파라미터 제약 위반. **정의되지 않은 enum 값**(`{provider}`, `platform`, 약관 `type` 등)도 컨트롤러에 닿기 전 타입 변환에서 여기로 떨어진다 |
 | `COMMON_002` | 404 | 존재하지 않는 경로 |
 | `COMMON_003` | 405 | 지원하지 않는 HTTP 메서드 |
-| `COMMON_004` | 429 | Rate limit 초과 ([기능명세 §4.2](./기능명세.md#42-성능--제한)) |
+| `COMMON_004` | 429 | Rate limit 초과 |
 | `COMMON_005` | 500 | 처리되지 않은 서버 오류 |
 
 전체 목록은 [7. 에러 코드](#7-에러-코드) 참고.
@@ -103,11 +107,13 @@
 | 값 | 기준 |
 | --- | --- |
 | 편지 작성 시각 (`writtenAt` + `timeZone`) | **클라이언트가 명시**한다 |
-| 편지 날짜 (`date`) | `writtenAt` 을 `timeZone` 기준으로 환산한 날짜 |
-| 서버 생성 시각 (`createdAt`) | 서버 저장 시각을 요청의 `timeZone` 기준으로 변환해 반환 |
+| 편지 날짜 (`date`) | `writtenAt` 의 날짜 부분 |
+| 서버 생성 시각 (`createdAt`) | 서버 저장 시각(KST)을 **편지에 저장된 타임존** 기준으로 변환해 반환 |
 | 그 외 모든 서버 시각 | `Asia/Seoul` (KST) |
 
 편지 날짜에 KST 를 강제하지 않는다. 해외에서 작성한 편지는 현지 날짜로 기록된다.
+
+요청의 `timeZone` 은 검증에만 쓰고 버리는 값이 아니라 **편지 행에 함께 저장된다**(`LETTERS.time_zone`). 그래야 나중에 조회할 때도 `createdAt` 을 작성지 기준으로 되돌릴 수 있다.
 
 ### 2.5 페이징
 
@@ -126,7 +132,7 @@
 | 항목 | 내용 |
 | --- | --- |
 | 판별 | `SERVICE` · `PRIVACY` 의 최신 동의 이력이 모두 `agreed = true` **그리고** 닉네임이 등록됨 |
-| 차단 대상 | §1 목록의 **온보딩** 열이 ✔ 인 API (`/api/v1/letters` 3종, `/api/v1/home`) |
+| 차단 대상 | 엔드포인트 목록의 **온보딩** 열이 ✔ 인 API (`/api/v1/letters` 3종, `/api/v1/home`) |
 | 위반 시 | `USER_005` (400) |
 
 - 이 가드 덕분에 편지 목록·홈 응답의 `nickname` 은 **항상 non-null** 이다.
@@ -136,7 +142,7 @@
 
 ## 3. user
 
-### 3.1 소셜 로그인 (authorization code 플로우)
+### 3.1 소셜 로그인 (authorization code 플로우) ✅
 
 > **API 설명**
 > - 카카오 / 애플 소셜 로그인을 수행합니다. 가입되지 않은 유저라면 회원가입을 함께 처리합니다.
@@ -149,7 +155,7 @@
 > - 가입 직후에는 약관 동의 이력이 없고 닉네임이 `null` 이다. 앱은 딥링크로 받은 온보딩 상태로 진입 화면을 결정한다.
 > - Refresh Token 은 **유저당 1개만 유지**한다(단일 세션). 새로 로그인하면 이전 토큰은 무효가 된다.
 > - **탈퇴한 계정으로 다시 로그인하면 항상 신규 가입**이다 (`isNewUser=true`). 이전 편지는 복원되지 않는다.
-> - 서버는 provider 가 준 refresh token 을 함께 저장한다. 탈퇴 시 연결 해제(revoke)에 필요하기 때문이다 ([ERD §2.1](./ERD.md#21-users--사용자)).
+> - 서버는 provider 가 준 refresh token 을 함께 저장한다. 탈퇴 시 연결 해제(revoke)에 필요하기 때문이다.
 
 #### 전체 흐름
 
@@ -173,7 +179,7 @@ sequenceDiagram
 
 ---
 
-#### 3.1.1 `GET /api/v1/auth/{provider}` — 로그인 시작
+#### 3.1.1 `GET /api/v1/auth/{provider}` — 로그인 시작 ✅
 
 **Path Variable**
 
@@ -194,11 +200,13 @@ Location: https://kauth.kakao.com/oauth/authorize?client_id=...&redirect_uri=...
 
 | code | status | 상황 |
 | --- | --- | --- |
-| `AUTH_001` | 400 | 지원하지 않는 `provider` |
+| `COMMON_001` | 400 | 지원하지 않는 `provider`, 또는 소문자 등 정의되지 않은 표기 |
+
+> `{provider}` 는 `OauthProvider` enum 으로 받는다. 정의되지 않은 값은 컨트롤러에 닿기 전 타입 변환 단계에서 걸러지므로 `COMMON_001` 로 통일한다.
 
 ---
 
-#### 3.1.2 콜백 — `GET /api/v1/auth/kakao/callback` · `POST /api/v1/auth/apple/callback`
+#### 3.1.2 콜백 — `GET /api/v1/auth/kakao/callback` · `POST /api/v1/auth/apple/callback` ✅
 
 provider 가 호출하는 주소다. **앱이 직접 호출하지 않는다.**
 
@@ -210,7 +218,8 @@ provider 가 호출하는 주소다. **앱이 직접 호출하지 않는다.**
 **Request Parameter**
 
 - [필수] `code` (String): provider 가 발급한 인가 코드
-- [필수] `id_token` (String): **Apple 전용.** 회원 식별자(`sub`)와 이메일을 여기서 꺼낸다
+- [필수 · Apple 만] `id_token` (String): 회원 식별자(`sub`)와 이메일을 여기서 꺼낸다. Kakao 콜백에는 오지 않는다
+- [선택] `state` (String): 로그인 시작 때 서버가 붙여 보낸 값이 그대로 돌아온다. **MVP 는 이 값을 검증하지 않는다**
 
 ##### `성공` Response 302
 
@@ -258,7 +267,7 @@ Location: dearjolly://auth/callback
 
 ---
 
-### 3.2 `POST /api/v1/auth/reissue`
+### 3.2 `POST /api/v1/auth/reissue` ✅
 
 > **API 설명**
 > - Refresh Token 으로 Access Token 을 재발급합니다.
@@ -267,7 +276,7 @@ Location: dearjolly://auth/callback
 > **도메인 규칙**
 > - Access Token 만료는 30분, Refresh Token 만료는 14일이다.
 > - 전달받은 Refresh Token 이 **서버에 저장된 값과 문자열까지 일치**해야 한다. 불일치하면 탈취된 이전 토큰의 재사용으로 보고 거절한다.
-> - 만료된 Access Token 으로도 호출할 수 있도록 인증 필터에서 제외한다.
+> - **만료된 Access Token 으로도 호출할 수 있도록 인증 필터에서 제외한다.** `Authorization` 헤더가 실려 와도 서버는 읽지 않는다. 앱의 토큰 인터셉터가 모든 요청에 헤더를 붙여도 재발급은 정상 동작한다.
 > - 탈퇴 처리된 계정의 Refresh Token 은 탈퇴 시점에 `null` 이 되므로 `AUTH_004` 로 거절된다.
 
 #### Request
@@ -278,7 +287,7 @@ Location: dearjolly://auth/callback
 /api/v1/auth/reissue
 ```
 
-**Authorization 헤더**: 불필요 (만료된 Access Token 으로도 호출 가능)
+**Authorization 헤더**: 불필요. 만료된 토큰이 실려 있어도 서버가 무시하므로 앱이 헤더를 떼어낼 필요가 없다.
 
 **Body**
 
@@ -320,7 +329,7 @@ Location: dearjolly://auth/callback
 
 ---
 
-### 3.3 `POST /api/v1/auth/logout`
+### 3.3 `POST /api/v1/auth/logout` ✅
 
 > **API 설명**
 > - 서버에 저장된 Refresh Token 을 무효화합니다.
@@ -328,7 +337,7 @@ Location: dearjolly://auth/callback
 >
 > **도메인 규칙**
 > - 로그아웃은 **세션만 끊는다.** 편지·계정 데이터는 그대로 보존된다 (디자인 문구: *"편지는 잘 보관해 둘게요. 언제든 다시 와요!"*).
-> - 계정과 데이터를 지우는 것은 회원 탈퇴(§3.6)뿐이다.
+> - 계정과 데이터를 지우는 것은 회원 탈퇴뿐이다.
 > - 온보딩 미완료 상태에서도 호출할 수 있다.
 
 #### Request
@@ -355,11 +364,11 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 #### `실패` Error Response
 
-공통 인증 실패 코드(`AUTH_005` · `AUTH_007`)만 발생한다. §2.3 참고.
+공통 인증 실패 코드(`AUTH_005` · `AUTH_007`)만 발생한다.
 
 ---
 
-### 3.4 `POST /api/v1/users/terms`
+### 3.4 `POST /api/v1/users/terms` ✅
 
 > **API 설명**
 > - 온보딩 약관 동의 내역을 저장합니다.
@@ -368,11 +377,12 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 >
 > **도메인 규칙**
 > - `MARKETING` 은 선택 항목이며, 동의하지 않아도 서비스 이용에 제한이 없다.
-> - 동의 내역은 **덮어쓰지 않고 이력으로 누적**한다. 요청에 담긴 항목마다 새 행이 쌓이며, 현재 상태는 항목별 최신 행이다 ([ERD §2.2](./ERD.md#22-terms_agreements--약관-동의-이력)).
+> - 동의 내역은 **덮어쓰지 않고 이력으로 누적**한다. 요청에 담긴 항목마다 새 행이 쌓이며, 현재 상태는 항목별 최신 행이다.
 > - 동의 시각은 **서버 시각(KST)** 으로 기록한다. 동의 시점의 약관 버전도 함께 기록한다.
 > - **약관이 개정돼도 재동의를 요구하지 않는다.** 버전은 사후 입증용 기록이며 `termsAgreed` 판별에 쓰지 않는다.
 > - 요청 바디에 포함하지 않은 항목은 건드리지 않는다. 마케팅만 철회하려면 `MARKETING` 한 건만 보내면 된다.
-> - 약관 본문은 서버가 제공하지 않는다. 웹뷰 링크(§5.1)로 처리한다.
+> - **`USER_002` 로 실패하면 그 요청의 INSERT 는 전부 롤백된다.** 필수 약관이 채워지지 않은 채 동의 이력만 절반 쌓이는 상태를 만들지 않기 위해서다. 앱은 필수 2건을 항상 함께 보낸다.
+> - 약관 본문은 서버가 제공하지 않는다. 웹뷰 링크로 처리한다.
 
 #### Request
 
@@ -437,11 +447,14 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 | code | status | 상황 |
 | --- | --- | --- |
 | `USER_002` | 400 | 이 요청 반영 후에도 `SERVICE` 또는 `PRIVACY` 가 미동의 상태 |
-| `USER_001` | 404 | 사용자를 찾을 수 없음 |
+| `USER_001` | 404 | 사용자를 찾을 수 없음 (아래 참고) |
+
+> 인증 필터가 요청마다 유저 행을 확인하므로, 행이 없는 토큰은 컨트롤러에 닿기 전 `AUTH_005`(401) 로 끝난다. `USER_001` 은 필터 통과와 서비스 실행 사이에 유예기간 만료 배치가 그 행을 지운 경우를 위한 방어선이다.
+
 
 ---
 
-### 3.5 `GET /api/v1/users`
+### 3.5 `GET /api/v1/users` ✅
 
 > **API 설명**
 > - 설정 화면에 표시할 계정 정보를 조회합니다.
@@ -491,9 +504,11 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 }
 ```
 
+유저 행이 없으면 필터 단계에서 `AUTH_005` 로 끝나므로 실제로는 거의 나가지 않는다.
+
 ---
 
-### 3.6 `DELETE /api/v1/users`
+### 3.6 `DELETE /api/v1/users` ✅
 
 > **API 설명**
 > - 회원 탈퇴를 처리합니다.
@@ -537,7 +552,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 1. 소셜 연결 해제 (Kakao `unlink` / Apple `revoke`, 저장해 둔 provider refresh token 사용) — **트랜잭션 밖에서** 수행하며, 실패해도 로그만 남기고 탈퇴는 계속 진행
 2. 계정을 탈퇴 상태로 전환하고 Refresh Token 을 무효화 (단일 트랜잭션)
-3. 유예기간(30일) 경과 후 배치가 유저 행을 삭제하면 약관 이력·편지·피드백·교정 조각·팁이 cascade 로 함께 제거된다 ([ERD §3.3](./ERD.md#33-삭제-전파))
+3. 유예기간(30일) 경과 후 배치가 유저 행을 삭제하면 약관 이력·편지·피드백·교정 조각·팁이 cascade 로 함께 제거된다
 
 > 삭제 순서를 서버 코드가 지정하지 않는다. 유저 엔티티 하나를 삭제하면 JPA cascade 가 전 구간을 연쇄 삭제한다.
 
@@ -553,7 +568,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 ---
 
-### 3.7 `PATCH /api/v1/users/nickname`
+### 3.7 `PATCH /api/v1/users/nickname` ✅
 
 > **API 설명**
 > - 닉네임을 등록하거나 변경합니다.
@@ -593,13 +608,15 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 | 순서 | 규칙 | 값 | code |
 | --- | --- | --- | --- |
-| 1 | 길이 | 1 ~ 20자 (문자 수) | `USER_004` |
+| 1 | 길이 | 1 ~ 20자 (문자 수). `null` · `""` 는 0자로 본다 | `USER_004` |
 | 2 | 허용 문자 | `^[A-Za-z0-9]+$` | `USER_003` |
 | — | 공백 · 특수기호 · 한글 | 불가 | `USER_003` |
 | — | 중복 | **허용** (표시용 이름) | — |
 
 - 정규식에 길이 수량자(`{1,20}`)를 넣지 않는다. 넣으면 길이 위반과 문자 위반이 같은 코드로 뭉개진다.
-- 21자 영문을 보내면 `USER_004`, 5자 한글을 보내면 `USER_003`, 21자 한글을 보내면 `USER_004` 다.
+- 검증은 **전 구간을 서비스가 맡는다.** 요청 DTO 에 Bean Validation 어노테이션을 두지 않는다 — 어노테이션이 먼저 걸리면 `null` · 빈 값 · 공백이 모두 `COMMON_001` 이 되어 사유를 구분할 수 없다.
+- 21자 영문은 `USER_004`, 5자 한글은 `USER_003`, 21자 한글은 `USER_004` 다.
+- `null` 과 `""` 는 0자이므로 `USER_004`, **공백만 있는 `"   "` 는 길이(3자)를 통과해 문자 검증에서 `USER_003`** 이다.
 - 앱은 사유별 문구(`공백을 포함할 수 없어요` / `특수 기호를 포함할 수 없어요` / `한글을 포함할 수 없어요`)를 클라이언트에서 판별해 표시한다. 서버는 최종 방어선이다.
 
 #### `성공` Response 200
@@ -632,7 +649,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 ## 4. letter
 
-### 4.1 `POST /api/v1/letters`
+### 4.1 `POST /api/v1/letters` ❌
 
 > **API 설명**
 > - 새로운 편지를 작성합니다.
@@ -673,7 +690,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 - [필수] `content` (String): 편지 내용 (최대 500자)
 - [필수] `writtenAt` (LocalDateTime): **기기 로컬 기준** 작성 시각 (`yyyy-MM-dd'T'HH:mm:ss`)
-- [필수] `timeZone` (String): IANA 타임존 ID (예: `Asia/Seoul`)
+- [필수] `timeZone` (String): IANA 타임존 ID (예: `Asia/Seoul`). 편지와 함께 저장되어 이후 조회의 시각 변환 기준이 된다
 
 **검증 규칙**
 
@@ -683,10 +700,10 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 | 길이 | **500자 초과** 불가 (문자 수, 공백 포함) | `LETTER_003` |
 | 언어 | `[가-힣ㄱ-ㅎㅏ-ㅣ]` 포함 시 거부 | `LETTER_004` |
 | 타임존 | `ZoneId` 로 해석 가능한 IANA ID | `LETTER_005` |
-| 작성 시각 | `writtenAt` + `timeZone` 으로 환산한 시각이 서버 현재 시각 기준 ±24시간 이내 | `LETTER_005` |
+| 작성 시각 | `writtenAt` 을 `timeZone` 으로 해석한 절대 시각이 서버 현재 시각 기준 ±24시간 이내 | `LETTER_005` |
 
 - 0자·공백은 `LETTER_001` 이 담당하므로 `LETTER_003` 은 **상한만** 판정한다. 두 코드의 담당 구간이 겹치지 않는다.
-- 편지 날짜(`date`)는 `writtenAt` 을 `timeZone` 기준으로 환산한 날짜다. 앱 작성 화면의 `DATE:` 표시와 항상 일치한다.
+- 편지 날짜(`date`)는 `writtenAt` 의 날짜 부분이다. `writtenAt` 이 이미 기기 로컬 시각이므로 별도 환산이 없고, 앱 작성 화면의 `DATE:` 표시와 항상 일치한다. `timeZone` 은 ±24시간 검증과 `createdAt` 변환에 쓴다.
 - 하루에 쓸 수 있는 편지 **개수 제한은 없다.**
 - 편지는 전달 후 **수정 · 삭제할 수 없다.**
 
@@ -701,8 +718,8 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 ```
 
 - [필수] `letterId` (Long): 편지 ID
-- [필수] `date` (LocalDate): 편지 날짜 (`writtenAt` + `timeZone` 기준)
-- [필수] `createdAt` (LocalDateTime): 저장 시각 (요청의 `timeZone` 기준)
+- [필수] `date` (LocalDate): 편지 날짜 (`writtenAt` 의 날짜 부분)
+- [필수] `createdAt` (LocalDateTime): 저장 시각 (요청의 `timeZone` 기준으로 변환)
 
 #### `성공` Response 200 — 중복 전달
 
@@ -735,11 +752,11 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 | `LETTER_003` | 400 | 500자 초과 |
 | `LETTER_004` | 400 | 한글 포함 |
 | `LETTER_005` | 400 | `writtenAt` / `timeZone` 이 올바르지 않음 |
-| `USER_005` | 400 | 온보딩 미완료 (§2.6) |
+| `USER_005` | 400 | 온보딩 미완료 |
 
 ---
 
-### 4.2 `GET /api/v1/letters/{letterId}`
+### 4.2 `GET /api/v1/letters/{letterId}` ❌
 
 > **API 설명**
 > - 특정 편지의 상세 내용과 도착한 피드백(교정문, 팁 등)을 조회합니다.
@@ -751,7 +768,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 > - 읽음 처리는 이 API 의 **부수 효과**다. 별도의 읽음 처리 API 는 없으며, 한 번 읽으면 다시 미열람으로 되돌아가지 않는다.
 > - 교정 결과는 원문 전체를 순서대로 자른 조각(`correctionSegments`)으로 내려간다. 조각을 이어붙이면 원문·교정문이 그대로 복원되는 것을 서버가 보장한다.
 > - 팁은 편지마다 0~3개다. 없을 수도 있다 (잘 쓴 편지).
-> - 우표는 **AI 가 편지 내용에 어울리는 것으로 고른다.** 우표 종류는 DB(`stamps` 테이블)가 관리하므로 운영 중 추가·교체될 수 있다. 앱은 `stampImage` URL 을 그대로 표시하고 **우표 종류를 코드로 분기하지 않는다.**
+> - 우표는 **AI 가 편지 내용에 어울리는 것으로 고른다.** 우표 종류는 DB(`stamps` 테이블)가 관리하므로 운영 중 추가·교체될 수 있다. 앱은 `stampImage` URL 을 그대로 표시하고 **우표 종류를 코드로 분기하지 않는다.** 서버가 우표에 대해 가진 정보도 이름과 이미지뿐이라 응답에 실을 설명 문구가 없다.
 
 #### Request
 
@@ -814,7 +831,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - [필수] `letterId` (Long): 편지 ID
 - [필수] `date` (LocalDate): 편지 날짜 (`yyyy-MM-dd`)
 - [필수] `originalContent` (String): 원본 편지 내용
-- [필수] `status` (String): 편지 상태 (`SUBMITTED`, `FEEDBACK_IN_PROGRESS`, `FEEDBACK_COMPLETED`)
+- [필수] `status` (String): 편지 상태 (`SUBMITTED`, `FEEDBACK_IN_PROGRESS`, `FEEDBACK_COMPLETED`). 내부 상태 `FEEDBACK_FAILED` 는 목록과 동일하게 `SUBMITTED` 로 치환돼 내려간다
 - [선택] `stampImage` (String): 우표 이미지 URL. 서버가 `MINIO_PUBLIC_ENDPOINT` + 버킷 + `image_key` 로 조립해 내려준다 (피드백 완료 전에는 `null`)
 - [선택] `feedback` (Object): 피드백 정보 (**피드백 생성 전일 경우 `null`**)
     - [필수] `feedbackId` (Long): 피드백 ID
@@ -848,11 +865,11 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 | code | status | 상황 |
 | --- | --- | --- |
 | `LETTER_002` | 404 | 존재하지 않는 편지 **또는 타인의 편지** (존재 여부를 노출하지 않기 위해 403 대신 404) |
-| `USER_005` | 400 | 온보딩 미완료 (§2.6) |
+| `USER_005` | 400 | 온보딩 미완료 |
 
 ---
 
-### 4.3 `GET /api/v1/letters`
+### 4.3 `GET /api/v1/letters` ❌
 
 > **API 설명**
 > - 홈 화면에 진입했을 때 보여질 편지 리스트를 조회합니다.
@@ -865,8 +882,8 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 > - 피드백 완료 전 카드는 우표가 없고(`stampImage: null`) 상세로 들어갈 수 없다.
 > - 정렬은 **서버가 처리**한다. 페이징된 일부만 앱에서 뒤집으면 전체 정렬이 깨지기 때문이다.
 > - `stampImage` 는 DB 가 관리하는 우표 마스터의 이미지 URL 이다. 종류가 운영 중 늘어날 수 있으므로 앱은 **URL 을 그대로 렌더링**한다.
-> - DB 에는 파일 키(`stamps.image_key`)만 저장되고, 서버가 응답 시점에 `MINIO_PUBLIC_ENDPOINT + 버킷 + 파일 키` 로 **완성된 URL 을 조립해 내려준다** ([ERD §2.4](./ERD.md#24-stamps--우표-마스터)). 앱은 키를 조합할 필요가 없다.
-> - 온보딩 가드(§2.6)를 통과한 유저만 호출할 수 있으므로 `nickname` 은 **항상 non-null** 이다.
+> - DB 에는 파일 키(`stamps.image_key`)만 저장되고, 서버가 응답 시점에 `MINIO_PUBLIC_ENDPOINT + 버킷 + 파일 키` 로 **완성된 URL 을 조립해 내려준다**. 앱은 키를 조합할 필요가 없다.
+> - 온보딩 가드를 통과한 유저만 호출할 수 있으므로 `nickname` 은 **항상 non-null** 이다.
 
 #### Request
 
@@ -900,7 +917,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
         {
             "letterId": 15,
             "date": "2025-11-01",
-            "summary": "I got flowers from a friend today. It really touc",
+            "summary": "I got flowers from a friend today. It really touch",
             "status": "FEEDBACK_COMPLETED",
             "isRead": false,
             "stampImage": "http://localhost:9000/dear-jolly-stamps/stamps/flower_stamp.png"
@@ -968,12 +985,12 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 | code | status | 상황 |
 | --- | --- | --- |
 | `USER_001` | 404 | 사용자를 찾을 수 없음 |
-| `USER_005` | 400 | 온보딩 미완료 (§2.6) |
+| `USER_005` | 400 | 온보딩 미완료 |
 | `COMMON_001` | 400 | `page` · `size` · `sort` 가 허용 범위를 벗어남 |
 
 ---
 
-### 4.4 `GET /api/v1/home`
+### 4.4 `GET /api/v1/home` ❌
 
 > **API 설명**
 > - 홈 화면 헤더에 보여질 유저 정보(닉네임, 모은 우표 수)를 조회합니다.
@@ -982,7 +999,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 > **도메인 규칙**
 > - `totalStampCount` 는 **피드백이 완료되어 우표가 도착한 편지 수**다. 편지를 써도 검토가 끝나기 전에는 늘지 않는다.
 > - `GET /api/v1/letters` 의 동일 필드와 항상 같은 값을 반환한다. 두 API 는 같은 서비스 메서드를 호출한다.
-> - 온보딩 가드(§2.6)를 통과한 유저만 호출할 수 있으므로 `nickname` 은 **항상 non-null** 이다.
+> - 온보딩 가드를 통과한 유저만 호출할 수 있으므로 `nickname` 은 **항상 non-null** 이다.
 
 #### Request
 
@@ -1025,19 +1042,21 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 | code | status | 상황 |
 | --- | --- | --- |
 | `USER_001` | 404 | 사용자를 찾을 수 없음 |
-| `USER_005` | 400 | 온보딩 미완료 (§2.6) |
+| `USER_005` | 400 | 온보딩 미완료 |
 
 ---
 
 ## 5. global
 
-### 5.1 `GET /api/v1/version`
+### 5.1 `GET /api/v1/version` ✅
 
 > **API 설명**
 > - 앱 최소 지원 버전과 정책 페이지 URL 을 조회합니다.
 >
 > **도메인 규칙**
-> - 앱 버전이 `minSupportedVersion` 미만이면 앱이 강제 업데이트를 유도한다.
+> - 앱 버전이 `minSupportedVersion` 미만이면 앱이 강제 업데이트를 유도한다. **판정 주체는 앱**이다. 서버는 클라이언트 버전을 받지 않으므로 개별 요청이 업데이트 대상인지 알 수 없다.
+> - `forceUpdate` 는 서버가 계산해 내려주는 **보조 신호**다. `latestVersion == minSupportedVersion` 이면 `true` 다 — 최신 버전 아래를 더 받아주지 않겠다는 뜻이기 때문이다. 앱은 자기 버전과 `minSupportedVersion` 을 직접 비교하고 이 값을 참고만 한다.
+> - 응답 값은 전부 **서버 설정**에서 온다(`dearjolly.version.*`). DB 가 아니라 설정으로 두는 이유는 버전 상향이 배포와 같은 리듬으로 일어나고, 관리 화면이 없는 MVP 에서 DB 행을 고치려면 결국 콘솔에 붙어야 하기 때문이다.
 > - **공지사항 · 개인정보처리방침 · 이용약관은 서버 API 로 제공하지 않는다.** 이 응답의 웹뷰 링크로 처리한다.
 > - 설정 화면 하단의 `현재 버전` 표기는 앱 로컬 값이며 이 응답과 무관하다.
 > - 인증도 온보딩도 필요 없다. 로그인 전에 호출할 수 있어야 하기 때문이다.
@@ -1054,7 +1073,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 **Query Parameter**
 
-- [선택] `platform`: 플랫폼 (`IOS`, `AOS`). 생략 시 공통 값 반환
+- [선택] `platform`: 플랫폼 (`IOS`, `AOS`). 생략하면 공통 값을 반환한다. 값을 주면 **그 플랫폼에 설정된 재정의만** 공통 값을 덮어쓴다 — 한쪽만 심사에 걸려 버전이 벌어지는 상황을 위한 것이다. 정의되지 않은 값은 `COMMON_001` 이다
 
 #### `성공` Response 200
 
@@ -1076,9 +1095,15 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - [선택] `termsOfServiceUrl` (String): 서비스 이용약관 URL
 - [선택] `noticeUrl` (String): 공지사항 URL
 
+#### `실패` Error Response
+
+| code | status | 상황 |
+| --- | --- | --- |
+| `COMMON_001` | 400 | `platform` 이 `IOS` · `AOS` 가 아님 |
+
 - 설정 화면의 `현재 버전 1.0.0 (MVP)` 는 앱 로컬 값이고, 이 API 는 업데이트 유도 · 정책 링크 제공용이다.
 - 공지사항 · 개인정보처리방침 · 이용약관은 별도 API 없이 **웹뷰 링크**로 처리한다.
-- 약관 버전은 이 응답에 포함하지 않는다. MVP 는 재동의를 유도하지 않기 때문이다 ([기능명세 §3.2.1](./기능명세.md#321-약관-동의)).
+- 약관 버전은 이 응답에 포함하지 않는다. MVP 는 재동의를 유도하지 않기 때문이다.
 
 ---
 
@@ -1091,8 +1116,9 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 | `Status` (letter) | `SUBMITTED`, `FEEDBACK_IN_PROGRESS`, `FEEDBACK_COMPLETED` | `FEEDBACK_IN_PROGRESS` 는 피드백 생성 중. 앱은 `SUBMITTED` 와 동일하게 렌더링한다. 내부 상태 `FEEDBACK_FAILED` 는 API 응답에서 `SUBMITTED` 로 변환해 내려보낸다 |
 | `CorrectionType` | `UNCHANGED`, `MODIFIED` | 응답 필드명은 `type`, DB 컬럼명은 `correction_type` |
 | `Sort` | `LATEST`, `OLDEST` | |
+| `Platform` | `IOS`, `AOS` | `GET /api/v1/version` 의 `platform` 쿼리 파라미터 |
 
-`Role`(`ROLE_USER` / `ROLE_ADMIN`), `UserStatus`(`ACTIVE` / `WITHDRAWN`) 는 서버 내부 enum 이며 API 응답에 노출되지 않는다. 정의는 [ERD §4](./ERD.md#4-enum-정의) 참고.
+`Role`(`ROLE_USER` / `ROLE_ADMIN`), `UserStatus`(`ACTIVE` / `WITHDRAWN`) 는 서버 내부 enum 이며 API 응답에 노출되지 않는다.
 
 ---
 
@@ -1104,23 +1130,22 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 | code | status | message | 발생 지점 |
 | --- | --- | --- | --- |
-| `AUTH_001` | 400 | 지원하지 않는 로그인 방식입니다. | `GET /auth/{provider}` |
 | `AUTH_002` | 401 | 소셜 로그인 인증에 실패했습니다. | 소셜 로그인 콜백 |
 | `AUTH_003` | 502 | 소셜 로그인 서버와 통신하지 못했습니다. | 소셜 로그인 콜백 |
 | `AUTH_004` | 401 | 로그인이 만료되었습니다. 다시 로그인해주세요. | `POST /auth/reissue` |
-| `AUTH_005` | 401 | 유효하지 않은 토큰입니다. | 인증 필터 공통 (§2.3) |
-| `AUTH_006` | 403 | 접근 권한이 없습니다. | Security `AccessDeniedHandler` 공통 (§2.3) |
-| `AUTH_007` | 401 | 탈퇴한 계정입니다. 다시 로그인해주세요. | 인증 필터 공통 — `status = WITHDRAWN` (§2.3) |
+| `AUTH_005` | 401 | 유효하지 않은 토큰입니다. | 인증 필터 공통 |
+| `AUTH_006` | 403 | 접근 권한이 없습니다. | Security `AccessDeniedHandler` 공통 |
+| `AUTH_007` | 401 | 탈퇴한 계정입니다. 다시 로그인해주세요. | 인증 필터 공통 — `status = WITHDRAWN` |
 
 ### 7.2 USER
 
 | code | status | message | 발생 지점 |
 | --- | --- | --- | --- |
-| `USER_001` | 404 | 사용자를 찾을 수 없습니다. | 유저 조회가 필요한 모든 API |
+| `USER_001` | 404 | 사용자를 찾을 수 없습니다. | 유저 조회가 필요한 모든 API. **인증 필터가 유저 행을 먼저 확인하므로 실제 도달은 극히 드물다** — 없는 유저의 토큰은 `AUTH_005` 로 끝난다 |
 | `USER_002` | 400 | 필수 약관에 모두 동의해야 합니다. | `POST /users/terms` |
 | `USER_003` | 400 | 닉네임은 공백, 특수기호, 한글 없이 작성해야 합니다. | `PATCH /users/nickname` |
 | `USER_004` | 400 | 닉네임은 1자 이상 20자 이하여야 합니다. | `PATCH /users/nickname` |
-| `USER_005` | 400 | 온보딩을 먼저 완료해야 합니다. | 온보딩 가드 (§2.6) |
+| `USER_005` | 400 | 온보딩을 먼저 완료해야 합니다. | 온보딩 가드 |
 
 ### 7.3 LETTER
 
@@ -1134,7 +1159,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 ### 7.4 COMMON
 
-전부 `GlobalExceptionHandler` 가 공통으로 생산한다. 개별 API 의 실패 표에는 적지 않는다 (§2.3).
+전부 `GlobalExceptionHandler` 가 공통으로 생산한다. 개별 API 의 실패 표에는 적지 않는다.
 
 | code | status | message | 발생 지점 |
 | --- | --- | --- | --- |

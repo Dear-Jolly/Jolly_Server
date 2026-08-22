@@ -14,10 +14,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 검토 화면 하단에 노출하는 한국어 학습 팁. 한 피드백당 0~3행이며
- * API 응답에서는 문자열 배열로 평탄화한다.
- */
 @Entity
 @Table(
         name = "FEEDBACK_TIPS",
@@ -29,7 +25,6 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class FeedbackTips {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "feedback_tip_id")
@@ -45,14 +40,12 @@ public class FeedbackTips {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
-    // ========= 생성 메서드 =========
     public static FeedbackTips create(Feedbacks feedback, String content, int sortOrder) {
         FeedbackTips tip = new FeedbackTips(feedback, content, sortOrder);
         feedback.addTip(tip);
         return tip;
     }
 
-    // ========= 생성자 =========
     private FeedbackTips(Feedbacks feedback, String content, int sortOrder) {
         validateContent(content);
         validateSortOrder(sortOrder);
@@ -61,7 +54,6 @@ public class FeedbackTips {
         this.sortOrder = sortOrder;
     }
 
-    // ========= 검증 메서드 =========
     private void validateContent(String content) {
         if (content == null || content.isBlank()) {
             throw new IllegalArgumentException("학습 팁 내용은 필수입니다.");

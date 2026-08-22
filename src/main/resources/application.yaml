@@ -13,8 +13,12 @@ spring:
 
   jpa:
     hibernate:
-      # 스키마는 Flyway 가 소유한다. 전 환경 validate 고정 (기능명세 §4.3).
-      # create/update 를 쓰면 Flyway 가 만든 테이블을 Hibernate 가 덮어써 초기 데이터가 날아간다.
+      # 스키마는 Flyway 가 소유한다. 기본값은 validate 로 고정한다.
+      # 기본값을 절대 바꾸지 않는다 — 키가 빠진 환경에서 스키마가 조용히 뒤집힌다.
+      #
+      # 출시 전 개발 단계에 한해 .env 에서만 update 로 내려 쓴다. 그때는 FLYWAY_ENABLED=false
+      # 를 반드시 함께 내려 스키마 소유자를 하나로 유지한다. update 는 컬럼을 추가할 뿐
+      # 삭제하거나 타입을 줄이지 않으므로, 컬럼을 지웠다면 ./run.sh reset-db 로 한 번 비운다.
       ddl-auto: ${JPA_DDL_AUTO:validate}
     show-sql: ${JPA_SHOW_SQL:true}
     # 응답 DTO 는 서비스 트랜잭션 안에서 조립하므로 뷰 렌더링 시점에 쿼리가 나갈 일이 없다.
@@ -24,15 +28,27 @@ spring:
       hibernate:
         format_sql: true
 
+  # 마이그레이션이 소유한 스키마와 Hibernate 가 만든 스키마는 동시에 존재할 수 없다.
+  # ddl-auto=create 로 개발하는 동안에는 false 로 내린다.
   flyway:
-    enabled: true
+    enabled: ${FLYWAY_ENABLED:true}
     baseline-on-migrate: true
-    # 초기 데이터에는 파일 키만 들어가므로 환경 의존 placeholder 가 필요 없다 (ERD §2.4).
+    # 초기 데이터에는 파일 키만 들어가므로 환경 의존 placeholder 가 필요 없다.
 
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
+
+# 헬스체크만 연다. 나머지 actuator 엔드포인트는 인증 경로가 없어 노출하지 않는다.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
 
 # ===== MinIO (우표 이미지 저장소) =====
 minio:
@@ -53,6 +69,22 @@ dearjolly:
 
   withdrawal:
     retention-days: ${WITHDRAWAL_RETENTION_DAYS:30}
+
+  # 앱 최소 지원 버전과 정책 페이지 URL.
+  # platforms 아래 값을 채우면 그 플랫폼만 공통 값을 덮어쓴다.
+  version:
+    latest: ${APP_LATEST_VERSION:1.0.0}
+    min-supported: ${APP_MIN_SUPPORTED_VERSION:1.0.0}
+    privacy-policy-url: ${POLICY_PRIVACY_URL:https://dearjolly.com/privacy}
+    terms-of-service-url: ${POLICY_TERMS_URL:https://dearjolly.com/terms}
+    notice-url: ${POLICY_NOTICE_URL:https://dearjolly.com/notice}
+    platforms:
+      IOS:
+        latest: ${APP_LATEST_VERSION_IOS:}
+        min-supported: ${APP_MIN_SUPPORTED_VERSION_IOS:}
+      AOS:
+        latest: ${APP_LATEST_VERSION_AOS:}
+        min-supported: ${APP_MIN_SUPPORTED_VERSION_AOS:}
 
   oauth:
     # 인증 완료 후 앱으로 돌아갈 딥링크. 토큰이 쿼리 파라미터로 실린다.

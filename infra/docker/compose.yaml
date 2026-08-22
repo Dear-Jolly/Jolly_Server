@@ -117,7 +117,10 @@ services:
       MYSQL_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-create}
+      # 로컬도 예외가 아니다. create 는 Flyway 가 만든 테이블을 드롭·재생성해
+      # 초기 우표 데이터까지 날린다. 스키마를 비우려면 ./run.sh reset-db 를 쓴다.
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-validate}
+      FLYWAY_ENABLED: ${FLYWAY_ENABLED:-true}
       JPA_SHOW_SQL: ${JPA_SHOW_SQL:-true}
       # --- MinIO ---
       MINIO_ENDPOINT: http://minio:9000

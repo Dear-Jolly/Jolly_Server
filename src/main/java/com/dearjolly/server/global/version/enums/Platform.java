@@ -1,13 +1,13 @@
-package com.dearjolly.server.domain.user.enums;
+package com.dearjolly.server.global.version.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public enum Role {
-    ROLE_USER("일반 사용자"),
-    ROLE_ADMIN("관리자");
+public enum Platform {
+    IOS("iOS"),
+    AOS("Android");
 
     private final String description;
 }
