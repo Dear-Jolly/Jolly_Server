@@ -17,6 +17,7 @@ import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.security.KeyFactory;
 import java.security.interfaces.ECPrivateKey;
@@ -33,6 +34,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -168,9 +170,11 @@ public class AppleOauthClient implements OauthClient {
                     .body(toQueryString(form))
                     .retrieve()
                     .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+                        log.warn("애플 토큰 요청이 거절됐다. status={}, body={}", res.getStatusCode(), readBody(res));
                         throw new BusinessException(ErrorCode.OAUTH_AUTHENTICATION_FAILED);
                     })
                     .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+                        log.warn("애플 토큰 요청 중 애플 서버 오류. status={}, body={}", res.getStatusCode(), readBody(res));
                         throw new BusinessException(ErrorCode.OAUTH_SERVER_ERROR);
                     })
                     .body(AppleTokenResponse.class);
@@ -181,6 +185,8 @@ public class AppleOauthClient implements OauthClient {
         } catch (RestClientException e) {
             throw new BusinessException(ErrorCode.OAUTH_SERVER_ERROR);
         } catch (Exception e) {
+            log.warn("애플 client_secret 생성에 실패했다. private key · key id · team id 조합을 확인한다. keyId={}, teamId={}",
+                    properties.keyId(), properties.teamId(), e);
             throw new BusinessException(ErrorCode.OAUTH_AUTHENTICATION_FAILED);
         }
     }
@@ -229,6 +235,10 @@ public class AppleOauthClient implements OauthClient {
         );
         jwt.sign(new ECDSASigner(privateKey));
         return jwt.serialize();
+    }
+
+    private String readBody(ClientHttpResponse response) throws IOException {
+        return new String(response.getBody().readAllBytes(), UTF_8);
     }
 
     private String toQueryString(Map<String, String> params) {
