@@ -18,10 +18,13 @@ Dear Jolly 백엔드 서버. Java 21 / Spring Boot 3.5.7 / Spring Data JPA / MyS
 | 테스트 코드 작성 | `spring-test` |
 | 코드 리뷰, PR 점검, 컨벤션 준수 확인 | `spring-code-review` |
 | `docs/API명세.md` 작성·갱신, 구현 완료 표기 변경 | `api-spec-doc` |
+| 주석·Javadoc 을 달지 말지 판단 | `code-comment` |
+| 커밋 생성, 커밋 메시지 작성 | `commit-message` |
 
 ## 적용 규칙
 
 - **작업 전에 해당 스킬을 먼저 읽는다.** 기억에 의존해 컨벤션을 추측하지 않는다.
+- **코드를 쓰거나 고칠 때는 `code-comment` 를 항상 함께 적용한다.** 주석은 기본적으로 달지 않는다.
 - **하나의 작업에 여러 스킬이 걸리면 모두 적용한다.** 예: API 하나를 추가하면
   `spring-controller` + `spring-service` + `spring-dto` + `spring-test`를 함께 본다.
 - **API를 추가하거나 수정했다면 `spring-test`는 항상 함께 적용한다.** 통합 테스트는 API당 필수다.
