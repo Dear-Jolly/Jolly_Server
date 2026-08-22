@@ -26,6 +26,15 @@ dearjolly:
     current-version: 1.0.0
   withdrawal:
     retention-days: 30
+  version:
+    latest: 1.2.0
+    min-supported: 1.0.0
+    privacy-policy-url: https://dearjolly.com/privacy
+    terms-of-service-url: https://dearjolly.com/terms
+    notice-url: https://dearjolly.com/notice
+    platforms:
+      IOS:
+        min-supported: 1.1.0
   oauth:
     app-redirect-uri: dearjolly://auth/callback
     kakao:
