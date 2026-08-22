@@ -22,12 +22,20 @@ public class CustomErrorController implements ErrorController {
 
             // 404 Not Found (존재하지 않는 URL)
             if (statusCode == HttpStatus.NOT_FOUND.value()) {
-                return ErrorResponse.toResponseEntity(ErrorCode.RESOURCE_NOT_FOUND);
+                return ErrorResponse.toResponseEntity(ErrorCode.PATH_NOT_FOUND);
             }
 
             // 405 Method Not Allowed (잘못된 HTTP 메서드)
             if (statusCode == HttpStatus.METHOD_NOT_ALLOWED.value()) {
                 return ErrorResponse.toResponseEntity(ErrorCode.METHOD_NOT_ALLOWED);
+            }
+
+            // 401 / 403 (Security 필터 단계에서 걸린 요청)
+            if (statusCode == HttpStatus.UNAUTHORIZED.value()) {
+                return ErrorResponse.toResponseEntity(ErrorCode.ACCESS_TOKEN_INVALID);
+            }
+            if (statusCode == HttpStatus.FORBIDDEN.value()) {
+                return ErrorResponse.toResponseEntity(ErrorCode.ACCESS_DENIED);
             }
         }
 

@@ -9,8 +9,14 @@ Parameters:
   InstanceType:
     Type: String
     Default: t3.small
-    AllowedValues: [t3.small, t3.medium, t3.large, t4g.small, t4g.medium]
-    Description: Runs MySQL, MinIO and two app colors together. 2GB or more recommended
+    AllowedValues: [t3.micro, t3.small, t3.medium, t3.large, t4g.small, t4g.medium]
+    Description: Runs MySQL, MinIO and two app colors together. Use swap when memory is small
+  SwapSizeGb:
+    Type: Number
+    Default: 4
+    MinValue: 0
+    MaxValue: 16
+    Description: Swap file size in GB. Compensates for small instance memory
   VolumeSize:
     Type: Number
     Default: 30
@@ -215,13 +221,16 @@ Resources:
           /tmp/aws/install
           rm -rf /tmp/aws /tmp/awscliv2.zip
 
-          # --- 스왑 2GB (컨테이너 다수 구동 대비) ---
+          # --- 스왑 (메모리가 작은 인스턴스에서 컨테이너 다수를 버티게 한다) ---
           if [ ! -f /swapfile ]; then
-            fallocate -l 2G /swapfile
+            fallocate -l ${SwapSizeGb}G /swapfile
             chmod 600 /swapfile
             mkswap /swapfile
             swapon /swapfile
             echo '/swapfile none swap sw 0 0' >> /etc/fstab
+            # 메모리가 부족할 때만 스왑을 쓰도록 (기본 60 은 너무 공격적이다)
+            sysctl -w vm.swappiness=20
+            echo 'vm.swappiness=20' >> /etc/sysctl.conf
           fi
 
           # --- 배포 디렉터리 ---

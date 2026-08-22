@@ -1,22 +1,14 @@
 package com.dearjolly.server.domain.user.dto.request;
 
-import static com.dearjolly.server.domain.user.constants.UserValidationConstants.NICKNAME_MAX_LENGTH;
-import static com.dearjolly.server.domain.user.constants.UserValidationConstants.NICKNAME_MIN_LENGTH;
-import static com.dearjolly.server.domain.user.constants.UserValidationConstants.NICKNAME_REGEX;
-
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import org.hibernate.validator.constraints.Length;
 
+/**
+ * 길이(USER_004)와 문자(USER_003)를 다른 코드로 구분해야 하므로
+ * Bean Validation 으로 형식을 검사하지 않고 서비스에서 순서대로 검증한다 (기능명세 §3.2.2).
+ */
 public record NicknameUpdateRequest(
 
         @NotBlank(message = "닉네임은 필수입니다.")
-        @Length(
-                min = NICKNAME_MIN_LENGTH,
-                max = NICKNAME_MAX_LENGTH,
-                message = "닉네임은 {min}자 이상 {max}자 이하여야 합니다."
-        )
-        @Pattern(regexp = NICKNAME_REGEX, message = "올바른 닉네임 형식이 아닙니다.")
         String nickname
 ) {
 }

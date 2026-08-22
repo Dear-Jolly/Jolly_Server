@@ -12,9 +12,15 @@ ENV_FILE="infra/env/.env.prod"
 TEMPLATE_DIR="infra/cloudformation"
 
 # GitHub Secrets 에 개별 등록되는 값 (PROD_ENV_FILE 에는 넣지 않는다)
-SECRET_KEYS=(EC2_HOST EC2_USER EC2_PORT DEPLOY_PATH AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION ECR_REPOSITORY)
+SECRET_KEYS=(EC2_HOST EC2_USER EC2_PORT DEPLOY_PATH AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY)
+# shellcheck disable=SC2034
+# GitHub Variables 로 등록되는 값. 비밀이 아니며, Secret 으로 두면 안 되는 이유가 있다.
+# 이미지 주소(<계정>.dkr.ecr.<리전>.amazonaws.com/<리포지터리>:<태그>)에 두 값이 그대로 들어가는데,
+# 잡 출력에 Secret 문자열이 섞이면 GitHub 이 그 출력을 통째로 버려 needs.build.outputs.image 가
+# 빈 값이 된다. 그러면 배포 단계에서 APP_IMAGE 가 비어 실패한다.
+VARIABLE_KEYS=(AWS_REGION ECR_REPOSITORY)
 # 로컬 인프라 관리 전용 값 (GitHub 에 올릴 필요 없음)
-LOCAL_ONLY_KEYS=(EC2_SSH_KEY_PATH EC2_KEY_PAIR_NAME STACK_ECR STACK_EC2 EC2_INSTANCE_TYPE EC2_VOLUME_SIZE ALLOWED_SSH_CIDR GH_TOKEN)
+LOCAL_ONLY_KEYS=(EC2_SSH_KEY_PATH EC2_KEY_PAIR_NAME STACK_ECR STACK_EC2 EC2_INSTANCE_TYPE EC2_VOLUME_SIZE EC2_SWAP_SIZE ALLOWED_SSH_CIDR GH_TOKEN)
 
 die() { echo "[${SCRIPT_NAME:-infra}] $*" >&2; exit 1; }
 log() { echo "[${SCRIPT_NAME:-infra}] $*"; }
@@ -58,6 +64,7 @@ load_env() {
   EC2_PORT=$(read_env EC2_PORT); EC2_PORT="${EC2_PORT:-22}"
   INSTANCE_TYPE=$(read_env EC2_INSTANCE_TYPE); INSTANCE_TYPE="${INSTANCE_TYPE:-t3.small}"
   VOLUME_SIZE=$(read_env EC2_VOLUME_SIZE); VOLUME_SIZE="${VOLUME_SIZE:-30}"
+  SWAP_SIZE=$(read_env EC2_SWAP_SIZE); SWAP_SIZE="${SWAP_SIZE:-4}"
   ALLOWED_SSH_CIDR=$(read_env ALLOWED_SSH_CIDR); ALLOWED_SSH_CIDR="${ALLOWED_SSH_CIDR:-0.0.0.0/0}"
   APP_PORT=$(read_env APP_PORT); APP_PORT="${APP_PORT:-80}"
   MINIO_API_PORT=$(read_env MINIO_API_PORT); MINIO_API_PORT="${MINIO_API_PORT:-9000}"
