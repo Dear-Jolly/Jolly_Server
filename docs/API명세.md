@@ -793,15 +793,12 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 ### [설명]
 
-- 홈 화면의 편지 목록을 조회한다. 헤더에 필요한 닉네임 · 우표 수도 함께 내려가므로 **홈 진입 시 이 API 한 번이면 된다.**
+- 홈 화면의 편지 목록을 조회한다. 닉네임 · 우표 수는 내려가지 않으므로, **홈 진입 시 [13) GET /api/v1/home](#13-get-apiv1home-) 과 함께 호출한다.**
 - **본인 편지만** 조회된다. 유저 정보는 토큰에서 가져오므로 파라미터로 보내지 않는다.
-- `totalStampCount` 는 **작성한 편지 수가 아니라 피드백이 완료된 편지 수**다. 편지 3건을 썼고 1건이 피드백 대기라면 `2` 다.
 - 편지를 쓰지 않은 날은 응답에 나타나지 않는다. **캘린더가 아니라 기록이 쌓이는 목록**이다.
 - 정렬은 서버가 처리하므로 앱은 받은 순서대로 그린다. `page` · `size` · `sort` 가 허용 범위를 벗어나면 `COMMON_001` 이다.
 - 정렬 기준은 **편지 날짜**이며, 같은 날짜에 여러 통을 썼다면 `LATEST` 는 **나중에 쓴 편지가 먼저**, `OLDEST` 는 **먼저 쓴 편지가 먼저** 온다.
-- 편지가 한 통도 없으면 `letters` 는 빈 배열이고 `totalStampCount` 는 `0`, `hasNext` 는 `false` 다.
-- 헤더 값(`nickname`, `totalStampCount`)은 `page > 0` 요청에서도 동일하게 내려간다. 앱은 첫 페이지 값만 쓰면 된다.
-- `nickname` 은 **항상 값이 있다.**
+- 편지가 한 통도 없으면 `letters` 는 빈 배열이고 `hasNext` 는 `false` 다.
 - 앱은 `SUBMITTED` 와 `FEEDBACK_IN_PROGRESS` 를 동일하게 처리한다. 이 상태의 카드는 **회색 `soon` 우표 · `ic_more_sm` 미노출 · 터치 불가**다.
 - `FEEDBACK_COMPLETED` 카드는 **`stampImage` 표시 · `ic_more_sm` 노출 · 카드 전체 영역 터치 시 상세 이동**이다.
 - `FEEDBACK_COMPLETED` 이면서 `isRead == false` 면 **날짜 앞에 빨간 점**을 찍는다. 완료 전 편지도 `isRead` 는 `false` 지만 빨간 점을 표시하지 않는다.
@@ -831,8 +828,6 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 ```json
 {
-    "nickname": "Sally",
-    "totalStampCount": 3,
     "letters": [
         {
             "letterId": 15,
@@ -863,8 +858,6 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 }
 ```
 
-- [필수] `nickname` (String): 유저 닉네임
-- [필수] `totalStampCount` (Integer): 모은 우표 총 개수
 - [필수] `letters` (Array): 편지 목록
     - [필수] `letterId` (Long): 편지 ID
     - [필수] `date` (LocalDate): 편지 날짜
@@ -908,9 +901,10 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 ### [설명]
 
-- 홈 헤더의 닉네임 · 모은 우표 수만 조회한다.
-- **홈 진입 시에는 [12) GET /api/v1/letters](#12-get-apiv1letters-) 한 번이면 되고**, 헤더만 갱신할 때 이 API 를 쓴다.
-- `totalStampCount` 는 편지 목록 API 의 같은 필드와 항상 같은 값이다.
+- 홈 헤더의 닉네임 · 모은 우표 수를 조회한다.
+- **홈 진입 시 [12) GET /api/v1/letters](#12-get-apiv1letters-) 와 함께 호출한다.** 편지 목록 응답에는 이 두 값이 들어 있지 않다.
+- 헤더만 갱신할 때는 이 API 만 다시 호출하면 된다.
+- `totalStampCount` 는 **작성한 편지 수가 아니라 피드백이 완료된 편지 수**다. 편지 3건을 썼고 1건이 피드백 대기라면 `2` 다.
 - `nickname` 은 **항상 값이 있다.**
 
 ### [스펙]
