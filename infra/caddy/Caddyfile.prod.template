@@ -1,0 +1,39 @@
+# 운영(EC2)용 Caddy 설정 템플릿. 블루그린 전환 + HTTPS 종단.
+# 로컬용은 같은 폴더의 Caddyfile.local 이다.
+# deploy.sh 가 아래 자리표시자를 치환해 caddy/Caddyfile 로 생성한다.
+#   __SITE_ADDRESS__    : 서비스 주소 (IP 또는 도메인)
+#   __TLS_DIRECTIVE__   : IP 면 'tls internal'(자체 서명), 도메인이면 비워둠(Let's Encrypt 자동 발급)
+#   __ACTIVE_UPSTREAM__ : 활성 컨테이너 (dear-jolly-app-blue:8081 등)
+{
+	email {$CADDY_EMAIL:admin@dearjolly.com}
+}
+
+# HTTP 로 들어오면 HTTPS 로 넘긴다
+http://__SITE_ADDRESS__ {
+	redir https://{host}{uri} permanent
+}
+
+https://__SITE_ADDRESS__ {
+	__TLS_DIRECTIVE__
+
+	encode gzip
+
+	# 우표 이미지. MinIO 를 9000 으로 직접 열면 평문 HTTP 라 iOS ATS·Android cleartext 정책에 막힌다.
+	# 같은 호스트의 버킷 경로로 태워 API 와 같은 인증서를 쓴다.
+	handle /{$MINIO_BUCKET:dear-jolly-stamps}/* {
+		reverse_proxy dear-jolly-minio:9000
+	}
+
+	handle {
+		reverse_proxy __ACTIVE_UPSTREAM__ {
+			header_up Host {host}
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

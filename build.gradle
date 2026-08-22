@@ -27,14 +27,76 @@ repositories {
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
-	compileOnly 'org.projectlombok:lombok'
-	runtimeOnly 'com.mysql:mysql-connector-j'
-	annotationProcessor 'org.projectlombok:lombok'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+
+	// 운영 헬스체크
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+	// JWT
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+	// Apple identity token 검증
+	implementation 'com.nimbusds:nimbus-jose-jwt:9.40'
+
+	// 스키마 형상관리
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-mysql'
+
+	// MinIO (우표 시드 이미지 업로드)
+	implementation 'io.minio:minio:8.5.17'
+
+	// API 문서
+	// 2.6.0 은 Spring Framework 6.2(= Boot 3.5)에서 제거된 ControllerAdviceBean(Object) 생성자를
+	// 호출해 /v3/api-docs 가 NoSuchMethodError 로 500 을 낸다. 2.8 부터 대응됐다.
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13'
+
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	testImplementation 'io.rest-assured:rest-assured'
+
+	// Flyway 마이그레이션과 엔티티 매핑을 실제 MySQL 로 대조한다
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.testcontainers:mysql'
+
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testRuntimeOnly 'com.h2database:h2'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+
+	// SchemaMigrationTest 는 Testcontainers 로 실제 MySQL 을 띄운다.
+	// 쉘에 값이 있으면 그대로 쓰고, 없으면 Colima 소켓을 찾아 자동으로 채운다.
+	// Docker Desktop·CI(GitHub Actions)는 기본 소켓 경로라 탐지 분기에 걸리지 않는다.
+	Map<String, String> dockerEnv = [:]
+	['DOCKER_HOST', 'DOCKER_API_VERSION', 'TESTCONTAINERS_RYUK_DISABLED'].each { key ->
+		String value = System.getenv(key)
+		if (value) {
+			dockerEnv[key] = value
+		}
+	}
+	File colimaSocket = file("${System.getProperty('user.home')}/.colima/default/docker.sock")
+	if (!dockerEnv['DOCKER_HOST'] && colimaSocket.exists()) {
+		dockerEnv['DOCKER_HOST'] = "unix://${colimaSocket.absolutePath}"
+		// Colima 는 소켓 경로도 최소 API 버전도 Docker Desktop 과 다르다.
+		dockerEnv.putIfAbsent('DOCKER_API_VERSION', '1.47')
+		// 없으면 정리 컨테이너(Ryuk)가 colima 소켓을 마운트하려다 "operation not supported" 로 죽는다.
+		// 컨테이너는 테스트 종료 시 함께 내려간다.
+		dockerEnv.putIfAbsent('TESTCONTAINERS_RYUK_DISABLED', 'true')
+	}
+	dockerEnv.each { key, value ->
+		environment key, value
+	}
+	// docker-java 는 환경변수가 아니라 이 시스템 프로퍼티로 API 버전을 읽는다.
+	if (dockerEnv['DOCKER_API_VERSION']) {
+		systemProperty 'api.version', dockerEnv['DOCKER_API_VERSION']
+	}
 }

@@ -1,0 +1,55 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:dearjolly;MODE=MySQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+
+minio:
+  endpoint: http://localhost:9000
+  public-endpoint: http://localhost:9000
+  access-key: test-access-key
+  secret-key: test-secret-key
+  bucket: dear-jolly-stamps
+
+dearjolly:
+  # 테스트는 MinIO 에 붙지 않는다.
+  seed:
+    stamp:
+      enabled: false
+
+  jwt:
+    secret: test-jwt-secret-key-for-integration-tests-32bytes+
+    access-expire-millis: 1800000
+    refresh-expire-millis: 1209600000
+  terms:
+    current-version: 1.0.0
+  withdrawal:
+    retention-days: 30
+  version:
+    latest: 1.2.0
+    min-supported: 1.0.0
+    privacy-policy-url: https://dearjolly.com/privacy
+    terms-of-service-url: https://dearjolly.com/terms
+    notice-url: https://dearjolly.com/notice
+    platforms:
+      IOS:
+        min-supported: 1.1.0
+  oauth:
+    app-redirect-uri: dearjolly://auth/callback
+    kakao:
+      client-id: test-kakao-client-id
+      client-secret: ""
+      redirect-uri: http://localhost:8080/api/v1/auth/kakao/callback
+      admin-key: ""
+    apple:
+      client-id: com.dearjolly.test
+      team-id: TESTTEAMID
+      key-id: TESTKEYID
+      private-key: ""
+      redirect-uri: http://localhost:8080/api/v1/auth/apple/callback

@@ -1,0 +1,278 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Dear Jolly - deployment EC2 with VPC, subnet, key pair and security group
+
+Parameters:
+  KeyPairName:
+    Type: String
+    Default: dear-jolly
+    Description: EC2 key pair name. The private key is stored in SSM Parameter Store
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues: [t3.micro, t3.small, t3.medium, t3.large, t4g.small, t4g.medium]
+    Description: Runs MySQL, MinIO and two app colors together. Use swap when memory is small
+  SwapSizeGb:
+    Type: Number
+    Default: 4
+    MinValue: 0
+    MaxValue: 16
+    Description: Swap file size in GB. Compensates for small instance memory
+  VolumeSize:
+    Type: Number
+    Default: 30
+    MinValue: 20
+    MaxValue: 200
+    Description: Root volume size in GB
+  AllowedSshCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR allowed for SSH (22). Narrow it to your own IP/32 when possible
+  AppPort:
+    Type: Number
+    Default: 80
+    Description: Caddy HTTP port. Redirects to HTTPS
+  AppHttpsPort:
+    Type: Number
+    Default: 443
+    Description: Caddy HTTPS port. Client entry point
+  MinioApiPort:
+    Type: Number
+    Default: 9000
+    Description: MinIO API port for public stamp images
+  LatestUbuntuAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+    Description: Ubuntu 24.04 LTS AMI resolved from the SSM public parameter
+  DeployPath:
+    Type: String
+    Default: /home/ubuntu/dear-jolly
+    Description: Deploy directory on the instance. Must match DEPLOY_PATH in .env.prod
+
+Resources:
+  # ===== 네트워크 (빈 계정 가정: 기본 VPC 에 의존하지 않고 직접 만든다) =====
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-vpc'
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-igw'
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-public-subnet'
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-public-rt'
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # ===== 키페어 (개인키는 SSM /ec2/keypair/{id} 에 저장된다) =====
+  KeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: !Ref KeyPairName
+      Tags:
+        - Key: Project
+          Value: dear-jolly
+
+  # ===== 보안 그룹 =====
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Dear Jolly deploy server (SSH / Caddy / MinIO API)
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - Description: SSH for deployment
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AllowedSshCidr
+        - Description: App via Caddy (HTTP, redirects to HTTPS)
+          IpProtocol: tcp
+          FromPort: !Ref AppPort
+          ToPort: !Ref AppPort
+          CidrIp: 0.0.0.0/0
+        - Description: App via Caddy (HTTPS)
+          IpProtocol: tcp
+          FromPort: !Ref AppHttpsPort
+          ToPort: !Ref AppHttpsPort
+          CidrIp: 0.0.0.0/0
+        - Description: MinIO API for stamp images
+          IpProtocol: tcp
+          FromPort: !Ref MinioApiPort
+          ToPort: !Ref MinioApiPort
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-sg'
+
+  # ===== IAM (ECR pull + SSM 세션 매니저) =====
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Project
+          Value: dear-jolly
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref InstanceRole
+
+  # ===== EC2 인스턴스 =====
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestUbuntuAmi
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPair
+      IamInstanceProfile: !Ref InstanceProfile
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: !Ref VolumeSize
+            VolumeType: gp3
+            DeleteOnTermination: true
+            Encrypted: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-server'
+        - Key: Project
+          Value: dear-jolly
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -eux
+          export DEBIAN_FRONTEND=noninteractive
+          timedatectl set-timezone Asia/Seoul
+
+          apt-get update -y
+          apt-get install -y ca-certificates curl gnupg unzip
+
+          # --- Docker Engine + Compose plugin ---
+          install -m 0755 -d /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+          chmod a+r /etc/apt/keyrings/docker.asc
+          ARCH=$(dpkg --print-architecture)
+          CODENAME=$(. /etc/os-release && echo $VERSION_CODENAME)
+          echo "deb [arch=${!ARCH} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${!CODENAME} stable" > /etc/apt/sources.list.d/docker.list
+          apt-get update -y
+          apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+          systemctl enable --now docker
+          usermod -aG docker ubuntu
+
+          # --- AWS CLI v2 ---
+          curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o /tmp/awscliv2.zip
+          unzip -q /tmp/awscliv2.zip -d /tmp
+          /tmp/aws/install
+          rm -rf /tmp/aws /tmp/awscliv2.zip
+
+          # --- 스왑 (메모리가 작은 인스턴스에서 컨테이너 다수를 버티게 한다) ---
+          if [ ! -f /swapfile ]; then
+            fallocate -l ${SwapSizeGb}G /swapfile
+            chmod 600 /swapfile
+            mkswap /swapfile
+            swapon /swapfile
+            echo '/swapfile none swap sw 0 0' >> /etc/fstab
+            # 메모리가 부족할 때만 스왑을 쓰도록 (기본 60 은 너무 공격적이다)
+            sysctl -w vm.swappiness=20
+            echo 'vm.swappiness=20' >> /etc/sysctl.conf
+          fi
+
+          # --- 배포 디렉터리 ---
+          mkdir -p ${DeployPath}
+          chown -R ubuntu:ubuntu ${DeployPath}
+
+          echo "[user-data] 초기 설정 완료"
+
+  # ===== 탄력적 IP (EIP) =====
+  # 인스턴스를 재부팅하거나 교체해도 주소가 유지된다. 이 주소가 .env.prod 의 EC2_HOST 이자
+  # 우표 이미지 URL(MINIO_PUBLIC_ENDPOINT)의 기준이라, 바뀌면 앱·프론트가 전부 영향을 받는다.
+  ElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref Instance
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-eip'
+
+Outputs:
+  InstanceId:
+    Description: EC2 instance id
+    Value: !Ref Instance
+  PublicIp:
+    Description: Elastic IP (static public IP). Written to EC2_HOST in infra/env/.env.prod
+    Value: !Ref ElasticIp
+  ElasticIpAllocationId:
+    Description: Elastic IP allocation id
+    Value: !GetAtt ElasticIp.AllocationId
+  KeyPairId:
+    Description: Key pair id. The private key lives in SSM at /ec2/keypair/{id}
+    Value: !GetAtt KeyPair.KeyPairId
+  PrivateKeyParameter:
+    Description: SSM parameter path holding the private key
+    Value: !Sub '/ec2/keypair/${KeyPair.KeyPairId}'
+  SshCommand:
+    Description: SSH command
+    Value: !Sub 'ssh -i ~/.ssh/${KeyPairName}.pem ubuntu@${ElasticIp}'
+  AppUrl:
+    Description: Application entry point for clients
+    Value: !Sub 'https://${ElasticIp}'
+  MinioPublicEndpoint:
+    Description: Public MinIO endpoint. Written to MINIO_PUBLIC_ENDPOINT in .env.prod
+    Value: !Sub 'http://${ElasticIp}:${MinioApiPort}'

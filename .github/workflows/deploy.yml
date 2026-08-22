@@ -1,0 +1,183 @@
+name: Deploy to EC2
+
+# main 에 push 되면 바로 배포된다.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 배포가 겹치지 않도록 직렬화 (진행 중인 배포는 취소하지 않는다)
+concurrency:
+  group: deploy-ec2
+  cancel-in-progress: false
+
+jobs:
+  # ===== 1. 이미지 빌드 후 ECR 푸시 =====
+  build:
+    name: 이미지 빌드
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - name: 소스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: AWS 자격증명 설정
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: ECR 로그인
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: 버전 태그 결정
+        id: meta
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+        run: |
+          # build.gradle 의 version 을 이미지 버전으로 쓴다
+          VERSION=$(grep -E "^version = " build.gradle | head -1 | sed -E "s/version = '(.*)'/\1/")
+          [ -n "$VERSION" ] || { echo "build.gradle 에서 version 을 읽지 못했습니다" >&2; exit 1; }
+          # 버전-빌드번호-커밋 형식 (예: 0.0.1-SNAPSHOT-42-a1b2c3d)
+          TAG="${VERSION}-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}"
+          {
+            echo "tag=${TAG}"
+            echo "image=${REGISTRY}/${REPOSITORY}:${TAG}"
+            echo "latest=${REGISTRY}/${REPOSITORY}:latest"
+          } >> "$GITHUB_OUTPUT"
+          echo "이미지 태그: ${TAG}"
+
+      - name: ECR 리포지터리 확인
+        env:
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+        run: |
+          if ! aws ecr describe-repositories --repository-names "$REPOSITORY" >/dev/null 2>&1; then
+            echo "ECR 리포지터리 '${REPOSITORY}' 가 없습니다." >&2
+            echo "infra/infra.sh up-ecr 로 먼저 생성하세요." >&2
+            exit 1
+          fi
+
+      - name: Buildx 설정
+        uses: docker/setup-buildx-action@v3
+
+      - name: 빌드 및 푸시
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}
+            ${{ steps.meta.outputs.latest }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ===== 2. EC2 블루그린 배포 =====
+  deploy:
+    name: EC2 배포
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: 소스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: AWS 자격증명 설정
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: ECR 로그인
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: SSH 키 준비
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_PORT: ${{ secrets.EC2_PORT }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${EC2_PORT:-22}" -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: 배포 파일 전송
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_PORT: ${{ secrets.EC2_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          SSH_OPTS=(-i ~/.ssh/deploy_key -p "${EC2_PORT:-22}")
+          SCP_OPTS=(-i ~/.ssh/deploy_key -P "${EC2_PORT:-22}")
+          # shellcheck disable=SC2029  # DEPLOY_PATH 는 의도적으로 로컬에서 확장한다
+          ssh "${SSH_OPTS[@]}" "${EC2_USER}@${EC2_HOST}" "mkdir -p '${DEPLOY_PATH}'"
+          scp "${SCP_OPTS[@]}" infra/docker/compose.prod.yaml "${EC2_USER}@${EC2_HOST}:${DEPLOY_PATH}/compose.yaml"
+          scp "${SCP_OPTS[@]}" infra/scripts-ec2/deploy.sh "${EC2_USER}@${EC2_HOST}:${DEPLOY_PATH}/deploy.sh"
+          scp "${SCP_OPTS[@]}" infra/scripts-ec2/backup.sh "${EC2_USER}@${EC2_HOST}:${DEPLOY_PATH}/backup.sh"
+          scp "${SCP_OPTS[@]}" infra/caddy/Caddyfile.prod.template "${EC2_USER}@${EC2_HOST}:${DEPLOY_PATH}/Caddyfile.template"
+
+      - name: 환경변수 파일 생성
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_PORT: ${{ secrets.EC2_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+          APP_IMAGE: ${{ needs.build.outputs.image }}
+        run: |
+          # shellcheck disable=SC2029  # DEPLOY_PATH 는 의도적으로 로컬에서 확장한다
+          {
+            printf '%s\n' "$PROD_ENV_FILE"
+            printf 'APP_IMAGE=%s\n' "$APP_IMAGE"
+          } | ssh -i ~/.ssh/deploy_key -p "${EC2_PORT:-22}" "${EC2_USER}@${EC2_HOST}" \
+              "cat > '${DEPLOY_PATH}/.env' && chmod 600 '${DEPLOY_PATH}/.env'"
+
+      - name: 배포 파라미터 전달
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_PORT: ${{ secrets.EC2_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          APP_IMAGE: ${{ needs.build.outputs.image }}
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        run: |
+          # ECR 인증은 EC2 인스턴스 역할이 처리하므로 토큰을 넘기지 않는다
+          # shellcheck disable=SC2029  # DEPLOY_PATH 는 의도적으로 로컬에서 확장한다
+          {
+            printf 'APP_IMAGE=%s\n' "$APP_IMAGE"
+            printf 'ECR_REGISTRY=%s\n' "$ECR_REGISTRY"
+            printf 'AWS_REGION=%s\n' "$AWS_REGION"
+          } | ssh -i ~/.ssh/deploy_key -p "${EC2_PORT:-22}" "${EC2_USER}@${EC2_HOST}" \
+              "cat > '${DEPLOY_PATH}/.deploy_env' && chmod 600 '${DEPLOY_PATH}/.deploy_env'"
+
+      - name: 블루그린 배포 실행
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_PORT: ${{ secrets.EC2_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${EC2_PORT:-22}" "${EC2_USER}@${EC2_HOST}" \
+            "DEPLOY_PATH='${DEPLOY_PATH}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          trap 'rm -f "$DEPLOY_PATH/.deploy_env"' EXIT
+          set -a
+          . ./.deploy_env
+          set +a
+          chmod +x deploy.sh
+          ./deploy.sh
+          REMOTE
+
+      - name: 배포 키 삭제
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
