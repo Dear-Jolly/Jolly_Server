@@ -1,0 +1,180 @@
+# EC2 배포용 Compose 파일 (Caddy 기반 블루그린 무중단 배포).
+#
+# GitHub Actions 가 이 파일을 EC2 의 ${DEPLOY_PATH}/compose.yaml 로 전송하고,
+# 같은 위치에 .env (Secrets 기반) 를 만든 뒤 deploy.sh 를 실행한다.
+#
+# 트래픽 경로: 프론트 → Caddy(80) → 활성 컨테이너(blue:8081 / green:8082)
+# 로컬 개발은 infra/docker/compose.yaml 을 쓴다.
+name: dear-jolly
+
+# 색상별 공통 설정 (SERVER_PORT·포트 매핑·헬스체크만 색상마다 다르다)
+x-app-env: &app-env
+  TZ: Asia/Seoul
+  # --- DB ---
+  MYSQL_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+  MYSQL_USER: ${MYSQL_USER}
+  MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+  JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+  JPA_SHOW_SQL: ${JPA_SHOW_SQL:-false}
+  # --- MinIO ---
+  MINIO_ENDPOINT: http://minio:9000
+  MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT}
+  MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+  MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+  MINIO_BUCKET: ${MINIO_BUCKET}
+
+x-app-common: &app-common
+  image: ${APP_IMAGE}
+  # 배포 시 생성되는 .env(= PROD_ENV_FILE) 전체를 주입한다. 설정이 늘어도 compose 수정이 필요 없다.
+  env_file:
+    # 배포 시 이 파일이 compose.yaml 옆에 생성된다. 로컬 검증 때는 없어도 되게 required:false
+    - path: .env
+      required: false
+  restart: always
+  pull_policy: never          # deploy.sh 가 명시적으로 pull 한다
+  depends_on:
+    mysql:
+      condition: service_healthy
+    minio-init:
+      condition: service_completed_successfully
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+  networks:
+    - dear-jolly
+
+services:
+  # ===== Caddy (유일한 외부 진입점, 프론트는 80 포트만 호출) =====
+  caddy:
+    image: caddy:2.9-alpine
+    container_name: dear-jolly-caddy
+    restart: always
+    ports:
+      - "${APP_PORT:-80}:80"
+      - "${APP_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - dear-jolly
+
+  # ===== 애플리케이션 blue (8081) / green (8082) — 한 번에 하나만 활성 =====
+  app-blue:
+    <<: *app-common
+    container_name: dear-jolly-app-blue
+    environment:
+      <<: *app-env
+      SERVER_PORT: ${APP_BLUE_PORT:-8081}
+    ports:
+      - "127.0.0.1:${APP_BLUE_PORT:-8081}:${APP_BLUE_PORT:-8081}"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/${APP_BLUE_PORT:-8081}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  app-green:
+    <<: *app-common
+    container_name: dear-jolly-app-green
+    environment:
+      <<: *app-env
+      SERVER_PORT: ${APP_GREEN_PORT:-8082}
+    ports:
+      - "127.0.0.1:${APP_GREEN_PORT:-8082}:${APP_GREEN_PORT:-8082}"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/${APP_GREEN_PORT:-8082}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  # ===== MySQL (외부 노출 금지: 루프백에만 바인딩) =====
+  mysql:
+    image: mysql:8.4
+    container_name: dear-jolly-mysql
+    restart: always
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+09:00
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Seoul
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
+    volumes:
+      # EC2 호스트 디렉터리에 직접 저장한다. 컨테이너를 지워도 데이터가 남는다.
+      - ${MYSQL_DATA_PATH}:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    networks:
+      - dear-jolly
+
+  # ===== MinIO (API 는 우표 이미지 제공을 위해 공개, 콘솔은 루프백만) =====
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: dear-jolly-minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      TZ: Asia/Seoul
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - ${MINIO_DATA_PATH}:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    networks:
+      - dear-jolly
+
+  # ===== MinIO 초기화 (버킷 생성 + 공개 읽기 권한) =====
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    container_name: dear-jolly-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
+      mc mb --ignore-existing local/$$MINIO_BUCKET &&
+      mc anonymous set download local/$$MINIO_BUCKET &&
+      echo '[minio-init] 버킷 준비 완료: '$$MINIO_BUCKET
+      "
+    networks:
+      - dear-jolly
+
+volumes:
+  caddy-data:
+  caddy-config:
+
+networks:
+  dear-jolly:
+    driver: bridge
