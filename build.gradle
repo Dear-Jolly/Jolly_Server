@@ -45,6 +45,9 @@ dependencies {
 	implementation 'org.flywaydb:flyway-core'
 	implementation 'org.flywaydb:flyway-mysql'
 
+	// MinIO (우표 시드 이미지 업로드)
+	implementation 'io.minio:minio:8.5.17'
+
 	// API 문서
 	// 2.6.0 은 Spring Framework 6.2(= Boot 3.5)에서 제거된 ControllerAdviceBean(Object) 생성자를
 	// 호출해 /v3/api-docs 가 NoSuchMethodError 로 500 을 낸다. 2.8 부터 대응됐다.
@@ -71,21 +74,29 @@ tasks.named('test') {
 	useJUnitPlatform()
 
 	// SchemaMigrationTest 는 Testcontainers 로 실제 MySQL 을 띄운다.
-	// Colima·Podman 처럼 소켓 경로와 최소 API 버전이 Docker Desktop 과 다른 환경에서는
-	// 아래 두 값을 쉘에서 내보내야 붙는다. CI(GitHub Actions)는 기본 경로라 아무 영향이 없다.
-	//   export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
-	//   export DOCKER_API_VERSION=1.47
-	//   export TESTCONTAINERS_RYUK_DISABLED=true
-	// 마지막 값이 없으면 정리 컨테이너(Ryuk)가 colima 소켓을 마운트하려다
-	// "operation not supported" 로 죽는다. 컨테이너는 테스트 종료 시 함께 내려간다.
+	// 쉘에 값이 있으면 그대로 쓰고, 없으면 Colima 소켓을 찾아 자동으로 채운다.
+	// Docker Desktop·CI(GitHub Actions)는 기본 소켓 경로라 탐지 분기에 걸리지 않는다.
+	Map<String, String> dockerEnv = [:]
 	['DOCKER_HOST', 'DOCKER_API_VERSION', 'TESTCONTAINERS_RYUK_DISABLED'].each { key ->
 		String value = System.getenv(key)
 		if (value) {
-			environment key, value
+			dockerEnv[key] = value
 		}
 	}
+	File colimaSocket = file("${System.getProperty('user.home')}/.colima/default/docker.sock")
+	if (!dockerEnv['DOCKER_HOST'] && colimaSocket.exists()) {
+		dockerEnv['DOCKER_HOST'] = "unix://${colimaSocket.absolutePath}"
+		// Colima 는 소켓 경로도 최소 API 버전도 Docker Desktop 과 다르다.
+		dockerEnv.putIfAbsent('DOCKER_API_VERSION', '1.47')
+		// 없으면 정리 컨테이너(Ryuk)가 colima 소켓을 마운트하려다 "operation not supported" 로 죽는다.
+		// 컨테이너는 테스트 종료 시 함께 내려간다.
+		dockerEnv.putIfAbsent('TESTCONTAINERS_RYUK_DISABLED', 'true')
+	}
+	dockerEnv.each { key, value ->
+		environment key, value
+	}
 	// docker-java 는 환경변수가 아니라 이 시스템 프로퍼티로 API 버전을 읽는다.
-	if (System.getenv('DOCKER_API_VERSION')) {
-		systemProperty 'api.version', System.getenv('DOCKER_API_VERSION')
+	if (dockerEnv['DOCKER_API_VERSION']) {
+		systemProperty 'api.version', dockerEnv['DOCKER_API_VERSION']
 	}
 }

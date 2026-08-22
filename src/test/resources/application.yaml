@@ -18,6 +18,11 @@ minio:
   bucket: dear-jolly-stamps
 
 dearjolly:
+  # 테스트는 MinIO 에 붙지 않는다.
+  seed:
+    stamp:
+      enabled: false
+
   jwt:
     secret: test-jwt-secret-key-for-integration-tests-32bytes+
     access-expire-millis: 1800000
