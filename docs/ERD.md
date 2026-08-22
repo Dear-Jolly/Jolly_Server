@@ -47,6 +47,7 @@ erDiagram
         VARCHAR_20 role "권한 (Role)"
         VARCHAR_20 status "계정 상태 (UserStatus)"
         VARCHAR_500 refresh_token "최신 리프레시 토큰 1개"
+        VARCHAR_500 oauth_refresh_token "소셜 provider 의 refresh token (Apple revoke 용)"
         DATETIME created_at "가입 시각"
         DATETIME updated_at "마지막 수정 시각"
         DATETIME deleted_at "탈퇴 시각 (soft delete)"
@@ -78,7 +79,7 @@ erDiagram
         BIGINT stamp_id PK "우표 식별자"
         VARCHAR_30 name UK "우표 한글 이름 (AI 선택 키)"
         VARCHAR_100 description "한 줄 한글 설명"
-        VARCHAR_500 image_url "우표 이미지 URL"
+        VARCHAR_255 image_key "우표 이미지 파일 키 (URL 아님)"
         BOOLEAN is_active "선택 후보 노출 여부"
     }
 
@@ -135,6 +136,7 @@ erDiagram
 | `role` | VARCHAR(20) | NOT NULL | `ROLE_USER` / `ROLE_ADMIN` |
 | `status` | VARCHAR(20) | NOT NULL | `ACTIVE` / `WITHDRAWN` |
 | `refresh_token` | VARCHAR(500) | NULL | 최신 refresh token 1개만 보관한다 (단일 세션 정책). 로그아웃·탈퇴 시 NULL |
+| `oauth_refresh_token` | VARCHAR(500) | NULL | 소셜 provider 가 발급한 refresh token. **Apple 연결 해제(revoke) 에 필요**하다. 로그인 시 code 교환 결과로 받아 저장하고, 탈퇴 시 revoke 에 쓴 뒤 NULL 로 만든다 |
 | `created_at` | DATETIME(6) | NOT NULL | 가입 시각 |
 | `updated_at` | DATETIME(6) | NOT NULL | 마지막 수정 시각 |
 | `deleted_at` | DATETIME(6) | NULL | 탈퇴 시각. `status = WITHDRAWN` 일 때만 값이 있다 |
@@ -196,12 +198,21 @@ erDiagram
 | `stamp_id` | BIGINT | PK, AUTO_INCREMENT | |
 | `name` | VARCHAR(30) | NOT NULL, UNIQUE | 우표 한글 이름 (예: `장미`). LLM 이 고른 이름을 이 컬럼으로 조회해 행을 특정한다 |
 | `description` | VARCHAR(100) | NOT NULL | 한 줄 한글 설명. 우표의 분위기를 서술하며, LLM 프롬프트에 함께 넣는다 |
-| `image_url` | VARCHAR(500) | NOT NULL | 우표 이미지 URL. 응답의 `stampImage` 로 그대로 내려보낸다 |
+| `image_key` | VARCHAR(255) | NOT NULL | 오브젝트 스토리지의 **파일 키** (예: `stamps/rose.png`). URL 은 저장하지 않는다 |
 | `is_active` | BOOLEAN | NOT NULL, DEFAULT `true` | `false` 면 선택 후보에서 제외한다. 기존 편지에 부여된 우표는 그대로 유지된다 |
 
 - `name` 이 UNIQUE 인 이유는 LLM 응답을 행으로 되돌리는 조회 키이기 때문이다.
 - 마스터 데이터이므로 삭제하지 않는다. 운영을 중단할 우표는 `is_active = false` 로 내린다. `LETTERS.stamp_id` 가 참조하는 행이 사라지지 않아야 하기 때문이다.
-- 이미지 교체는 `image_url` 갱신으로 처리한다. 앱 배포와 무관하다.
+- 이미지 교체는 `image_key` 갱신으로 처리한다. 앱 배포와 무관하다.
+- **DB 에는 파일 키만 저장하고 URL 은 저장하지 않는다.** 응답의 `stampImage` 는 서버가 조회 시점에 조립한다.
+
+```
+stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
+```
+
+  스토리지 주소는 환경마다 다르고(로컬 `localhost:9000`, 운영 `EC2 공인 IP:9000`) 도메인 교체·CDN 도입 시 바뀐다.
+  URL 을 저장해 두면 그때마다 전체 행을 일괄 수정해야 하지만, 파일 키만 저장하면 환경변수만 갈아끼우면 된다.
+  조립은 `global/storage/FileUrlProvider` 가 담당하며, `image_key` 가 비어 있으면 `null` 을 반환한다.
 - **우표 종류는 Java enum 으로 정의하지 않는다.** 코드에 우표 이름이 하드코딩되면 이 테이블의 존재 이유가 사라진다.
 
 #### 우표 부여 절차
@@ -384,7 +395,7 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 | UNIQUE | `USERS (oauth_provider, oauth_id)`, `STAMPS.name`, `FEEDBACKS.letter_id`, `CORRECTION_SEGMENTS (feedback_id, sequence)`, `FEEDBACK_TIPS (feedback_id, sort_order)` |
 | INDEX | `LETTERS (user_id, letter_date DESC, letter_id DESC)`, `LETTERS (status, updated_at)`, `TERMS_AGREEMENTS (user_id, type, agreed_at DESC)` |
 | DEFAULT | `LETTERS.is_read = false`, `LETTERS.retry_count = 0`, `STAMPS.is_active = true` |
-| NULL 허용 | `USERS.email`, `USERS.nickname`, `USERS.refresh_token`, `USERS.deleted_at`, `LETTERS.stamp_id` — 나머지 전 컬럼 NOT NULL |
+| NULL 허용 | `USERS.email`, `USERS.nickname`, `USERS.refresh_token`, `USERS.oauth_refresh_token`, `USERS.deleted_at`, `LETTERS.stamp_id` — 나머지 전 컬럼 NOT NULL |
 
 `TERMS_AGREEMENTS` 에는 UNIQUE 를 두지 않는다. 이력 테이블이므로 같은 `(user_id, type)` 조합이 여러 번 나타나는 것이 정상이다.
 
@@ -406,7 +417,7 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 | A10 | `FEEDBACKS` 행이 존재하면 `LETTERS.status` 는 `FEEDBACK_COMPLETED` | — | 피드백 저장 트랜잭션 |
 | A11 | `SUBMITTED → FEEDBACK_IN_PROGRESS` 전이는 조건부 UPDATE 로만 수행하고, 갱신 건수 0이면 처리를 중단한다 | 기능명세 §3.5.1 | 피드백 워커 |
 | A12 | `retry_count > 3` 이면 `status = 'FEEDBACK_FAILED'` | 기능명세 §2.2 | 피드백 워커 |
-| A13 | `status = 'WITHDRAWN'` 이면 `deleted_at` NOT NULL, `refresh_token` NULL | R8 | 탈퇴 서비스 |
+| A13 | `status = 'WITHDRAWN'` 이면 `deleted_at` NOT NULL, `refresh_token` · `oauth_refresh_token` NULL | R8 | 탈퇴 서비스 |
 | A14 | `refresh_token` 은 유저당 1개만 유지 (단일 세션) | — | 인증 서비스 |
 | A15 | 온보딩 완료 = `SERVICE` · `PRIVACY` 의 최신 행이 모두 `agreed = true` **그리고** `nickname IS NOT NULL` | 기능명세 §3.2 | 온보딩 가드 (`USER_005`) |
 | A16 | `TERMS_AGREEMENTS` 는 UPDATE 하지 않고 INSERT 만 한다 | §2.2 | 약관 동의 서비스 |
@@ -435,7 +446,7 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 
 | 단계 | 시점 | 처리 |
 | --- | --- | --- |
-| 1. 탈퇴 요청 | 즉시 | `status = 'WITHDRAWN'`, `deleted_at = now()`, `refresh_token = NULL`. 이후 모든 API 접근이 `AUTH_007` 로 차단된다 |
+| 1. 탈퇴 요청 | 즉시 | `status = 'WITHDRAWN'`, `deleted_at = now()`, `refresh_token`·`oauth_refresh_token = NULL`. 이후 모든 API 접근이 `AUTH_007` 로 차단된다 |
 | 2. 유예기간 | 30일 | 데이터는 보존한다. 사용자에게 노출되는 복구 수단은 없다 |
 | 3. 완전 삭제 | `deleted_at + 30일` 경과 | 배치가 `USERS` 행을 삭제하고, cascade 로 약관 이력·편지·피드백·교정 조각·팁까지 전량 제거한다 (§3.3) |
 
@@ -469,6 +480,7 @@ CREATE TABLE users (
     role           VARCHAR(20)  NOT NULL,
     status         VARCHAR(20)  NOT NULL,
     refresh_token  VARCHAR(500) NULL,
+    oauth_refresh_token VARCHAR(500) NULL,
     created_at     DATETIME(6)  NOT NULL,
     updated_at     DATETIME(6)  NOT NULL,
     deleted_at     DATETIME(6)  NULL,
@@ -492,7 +504,7 @@ CREATE TABLE stamps (
     stamp_id    BIGINT       NOT NULL AUTO_INCREMENT,
     name        VARCHAR(30)  NOT NULL,
     description VARCHAR(100) NOT NULL,
-    image_url   VARCHAR(500) NOT NULL,
+    image_key   VARCHAR(255) NOT NULL,
     is_active   BOOLEAN      NOT NULL DEFAULT TRUE,
     PRIMARY KEY (stamp_id),
     UNIQUE KEY uk_stamps_name (name)
@@ -553,11 +565,13 @@ CREATE TABLE feedback_tips (
 ### 초기 데이터
 
 ```sql
-INSERT INTO stamps (name, description, image_url, is_active) VALUES
-    ('장미',      '마음을 담아 건네는 붉은 장미',        '{CDN_BASE_URL}/stamps/flower_stamp.png',  TRUE),
-    ('호박',      '포근하고 든든한 가을 호박',           '{CDN_BASE_URL}/stamps/pumpkin_stamp.png', TRUE),
-    ('네잎클로버', '오늘 하루에 깃든 작은 행운',          '{CDN_BASE_URL}/stamps/clover_stamp.png',  TRUE),
-    ('초승달',    '조용히 하루를 마무리하는 밤의 달',     '{CDN_BASE_URL}/stamps/moon_stamp.png',    TRUE);
+INSERT INTO stamps (name, description, image_key, is_active) VALUES
+    ('장미',      '마음을 담아 건네는 붉은 장미',        'stamps/flower_stamp.png',  TRUE),
+    ('호박',      '포근하고 든든한 가을 호박',           'stamps/pumpkin_stamp.png', TRUE),
+    ('네잎클로버', '오늘 하루에 깃든 작은 행운',          'stamps/clover_stamp.png',  TRUE),
+    ('초승달',    '조용히 하루를 마무리하는 밤의 달',     'stamps/moon_stamp.png',    TRUE);
 ```
+
+> 파일 키만 넣는다. 호스트·버킷은 응답 시점에 붙으므로 초기 데이터가 환경에 종속되지 않는다.
 
 우표를 추가할 때는 이 테이블에 행을 넣는 것으로 끝난다. 프롬프트 후보 목록과 앱 응답에 자동으로 반영된다.
