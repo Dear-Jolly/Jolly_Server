@@ -4,6 +4,7 @@ import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.notNullValue;
@@ -587,6 +588,39 @@ class LetterApiTest extends ApiTestSupport {
                 .then()
                 .statusCode(HttpStatus.UNAUTHORIZED.value())
                 .body("code", equalTo("AUTH_005"));
+    }
+
+    @DisplayName("POST /api/v1/letters : 우표 후보가 있으면 mock 피드백이 만들어져 상세 조회에 내려온다")
+    @Test
+    void createLetterGeneratesMockFeedback() {
+        // given
+        Users user = 온보딩을_마친_유저를_저장한다("kakao-letter-16", "jolly16");
+        transactionTemplate.executeWithoutResult(
+                status -> entityManager.persist(Stamps.create("rose", "stamp/rose.png"))
+        );
+
+        long letterId = given().contentType(ContentType.JSON)
+                .header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                .body(편지_요청(CONTENT, LocalDateTime.now(), TIME_ZONE))
+                .when().post("/api/v1/letters")
+                .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("letterId");
+
+        // when
+        given()
+                .header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                .when().get("/api/v1/letters/{letterId}", letterId)
+                // then
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("status", equalTo(Status.FEEDBACK_COMPLETED.name()))
+                .body("stampImage", equalTo("http://localhost:9000/dear-jolly-stamps/stamp/rose.png"))
+                .body("originalContent", equalTo(CONTENT))
+                .body("feedback.correctedContent",
+                        equalTo("I received flowers from a friend today. It really touched me."))
+                .body("feedback.tips", hasSize(1))
+                .body("feedback.correctionSegments.size()", greaterThan(0));
     }
 
     private Map<String, Object> 편지_요청(String content, LocalDateTime writtenAt, String timeZone) {
