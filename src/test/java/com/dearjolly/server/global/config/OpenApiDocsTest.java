@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
@@ -86,6 +87,18 @@ class OpenApiDocsTest extends ApiTestSupport {
                         contains("SUBMITTED", "FEEDBACK_IN_PROGRESS", "FEEDBACK_COMPLETED"))
                 .body("components.schemas.LetterSummaryResponse.properties.status.enum",
                         contains("SUBMITTED", "FEEDBACK_IN_PROGRESS", "FEEDBACK_COMPLETED"));
+    }
+
+    @DisplayName("GET /v3/api-docs/swagger-config : 그룹 선택 없이 열면 전체 문서가 뜬다")
+    @Test
+    void primaryGroupIsAll() {
+        given()
+                .when().get("/v3/api-docs/swagger-config")
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("urls.name", hasItem("전체"))
+                .body("urls.find { it.name == '전체' }.url", equalTo("/v3/api-docs/all"))
+                .body("'urls.primaryName'", equalTo("전체"));
     }
 
     @DisplayName("GET /swagger-ui/index.html : Swagger UI 가 인증 없이 열린다")
