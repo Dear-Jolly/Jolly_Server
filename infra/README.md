@@ -187,7 +187,7 @@ Let's Encrypt 인증서를 자동으로 받아온다.
 | --- | --- |
 | 포트 | Let's Encrypt 검증에 80·443 이 열려 있어야 한다 (보안그룹에 이미 포함) |
 | OAuth 콜백 | `SITE_ADDRESS` 를 바꾸면 카카오·애플 콘솔의 리다이렉트 URL 도 함께 바꿔야 한다 |
-| MinIO | 이미지 URL 은 `http://{SITE_ADDRESS}:9000` 이라 HTTPS 가 아니다. mixed content 가 문제되면 Caddy 뒤로 넣어야 한다 |
+| MinIO | 우표 이미지도 Caddy 를 거친다. `https://{SITE_ADDRESS}/{버킷}/...` 로 API 와 같은 인증서를 쓴다 |
 
 로컬도 같은 방식으로 Caddy 가 HTTPS 를 종단하지만, 인증서는 내장 CA 로 만든다.
 실행 방법과 신뢰 등록은 [RUN.md](./RUN.md) 를 본다.
@@ -257,6 +257,7 @@ JVM 힙은 `compose.prod.yaml` 의 `JAVA_OPTS` 가 `MaxRAMPercentage=35` 로 묶
 | `MYSQL_ROOT_PASSWORD` | **필수** | `reset-db` 등 관리 작업용 |
 | `MYSQL_DATA_PATH` · `MINIO_DATA_PATH` | `../../../mount/{mysql,minio}` | 호스트 저장 경로. compose 파일 기준 상대경로 |
 | `MINIO_API_PORT` · `MINIO_CONSOLE_PORT` | `9000` · `9001` | MinIO 포트 |
+| `MINIO_PUBLIC_ENDPOINT` | 로컬 `https://localhost:8080` | 앱이 내려주는 우표 이미지 URL 의 기준 주소. Caddy 주소를 가리킨다. 9000 을 직접 쓰면 평문 HTTP 라 iOS·Android 가 이미지 로딩을 막는다 |
 | `MINIO_ROOT_USER` · `MINIO_ROOT_PASSWORD` | `jollyadmin` · **필수** | MinIO 관리자. 앱에는 `MINIO_ACCESS_KEY`/`SECRET_KEY` 로 전달된다 |
 | `MINIO_BUCKET` | `dear-jolly-stamps` | 우표 이미지 버킷. 기동 시 자동 생성되고 공개 읽기로 열린다 |
 | `STAMP_SEED_ENABLED` | `true` | 기동 시 우표 시드 실행 여부 |
