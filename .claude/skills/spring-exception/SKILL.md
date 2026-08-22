@@ -24,25 +24,31 @@ global/exception/
 
 ## ErrorCode 추가
 
-`(HttpStatus, 코드, 메시지)` 3요소를 갖는다. 코드는 `{도메인 앞글자}{HTTP 상태}` 규칙 (`U404`, `R409`, `G500`).
-도메인별 주석 블록으로 그룹을 나눠 두었으니, **새 상수는 해당 도메인 블록 안에 추가**한다.
+`(HttpStatus, 코드, 메시지)` 3요소를 갖는다. 코드는 `{도메인}_{일련번호}` 규칙 (`AUTH_001`, `USER_001`, `LETTER_001`, `COMMON_001`).
+도메인별 주석 블록(`auth` / `user` / `letter` / `common`)으로 그룹을 나눠 두었으니, **새 상수는 해당 도메인 블록 맨 뒤에 다음 번호로 추가**한다.
+
+> **코드·상태·메시지의 정본은 [docs/API명세.md](../../../docs/API명세.md) §7 이다.**
+> 새 코드가 필요하면 문서를 먼저 고치고 Enum 을 맞춘다. 번호는 한 번 부여하면 재사용하지 않는다.
 
 ```java
 @Getter
 @AllArgsConstructor
 public enum ErrorCode {
 
-    // global
-    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "G500", "서버 내부에 문제가 발생했습니다."),
-    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "G405", "허용되지 않는 메서드입니다."),
-
-    // resource
-    RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "R404", "요청한 리소스가 존재하지 않습니다."),
-    RESOURCE_DUPLICATED(HttpStatus.CONFLICT, "R409", "중복해서 저장할 수 없습니다."),
+    // auth
+    UNSUPPORTED_OAUTH_PROVIDER(HttpStatus.BAD_REQUEST, "AUTH_001", "지원하지 않는 로그인 방식입니다."),
+    ACCESS_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "AUTH_005", "유효하지 않은 토큰입니다."),
 
     // user
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U404", "존재하지 않는 사용자입니다."),
-    INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "U400", "올바르지 않은 값 또는 형식입니다.");
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_001", "사용자를 찾을 수 없습니다."),
+    ONBOARDING_NOT_COMPLETED(HttpStatus.BAD_REQUEST, "USER_005", "온보딩을 먼저 완료해야 합니다."),
+
+    // letter
+    LETTER_NOT_FOUND(HttpStatus.NOT_FOUND, "LETTER_002", "존재하지 않는 편지입니다."),
+
+    // common
+    INVALID_REQUEST(HttpStatus.BAD_REQUEST, "COMMON_001", "잘못된 요청입니다."),
+    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_005", "일시적인 오류가 발생했습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
@@ -59,7 +65,7 @@ public enum ErrorCode {
 throw new BusinessException(ErrorCode.USER_NOT_FOUND);
 
 // 상세 메시지 추가 (ErrorCode 메시지 뒤에 " : {detail}"로 붙는다)
-throw new BusinessException(ErrorCode.RESOURCE_DUPLICATED, "이미 사용 중인 닉네임입니다.");
+throw new BusinessException(ErrorCode.LETTER_NOT_FOUND, "letterId=15");
 
 // Optional 조회 관용구
 Users user = userRepository.findById(userId)
@@ -75,8 +81,8 @@ Users user = userRepository.findById(userId)
 ```json
 {
   "status": 404,
-  "code": "U404",
-  "message": "존재하지 않는 사용자입니다."
+  "code": "USER_001",
+  "message": "사용자를 찾을 수 없습니다."
 }
 ```
 
@@ -87,9 +93,11 @@ Users user = userRepository.findById(userId)
 | 예외 | 처리 |
 |---|---|
 | `BusinessException` | 담긴 `ErrorCode` 그대로 응답 |
-| `MethodArgumentNotValidException` | `@Valid` 실패 → `INVALID_INPUT_VALUE` + 필드별 메시지 조합 |
-| `MethodArgumentTypeMismatchException` | 파라미터 타입 불일치 → `INVALID_INPUT_VALUE` |
-| `HttpMessageNotReadableException` | JSON 파싱 실패 → `INVALID_INPUT_VALUE` |
+| `MethodArgumentNotValidException` | `@Valid` 실패 → `INVALID_REQUEST` + 필드별 메시지 조합 |
+| `MethodArgumentTypeMismatchException` | 파라미터 타입 불일치 → `INVALID_REQUEST` |
+| `HttpMessageNotReadableException` | JSON 파싱 실패 → `INVALID_REQUEST` |
+| `HttpRequestMethodNotSupportedException` | 미지원 메서드 → `METHOD_NOT_ALLOWED` |
+| `NoResourceFoundException` | 미정의 경로 → `PATH_NOT_FOUND` |
 | `RuntimeException` | 그 외 전부 → `INTERNAL_SERVER_ERROR` |
 
 핸들러 추가 시 규칙:
