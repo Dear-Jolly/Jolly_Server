@@ -48,6 +48,7 @@
 - **앱 SDK 로 받은 소셜 토큰을 서버에 전달하는 방식은 지원하지 않는다.**
 - 유저는 `(provider + provider 회원 식별자)` 로 구분한다. 이메일이 같아도 카카오와 애플은 별개 계정이다.
 - `provider` 는 대소문자를 가리지 않는다. `KAKAO` · `APPLE` 중 어느 것도 아니면 `COMMON_001` 이다.
+- **이 주소를 연 뒤 10분 안에 provider 로그인을 마쳐야 한다.** 넘기면 콜백에서 `AUTH_002` 가 나가므로 앱은 로그인을 처음부터 다시 시작한다.
 
 ### [스펙]
 
@@ -94,7 +95,8 @@ Location: https://kauth.kakao.com/oauth/authorize?client_id=...&redirect_uri=...
 - 가입 직후에는 약관 동의 이력이 없고 닉네임이 비어 있다.
 - 로그인은 **기기 1대만 유지**된다. 새로 로그인하면 이전 로그인은 풀린다.
 - **탈퇴한 계정으로 다시 로그인하면 항상 신규 가입**(`isNewUser=true`)이며, 이전 편지는 복원되지 않는다.
-- 콜백 단계의 실패는 딥링크가 아니라 **JSON 에러 응답**으로 나간다. 인가 코드 검증에 실패하면 `AUTH_002`, 카카오 서버와 통신하지 못하면 `AUTH_003` 이다.
+- 콜백 단계의 실패는 딥링크가 아니라 **JSON 에러 응답**으로 나간다. 인가 코드나 `state` 검증에 실패하면 `AUTH_002`, 카카오 서버와 통신하지 못하면 `AUTH_003` 이다.
+- `state` 는 **로그인 시작 때 서버가 발급한 값이어야 하고 10분이 지나면 만료**된다. 비었거나 위조됐거나 만료됐으면 `AUTH_002` 다.
 
 ### [스펙]
 
@@ -109,7 +111,7 @@ GET /api/v1/auth/kakao/callback
 **Request Parameter**
 
 - [필수] `code` (String): 카카오가 발급한 인가 코드
-- [선택] `state` (String): 로그인 시작 때 서버가 붙여 보낸 값
+- [필수] `state` (String): 로그인 시작 때 서버가 붙여 보낸 값
 
 ### [성공 Response 302]
 
@@ -162,7 +164,7 @@ Location: dearjolly://auth/callback
 - 애플이 호출하는 주소다. **앱이 직접 호출하지 않는다.** 애플이 `form_post` 로 보내기 때문에 `POST` 다.
 - 응답 형태와 앱 분기 규칙은 [2) GET /api/v1/auth/kakao/callback](#2-get-apiv1authkakaocallback-) 과 완전히 같다.
 - 애플에서 이메일 제공을 거부한 유저는 **이메일이 비어 있다**(`null`). 서버가 대체 주소를 지어내지 않는다.
-- 인가 코드 · `id_token` 검증에 실패하면 `AUTH_002`, 애플 서버와 통신하지 못하면 `AUTH_003` 이다.
+- 인가 코드 · `id_token` · `state` 검증에 실패하면 `AUTH_002`, 애플 서버와 통신하지 못하면 `AUTH_003` 이다.
 
 ### [스펙]
 
@@ -178,7 +180,7 @@ POST /api/v1/auth/apple/callback
 
 - [필수] `code` (String): 애플이 발급한 인가 코드
 - [필수] `id_token` (String): 회원 식별자와 이메일이 담긴 토큰
-- [선택] `state` (String): 로그인 시작 때 서버가 붙여 보낸 값
+- [필수] `state` (String): 로그인 시작 때 서버가 붙여 보낸 값
 
 ### [성공 Response 302]
 

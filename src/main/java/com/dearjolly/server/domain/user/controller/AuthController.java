@@ -23,7 +23,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -63,10 +62,9 @@ public class AuthController {
             @Parameter(description = "로그인 수단 (KAKAO, APPLE) - 대소문자를 가리지 않는다", required = true)
             @PathVariable OauthProvider provider
     ) {
-        String state = UUID.randomUUID().toString();
         return ResponseEntity
                 .status(FOUND)
-                .location(URI.create(authService.buildAuthorizationUri(provider, state)))
+                .location(URI.create(authService.buildAuthorizationUri(provider)))
                 .build();
     }
 
@@ -79,12 +77,13 @@ public class AuthController {
                     - 앱 진입 화면은 `termsAgreed == false` → 약관동의, `nicknameRegistered == false` → 닉네임, 둘 다 `true` → 홈이다.
                     - **토큰이 URL 에 실려 오므로** 받은 즉시 보안 저장소로 옮긴다.
                     - 로그인은 **기기 1대만 유지**된다. 탈퇴한 계정으로 다시 로그인하면 항상 신규 가입이다.
+                    - `state` 가 없거나 이 서버가 발급한 값이 아니거나 발급 후 10분이 지났으면 `AUTH_002` 다.
                     - 이 단계의 실패는 딥링크가 아니라 JSON 에러 응답으로 나간다.""")
     @ApiResponses({
             @ApiResponse(responseCode = "302", description = "앱 딥링크로 리다이렉트", content = @Content),
             @ApiResponse(
                     responseCode = "401",
-                    description = "`AUTH_002` 인가 코드 검증 실패",
+                    description = "`AUTH_002` state 검증 실패 · 인가 코드 검증 실패",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(
                     responseCode = "502",
@@ -95,9 +94,11 @@ public class AuthController {
     @GetMapping("/kakao/callback")
     public ResponseEntity<Void> kakaoCallback(
             @Parameter(description = "카카오가 발급한 인가 코드", required = true)
-            @RequestParam String code
+            @RequestParam String code,
+            @Parameter(description = "로그인 시작 때 서버가 붙여 보낸 state", required = true)
+            @RequestParam(required = false) String state
     ) {
-        return redirectToApp(authService.handleCallback(OauthProvider.KAKAO, code, null));
+        return redirectToApp(authService.handleCallback(OauthProvider.KAKAO, code, null, state));
     }
 
     @Operation(
@@ -106,12 +107,13 @@ public class AuthController {
                     **애플이 호출하는 주소다. 앱이 직접 호출하지 않는다.** 애플이 `form_post` 로 보내기 때문에 `POST` 다.
 
                     - 응답 형태와 앱 분기 규칙은 카카오 콜백과 같다.
-                    - 애플에서 이메일 제공을 거부한 유저는 이메일이 `null` 이다.""")
+                    - 애플에서 이메일 제공을 거부한 유저는 이메일이 `null` 이다.
+                    - `state` 가 없거나 이 서버가 발급한 값이 아니거나 발급 후 10분이 지났으면 `AUTH_002` 다.""")
     @ApiResponses({
             @ApiResponse(responseCode = "302", description = "앱 딥링크로 리다이렉트", content = @Content),
             @ApiResponse(
                     responseCode = "401",
-                    description = "`AUTH_002` 인가 코드 · id_token 검증 실패",
+                    description = "`AUTH_002` state 검증 실패 · 인가 코드 · id_token 검증 실패",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(
                     responseCode = "502",
@@ -124,9 +126,11 @@ public class AuthController {
             @Parameter(description = "애플이 발급한 인가 코드", required = true)
             @RequestParam String code,
             @Parameter(description = "애플이 함께 보내는 identity token", required = true)
-            @RequestParam(name = "id_token") String idToken
+            @RequestParam(name = "id_token") String idToken,
+            @Parameter(description = "로그인 시작 때 서버가 붙여 보낸 state", required = true)
+            @RequestParam(required = false) String state
     ) {
-        return redirectToApp(authService.handleCallback(OauthProvider.APPLE, code, idToken));
+        return redirectToApp(authService.handleCallback(OauthProvider.APPLE, code, idToken, state));
     }
 
     @Operation(

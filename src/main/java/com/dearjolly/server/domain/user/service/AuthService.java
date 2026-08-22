@@ -11,6 +11,7 @@ import com.dearjolly.server.domain.user.repository.TermsAgreementRepository;
 import com.dearjolly.server.domain.user.repository.UserRepository;
 import com.dearjolly.server.global.auth.jwt.JwtProvider;
 import com.dearjolly.server.global.auth.oauth.OauthClientResolver;
+import com.dearjolly.server.global.auth.oauth.OauthStateProvider;
 import com.dearjolly.server.global.auth.oauth.OauthUserInfo;
 import com.dearjolly.server.global.exception.exception.BusinessException;
 import com.dearjolly.server.global.exception.response.ErrorCode;
@@ -29,14 +30,17 @@ public class AuthService {
     private final UserRepository userRepository;
     private final TermsAgreementRepository termsAgreementRepository;
     private final OauthClientResolver oauthClientResolver;
+    private final OauthStateProvider oauthStateProvider;
     private final JwtProvider jwtProvider;
 
-    public String buildAuthorizationUri(OauthProvider provider, String state) {
-        return oauthClientResolver.resolve(provider).buildAuthorizationUri(state);
+    public String buildAuthorizationUri(OauthProvider provider) {
+        return oauthClientResolver.resolve(provider).buildAuthorizationUri(oauthStateProvider.issue(provider));
     }
 
     @Transactional
-    public OauthLoginResult handleCallback(OauthProvider provider, String code, String idToken) {
+    public OauthLoginResult handleCallback(OauthProvider provider, String code, String idToken, String state) {
+        oauthStateProvider.validate(provider, state);
+
         OauthUserInfo userInfo = oauthClientResolver.resolve(provider).exchange(code, idToken);
 
         Optional<Users> found = userRepository.findByOauthProviderAndOauthId(
