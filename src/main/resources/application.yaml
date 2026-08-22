@@ -13,11 +13,18 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:create}
+      # 스키마는 Flyway 가 소유한다. 전 환경 validate 고정 (기능명세 §4.3).
+      # create/update 를 쓰면 Flyway 가 만든 테이블을 Hibernate 가 덮어써 초기 데이터가 날아간다.
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     show-sql: ${JPA_SHOW_SQL:true}
     properties:
       hibernate:
         format_sql: true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    # 초기 데이터에는 파일 키만 들어가므로 환경 의존 placeholder 가 필요 없다 (ERD §2.4).
 
   servlet:
     multipart:
@@ -31,3 +38,30 @@ minio:
   access-key: ${MINIO_ACCESS_KEY}
   secret-key: ${MINIO_SECRET_KEY}
   bucket: ${MINIO_BUCKET:dear-jolly-stamps}
+
+dearjolly:
+  jwt:
+    secret: ${JWT_SECRET}
+    access-expire-millis: ${JWT_ACCESS_EXPIRE:1800000}      # 30분
+    refresh-expire-millis: ${JWT_REFRESH_EXPIRE:1209600000} # 14일
+
+  terms:
+    current-version: ${TERMS_CURRENT_VERSION:1.0.0}
+
+  withdrawal:
+    retention-days: ${WITHDRAWAL_RETENTION_DAYS:30}
+
+  oauth:
+    # 인증 완료 후 앱으로 돌아갈 딥링크. 토큰이 쿼리 파라미터로 실린다.
+    app-redirect-uri: ${OAUTH_APP_REDIRECT_URI:dearjolly://auth/callback}
+    kakao:
+      client-id: ${KAKAO_CLIENT_ID:}
+      client-secret: ${KAKAO_CLIENT_SECRET:}
+      redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8080/api/v1/auth/kakao/callback}
+      admin-key: ${KAKAO_ADMIN_KEY:}
+    apple:
+      client-id: ${APPLE_CLIENT_ID:}
+      team-id: ${APPLE_TEAM_ID:}
+      key-id: ${APPLE_KEY_ID:}
+      private-key: ${APPLE_PRIVATE_KEY:}
+      redirect-uri: ${APPLE_REDIRECT_URI:http://localhost:8080/api/v1/auth/apple/callback}

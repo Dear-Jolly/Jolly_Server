@@ -7,10 +7,14 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -18,12 +22,12 @@ public class GlobalExceptionHandler {
 
     // 커스텀 예외
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ErrorResponse> handleGlobalException(BusinessException e) {
-        log.error("GlobalException: {}", e.getMessage());
+    public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e) {
+        log.error("BusinessException: {}", e.getMessage());
         return ErrorResponse.toResponseEntity(e.getErrorCode(), e.getMessage());
     }
 
-    // @Valid 유효성 검사 실패
+    // @Valid 유효성 검사 실패 → COMMON_001
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
         String errorMessage = e.getBindingResult()
@@ -33,27 +37,55 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
 
         log.error("ValidationFail: {}", errorMessage);
-        return ErrorResponse.toResponseEntity(ErrorCode.INVALID_INPUT_VALUE, errorMessage);
+        return ErrorResponse.toResponseEntity(ErrorCode.INVALID_REQUEST, errorMessage);
+    }
+
+    // 쿼리 파라미터 제약 위반 (@Min, @Max 등) → COMMON_001
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ErrorResponse> handleHandlerMethodValidationException(HandlerMethodValidationException e) {
+        log.error("ParameterValidationFail: {}", e.getMessage());
+        return ErrorResponse.toResponseEntity(ErrorCode.INVALID_REQUEST);
+    }
+
+    // 필수 파라미터 누락
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParameterException(MissingServletRequestParameterException e) {
+        log.error("MissingParameter: {}", e.getMessage());
+        return ErrorResponse.toResponseEntity(ErrorCode.INVALID_REQUEST, e.getParameterName() + " 파라미터는 필수입니다.");
     }
 
     // 메서드 파라미터 타입 불일치
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatchException(MethodArgumentTypeMismatchException e) {
         log.error("TypeMismatch: {}", e.getMessage());
-        return ErrorResponse.toResponseEntity(ErrorCode.INVALID_INPUT_VALUE, "파라미터 타입이 올바르지 않습니다.");
+        return ErrorResponse.toResponseEntity(ErrorCode.INVALID_REQUEST, "파라미터 타입이 올바르지 않습니다.");
     }
 
     // JSON 파싱 실패 (잘못된 형식의 JSON)
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleJsonParseException(HttpMessageNotReadableException e) {
         log.error("JsonParseFail: {}", e.getMessage());
-        return ErrorResponse.toResponseEntity(ErrorCode.INVALID_INPUT_VALUE, "JSON 형식이 올바르지 않습니다.");
+        return ErrorResponse.toResponseEntity(ErrorCode.INVALID_REQUEST, "JSON 형식이 올바르지 않습니다.");
     }
 
-    // 그 외 모든 런타임 예외
+    // 지원하지 않는 HTTP 메서드 → COMMON_003
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupportedException(HttpRequestMethodNotSupportedException e) {
+        log.error("MethodNotAllowed: {}", e.getMessage());
+        return ErrorResponse.toResponseEntity(ErrorCode.METHOD_NOT_ALLOWED);
+    }
+
+    // 존재하지 않는 경로 → COMMON_002
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFoundException(NoResourceFoundException e) {
+        log.error("PathNotFound: {}", e.getResourcePath());
+        return ErrorResponse.toResponseEntity(ErrorCode.PATH_NOT_FOUND);
+    }
+
+    // 그 외 모든 런타임 예외 → COMMON_005
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException e) {
         log.error("RuntimeException: ", e);
-        return ErrorResponse.toResponseEntity(ErrorCode.INTERNAL_SERVER_ERROR, e.getMessage());
+        return ErrorResponse.toResponseEntity(ErrorCode.INTERNAL_SERVER_ERROR);
     }
 }
