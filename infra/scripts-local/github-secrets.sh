@@ -4,6 +4,7 @@
 #
 # infra/env/.env.prod 의 값을 세 갈래로 나눠 올린다.
 #   - 워크플로가 개별 참조하는 값 → 각각 Secret (EC2_HOST, AWS_ACCESS_KEY_ID 등)
+#   - 비밀이 아닌 설정값          → Variable (AWS_REGION, ECR_REPOSITORY)
 #   - 앱 실행 환경변수           → PROD_ENV_FILE 하나로 묶어서
 #   - 인프라 관리 전용 값        → 올리지 않음 (STACK_ECR, EC2_INSTANCE_TYPE 등)
 set -euo pipefail
@@ -25,11 +26,17 @@ if [ "${1:-}" = "dump" ]; then
     echo "# 생성 명령: ./infra/scripts-local/github-secrets.sh dump"
     echo "# 등록 위치: GitHub > Settings > Secrets and variables > Actions > New repository secret"
     echo "#"
-    echo "# 아래 10개를 각각 Secret 으로 등록한다. 값이 바뀌면 이 명령을 다시 실행해 갱신한다."
+    echo "# 값이 바뀌면 이 명령을 다시 실행해 갱신한다."
     echo "# 이 파일은 gitignore 대상이다 (실제 비밀값 포함)."
     echo
-    echo "# ===== 1. 단일 행 8개 (이름 = 값) ====="
+    echo "# ===== 1. Secret ${#SECRET_KEYS[@]}개 (Settings > Secrets and variables > Actions > Secrets) ====="
     for key in "${SECRET_KEYS[@]}"; do
+      printf '%s=%s\n' "$key" "$(read_env "$key")"
+    done
+    echo
+    echo "# ===== 1-2. Variable ${#VARIABLE_KEYS[@]}개 (같은 화면의 Variables 탭) ====="
+    echo "# 비밀이 아니다. Secret 으로 등록하면 이미지 주소가 마스킹돼 배포가 깨진다."
+    for key in "${VARIABLE_KEYS[@]}"; do
       printf '%s=%s\n' "$key" "$(read_env "$key")"
     done
     echo
@@ -48,7 +55,7 @@ if [ "${1:-}" = "dump" ]; then
     app_env_lines
   } > "$DUMP_FILE"
   chmod 600 "$DUMP_FILE"
-  log "${DUMP_FILE} 생성 완료 (Secret ${#SECRET_KEYS[@]}개 + EC2_SSH_KEY + PROD_ENV_FILE)"
+  log "${DUMP_FILE} 생성 완료 (Secret ${#SECRET_KEYS[@]}개 + Variable ${#VARIABLE_KEYS[@]}개 + EC2_SSH_KEY + PROD_ENV_FILE)"
   exit 0
 fi
 
@@ -75,6 +82,18 @@ for key in "${SECRET_KEYS[@]}"; do
   log "${key} 등록 완료"
 done
 
+# ===== 1-2. 비밀이 아닌 설정값 (Variable) =====
+# Secret 으로 두면 이 문자열이 섞인 잡 출력이 통째로 마스킹돼
+# needs.build.outputs.image 가 빈 값이 되고 배포가 깨진다.
+for key in "${VARIABLE_KEYS[@]}"; do
+  value=$(read_env "$key")
+  [ -n "$value" ] || die "${key} 값이 비어 있습니다."
+  gh variable set "$key" --body "$value"
+  log "${key} 등록 완료 (Variable)"
+  # 과거에 Secret 으로 올라가 있었다면 내린다. 남아 있어도 vars 가 우선하지만 혼동을 막는다.
+  gh secret delete "$key" >/dev/null 2>&1 && log "${key} 는 Secret 에서 제거했습니다"
+done
+
 # ===== 2. 키페어(.pem) 파일 내용 =====
 # 키페어 생성/저장은 infra/scripts-local/aws-setup.sh 담당. 여기서는 이미 있는 파일을 읽기만 한다.
 [ -f "$KEY_PATH" ] || die "키페어 파일이 없습니다: ${KEY_PATH} (infra/scripts-local/aws-setup.sh 실행 필요)"
@@ -88,3 +107,6 @@ log "PROD_ENV_FILE 등록 완료 (앱 실행 환경변수 일괄)"
 echo
 log "등록된 Secrets 목록:"
 gh secret list
+echo
+log "등록된 Variables 목록:"
+gh variable list
