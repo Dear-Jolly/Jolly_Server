@@ -17,6 +17,9 @@ spring:
       # create/update 를 쓰면 Flyway 가 만든 테이블을 Hibernate 가 덮어써 초기 데이터가 날아간다.
       ddl-auto: ${JPA_DDL_AUTO:validate}
     show-sql: ${JPA_SHOW_SQL:true}
+    # 응답 DTO 는 서비스 트랜잭션 안에서 조립하므로 뷰 렌더링 시점에 쿼리가 나갈 일이 없다.
+    # 켜 두면 요청 내내 커넥션을 붙잡고 있어 끈다.
+    open-in-view: false
     properties:
       hibernate:
         format_sql: true
