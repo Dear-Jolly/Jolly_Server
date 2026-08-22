@@ -1,9 +1,11 @@
 package com.dearjolly.server.domain.letter.enums;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 
+@Schema(description = "편지 목록 정렬 기준 (편지 날짜 기준)")
 @Getter
 @RequiredArgsConstructor
 public enum LetterSort {

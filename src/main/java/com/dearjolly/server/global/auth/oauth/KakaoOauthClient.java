@@ -7,6 +7,7 @@ import com.dearjolly.server.domain.user.enums.OauthProvider;
 import com.dearjolly.server.global.exception.exception.BusinessException;
 import com.dearjolly.server.global.exception.response.ErrorCode;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -15,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -101,9 +103,11 @@ public class KakaoOauthClient implements OauthClient {
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                     .retrieve()
                     .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+                        log.warn("카카오 사용자 조회가 거절됐다. status={}, body={}", res.getStatusCode(), readBody(res));
                         throw new BusinessException(ErrorCode.OAUTH_AUTHENTICATION_FAILED);
                     })
                     .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+                        log.warn("카카오 사용자 조회 중 카카오 서버 오류. status={}, body={}", res.getStatusCode(), readBody(res));
                         throw new BusinessException(ErrorCode.OAUTH_SERVER_ERROR);
                     })
                     .body(KakaoUserResponse.class);
@@ -127,9 +131,11 @@ public class KakaoOauthClient implements OauthClient {
                     .body(toQueryString(form))
                     .retrieve()
                     .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+                        log.warn("카카오 인증 요청이 거절됐다. uri={}, status={}, body={}", uri, res.getStatusCode(), readBody(res));
                         throw new BusinessException(ErrorCode.OAUTH_AUTHENTICATION_FAILED);
                     })
                     .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+                        log.warn("카카오 서버 오류. uri={}, status={}, body={}", uri, res.getStatusCode(), readBody(res));
                         throw new BusinessException(ErrorCode.OAUTH_SERVER_ERROR);
                     })
                     .body(responseType);
@@ -138,6 +144,10 @@ public class KakaoOauthClient implements OauthClient {
         } catch (RestClientException e) {
             throw new BusinessException(ErrorCode.OAUTH_SERVER_ERROR);
         }
+    }
+
+    private String readBody(ClientHttpResponse response) throws IOException {
+        return new String(response.getBody().readAllBytes(), UTF_8);
     }
 
     private String toQueryString(Map<String, String> params) {

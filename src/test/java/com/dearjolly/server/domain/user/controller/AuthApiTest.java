@@ -12,6 +12,8 @@ import io.restassured.http.ContentType;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 
@@ -36,6 +38,17 @@ class AuthApiTest extends ApiTestSupport {
                 .statusCode(HttpStatus.FOUND.value())
                 .header(HttpHeaders.LOCATION, containsString("appleid.apple.com/auth/authorize"))
                 .header(HttpHeaders.LOCATION, containsString("response_mode=form_post"));
+    }
+
+    @DisplayName("GET /api/v1/auth/{provider} : provider 는 대소문자를 가리지 않는다")
+    @ValueSource(strings = {"kakao", "Kakao", "kAkAo"})
+    @ParameterizedTest
+    void authorizeIgnoresProviderCase(String provider) {
+        given().redirects().follow(false)
+                .when().get("/api/v1/auth/" + provider)
+                .then()
+                .statusCode(HttpStatus.FOUND.value())
+                .header(HttpHeaders.LOCATION, containsString("kauth.kakao.com/oauth/authorize"));
     }
 
     @DisplayName("GET /api/v1/auth/{provider} : 지원하지 않는 provider 면 COMMON_001")

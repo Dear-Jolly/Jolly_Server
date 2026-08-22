@@ -30,6 +30,7 @@ public class SecurityConfig {
             "/api/v1/version",
             "/actuator/health",
             "/error",
+            "/swagger-ui.html",
             "/swagger-ui/**",
             "/v3/api-docs/**"
     };
@@ -40,6 +41,7 @@ public class SecurityConfig {
             "/api/v1/version",
             "/actuator/**",
             "/error",
+            "/swagger-ui.html",
             "/swagger-ui/**",
             "/v3/api-docs/**"
     );
