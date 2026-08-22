@@ -58,3 +58,7 @@ out/
 .env*
 !.env.local.example
 !.env.prod.example
+
+## 소셜 로그인 콘솔 설정 런북 ##
+# 실제 식별자·운영 주소가 들어 있어 추적하지 않는다.
+docs/*회원가입.md
