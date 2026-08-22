@@ -14,7 +14,11 @@ x-app-env: &app-env
   MYSQL_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
   MYSQL_USER: ${MYSQL_USER}
   MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-  JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+  # 스키마는 Flyway 가 소유한다. 전 환경 validate 고정이며 기본값도 validate 여야 한다 (기능명세 §4.3).
+  # 기본값을 update/create 로 두면 .env 에서 이 키가 빠지는 순간 Hibernate 가
+  # Flyway 소유 스키마를 직접 고쳐 ERD 가 정본이라는 전제가 조용히 깨진다.
+  JPA_DDL_AUTO: ${JPA_DDL_AUTO:-validate}
+  FLYWAY_ENABLED: ${FLYWAY_ENABLED:-true}
   JPA_SHOW_SQL: ${JPA_SHOW_SQL:-false}
   # --- MinIO ---
   MINIO_ENDPOINT: http://minio:9000
