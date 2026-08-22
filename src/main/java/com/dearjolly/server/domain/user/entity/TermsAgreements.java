@@ -19,10 +19,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 약관 동의 이력. UPDATE 하지 않고 INSERT 만 하며, 현재 동의 상태는
- * (user_id, type) 별 agreed_at 이 가장 최신인 행의 agreed 값이다.
- */
 @Entity
 @Table(
         name = "TERMS_AGREEMENTS",
@@ -31,7 +27,6 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class TermsAgreements {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "terms_agreement_id")
@@ -59,19 +54,16 @@ public class TermsAgreements {
         this.agreedAt = LocalDateTime.now();
     }
 
-    // ========= 생성 메서드 =========
     public static TermsAgreements create(Users user, TermsType type, boolean agreed, String termsVersion) {
         TermsAgreements agreement = new TermsAgreements(user, type, agreed, termsVersion);
         user.addTermsAgreement(agreement);
         return agreement;
     }
 
-    // ========= 비즈니스 로직 메서드 =========
     public boolean isRequiredAndAgreed() {
         return this.type.isRequired() && this.agreed;
     }
 
-    // ========= 생성자 =========
     private TermsAgreements(Users user, TermsType type, boolean agreed, String termsVersion) {
         validateType(type);
         validateTermsVersion(termsVersion);
@@ -81,7 +73,6 @@ public class TermsAgreements {
         this.termsVersion = termsVersion;
     }
 
-    // ========= 검증 메서드 =========
     private void validateType(TermsType type) {
         if (type == null) {
             throw new IllegalArgumentException("약관 종류는 필수입니다.");

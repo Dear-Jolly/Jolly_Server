@@ -31,10 +31,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 편지는 append-only 다. 등록 후 content 와 letterDate 는 변경되지 않으며
- * 사용자 요청으로 삭제되지도 않는다. 그래서 본문 수정 메서드를 두지 않는다.
- */
 @Entity
 @Table(
         name = "LETTERS",
@@ -46,7 +42,6 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Letters {
-
     private static final int MAX_RETRY_COUNT = 3;
     private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 
@@ -59,7 +54,6 @@ public class Letters {
     @JoinColumn(name = "user_id", nullable = false)
     private Users user;
 
-    /** 마스터 데이터라 단방향이다. cascade 를 걸지 않으므로 편지 삭제가 우표 행에 영향을 주지 않는다. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "stamp_id")
     private Stamps stamp;
@@ -73,11 +67,6 @@ public class Letters {
     @Column(name = "letter_date", nullable = false)
     private LocalDate letterDate;
 
-    /**
-     * 작성 시점에 기기가 있던 IANA 타임존 ID. 서버 시각(KST)으로 저장한 createdAt 을
-     * 나중에 다시 조회할 때도 작성지 기준으로 되돌리기 위해 남긴다. 이 값이 없으면
-     * 편지 작성 응답에서만 변환이 가능하고, 이후의 모든 조회는 KST 로 굳는다.
-     */
     @Column(name = "time_zone", nullable = false, length = 64)
     private String timeZone;
 
@@ -109,53 +98,35 @@ public class Letters {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // ========= 생성 메서드 =========
-
-    /**
-     * 임시저장이 없으므로 편지는 항상 SUBMITTED 로 생성된다.
-     * letterDate 는 요청의 writtenAt 이 가진 날짜 부분이고, timeZone 은 그 시각을
-     * 해석한 기기의 타임존이다. 파싱된 ZoneId 를 받으므로 해석 불가능한 문자열은 저장될 수 없다.
-     */
     public static Letters create(Users user, String content, LocalDate letterDate, ZoneId timeZone) {
         Letters letter = new Letters(user, content, letterDate, timeZone);
         user.addLetter(letter);
         return letter;
     }
 
-    // ========= 연관관계 메서드 =========
     public void registerFeedback(Feedbacks feedback) {
         this.feedback = feedback;
     }
 
-    // ========= 비즈니스 로직 메서드 =========
-
-    /** 상세 조회의 부수 효과. 한 번 읽으면 다시 미열람으로 되돌아가지 않는다. */
     public void markAsRead() {
         this.isRead = true;
     }
 
-    /**
-     * 워커 픽업. 실제 중복 실행 방지는 레포지터리의 조건부 UPDATE 가 담당하며,
-     * 이 메서드는 영속성 컨텍스트의 상태를 맞추기 위한 것이다.
-     */
     public void startFeedback() {
         this.status = FEEDBACK_IN_PROGRESS;
     }
 
-    /** 우표 부여와 완료 전이는 항상 함께 일어난다 (불변식 A9). */
     public void completeFeedback(Stamps stamp) {
         validateStamp(stamp);
         this.stamp = stamp;
         this.status = FEEDBACK_COMPLETED;
     }
 
-    /** LLM 실패 후 재시도. 워커가 백오프 뒤 자신을 재예약한다. */
     public void retryFeedback() {
         this.status = SUBMITTED;
         this.retryCount++;
     }
 
-    /** 처리 유실(15분 초과) 감지 시 되돌린다. 재시도 횟수는 늘리지 않는다. */
     public void requeueFeedback() {
         this.status = SUBMITTED;
     }
@@ -164,13 +135,11 @@ public class Letters {
         this.status = FEEDBACK_FAILED;
     }
 
-    /** 운영자 수동 재처리. 재시도 횟수를 초기화한다. */
     public void resetForReprocess() {
         this.status = SUBMITTED;
         this.retryCount = 0;
     }
 
-    /** 백오프 3단계(30s → 2m → 10m)를 모두 소진하면 실패로 확정한다 (기능명세 §3.5.4). */
     public boolean isRetryExhausted() {
         return this.retryCount >= MAX_RETRY_COUNT;
     }
@@ -179,19 +148,16 @@ public class Letters {
         return this.status.isCompleted();
     }
 
-    /** 서버 시각(KST)으로 저장된 createdAt 을 작성지 기준 시각으로 되돌린다. */
     public LocalDateTime createdAtInWrittenZone() {
         return this.createdAt.atZone(SERVER_ZONE)
                 .withZoneSameInstant(ZoneId.of(this.timeZone))
                 .toLocalDateTime();
     }
 
-    /** FEEDBACK_FAILED 는 내부 상태이므로 응답에서는 SUBMITTED 로 치환한다. */
     public Status toResponseStatus() {
         return this.status == FEEDBACK_FAILED ? SUBMITTED : this.status;
     }
 
-    // ========= 생성자 =========
     private Letters(Users user, String content, LocalDate letterDate, ZoneId timeZone) {
         validateContent(content);
         validateLetterDate(letterDate);
@@ -205,7 +171,6 @@ public class Letters {
         this.retryCount = 0;
     }
 
-    // ========= 검증 메서드 =========
     private void validateContent(String content) {
         if (content == null || content.isBlank()) {
             throw new IllegalArgumentException("편지 내용은 필수입니다.");

@@ -41,7 +41,6 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Users {
-
     private static final int OAUTH_ID_MAX_LENGTH = 255;
     private static final String WITHDRAWN_OAUTH_ID_SUFFIX = "#withdrawn#";
     private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
@@ -75,7 +74,6 @@ public class Users {
     @Column(name = "refresh_token", length = 500)
     private String refreshToken;
 
-    /** 소셜 provider 가 발급한 refresh token. Apple 연결 해제(revoke) 에 필요하다. */
     @Column(name = "oauth_refresh_token", length = 500)
     private String oauthRefreshToken;
 
@@ -106,12 +104,6 @@ public class Users {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // ========= 생성 메서드 =========
-
-    /**
-     * 소셜 로그인 최초 진입 시 생성한다. 닉네임은 온보딩에서 채우므로 null 로 시작한다.
-     * 이메일은 provider 가 주지 않을 수 있어 null 을 허용한다.
-     */
     public static Users create(OauthProvider oauthProvider, String oauthId, String email) {
         return new Users(oauthProvider, oauthId, email, ROLE_USER);
     }
@@ -120,7 +112,6 @@ public class Users {
         return new Users(oauthProvider, oauthId, email, ROLE_ADMIN);
     }
 
-    // ========= 연관관계 메서드 =========
     public void addTermsAgreement(TermsAgreements termsAgreement) {
         this.termsAgreements.add(termsAgreement);
     }
@@ -129,7 +120,6 @@ public class Users {
         this.letters.add(letter);
     }
 
-    // ========= 비즈니스 로직 메서드 =========
     public void updateNickname(String nickname) {
         validateNickname(nickname);
         this.nickname = nickname;
@@ -147,10 +137,6 @@ public class Users {
         this.oauthRefreshToken = oauthRefreshToken;
     }
 
-    /**
-     * 탈퇴 요청 시점의 처리다. 데이터는 남기고 접근만 차단한다.
-     * 실제 행 삭제는 유예기간(30일)이 지난 뒤 배치가 수행한다.
-     */
     public void withdraw() {
         this.status = WITHDRAWN;
         this.deletedAt = LocalDateTime.now();
@@ -158,10 +144,6 @@ public class Users {
         this.oauthRefreshToken = null;
     }
 
-    /**
-     * 유예기간 중인 계정이 점유한 (oauth_provider, oauth_id) UNIQUE 를 비운다.
-     * 같은 소셜 계정으로 재로그인할 때 신규 가입 행을 만들 수 있게 하기 위한 처리다.
-     */
     public void releaseOauthIdForRejoin() {
         if (!isWithdrawn()) {
             throw new IllegalStateException("탈퇴 상태가 아닌 계정의 식별자는 치환할 수 없습니다.");
@@ -179,7 +161,6 @@ public class Users {
         return this.nickname != null;
     }
 
-    // ========= 생성자 =========
     private Users(OauthProvider oauthProvider, String oauthId, String email, Role role) {
         validateOauthProvider(oauthProvider);
         validateOauthId(oauthId);
@@ -190,7 +171,6 @@ public class Users {
         this.status = ACTIVE;
     }
 
-    // ========= 검증 메서드 =========
     private void validateOauthProvider(OauthProvider oauthProvider) {
         if (oauthProvider == null) {
             throw new IllegalArgumentException("소셜 로그인 제공자는 필수입니다.");

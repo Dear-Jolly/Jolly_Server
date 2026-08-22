@@ -21,11 +21,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 원문을 sequence 순으로 잘게 나눈 조각. 순서대로 이어붙이면 원문과 교정문이
- * 그대로 복원되므로 앱은 인덱스 계산 없이 순차 렌더링만 한다.
- * 저장 후에는 바뀌지 않으므로 수정 메서드를 두지 않는다.
- */
 @Entity
 @Table(
         name = "CORRECTION_SEGMENTS",
@@ -37,7 +32,6 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CorrectionSegments {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "correction_segment_id")
@@ -50,14 +44,9 @@ public class CorrectionSegments {
     @Column(name = "sequence", nullable = false)
     private int sequence;
 
-    /**
-     * 상한을 FEEDBACKS.corrected_content 와 같은 1000자로 맞춘다. 교정문이 길고 diff 가
-     * 단일 MODIFIED 로 뭉치면 조각 하나가 문장 전체가 되기 때문이다 (ERD §2.6).
-     */
     @Column(name = "original_text", nullable = false, length = 1000)
     private String originalText;
 
-    /** 삭제 제안이면 빈 문자열이다. null 이 아니다. */
     @Column(name = "corrected_text", nullable = false, length = 1000)
     private String correctedText;
 
@@ -65,19 +54,16 @@ public class CorrectionSegments {
     @Column(name = "correction_type", nullable = false, length = 20)
     private CorrectionType correctionType;
 
-    // ========= 생성 메서드 =========
     public static CorrectionSegments create(Feedbacks feedback, int sequence, String originalText, String correctedText) {
         CorrectionSegments segment = new CorrectionSegments(feedback, sequence, originalText, correctedText);
         feedback.addCorrectionSegment(segment);
         return segment;
     }
 
-    // ========= 비즈니스 로직 메서드 =========
     public boolean isModified() {
         return this.correctionType == MODIFIED;
     }
 
-    // ========= 생성자 =========
     private CorrectionSegments(Feedbacks feedback, int sequence, String originalText, String correctedText) {
         validateSequence(sequence);
         validateText(originalText, "원본 텍스트 조각");
@@ -89,7 +75,6 @@ public class CorrectionSegments {
         this.correctionType = Objects.equals(originalText, correctedText) ? UNCHANGED : MODIFIED;
     }
 
-    // ========= 검증 메서드 =========
     private void validateSequence(int sequence) {
         if (sequence < 1) {
             throw new IllegalArgumentException("조각 순서는 1부터 시작합니다.");
