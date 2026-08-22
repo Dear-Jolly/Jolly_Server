@@ -9,6 +9,7 @@ import com.dearjolly.server.domain.feedback.service.FeedbackRequester;
 import com.dearjolly.server.domain.letter.dto.request.LetterCreateRequest;
 import com.dearjolly.server.domain.letter.dto.response.HomeGetResponse;
 import com.dearjolly.server.domain.letter.dto.response.LetterCreateResult;
+import com.dearjolly.server.domain.letter.dto.response.LetterGetResponse;
 import com.dearjolly.server.domain.letter.dto.response.LetterListResponse;
 import com.dearjolly.server.domain.letter.dto.response.LetterSummaryResponse;
 import com.dearjolly.server.domain.letter.entity.Letters;
@@ -66,6 +67,17 @@ public class LetterService {
 
         feedbackRequester.requestFeedback(letter.getId());
         return LetterCreateResult.created(letter);
+    }
+
+    @Transactional
+    public LetterGetResponse getLetter(Long userId, Long letterId) {
+        Letters letter = letterRepository.findByIdAndUserId(letterId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.LETTER_NOT_FOUND, "letterId=" + letterId));
+
+        if (letter.isFeedbackCompleted()) {
+            letter.markAsRead();
+        }
+        return LetterGetResponse.of(letter, stampImageOf(letter));
     }
 
     public LetterListResponse getLetters(Long userId, int page, int size, LetterSort sort) {

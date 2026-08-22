@@ -19,6 +19,7 @@ import io.restassured.path.json.JsonPath;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,21 @@ import org.springframework.http.HttpStatus;
 class LetterApiTest extends ApiTestSupport {
     private static final String CONTENT = "I got flowers from a friend today. It really touched me.";
     private static final String TIME_ZONE = "Asia/Seoul";
+    private static final String ORIGINAL_CONTENT =
+            "I got flowers from a friend today. It really touched me and make me so happy.";
+    private static final String CORRECTED_CONTENT =
+            "I got flowers from a friend today. It really touched me and made me so happy.";
+    private static final List<String[]> SEGMENTS = List.of(
+            new String[]{"I got flowers from a friend today. It really touched me and ",
+                    "I got flowers from a friend today. It really touched me and "},
+            new String[]{"make", "made"},
+            new String[]{" me so happy.", " me so happy."}
+    );
+    private static final List<String> TIPS = List.of(
+            "문장에 동사에 따라 to 부정사와 동명사가 오는 경우가 달라요! 그 부분을 확인해보세요!",
+            "'that'은 선행사를 한정하는 필수 정보를, 'which'는 추가 정보를 제공하는 데 쓰여요! 또 'that'은 사람/사물 모두 가능하지만 'which'는 보통 사물에 쓰인답니다!"
+    );
+    private static final LocalDate LETTER_DATE = LocalDate.of(2025, 10, 30);
 
     @Autowired
     LetterRepository letterRepository;
@@ -423,6 +439,147 @@ class LetterApiTest extends ApiTestSupport {
     void getLettersWithoutToken() {
         // when
         given().when().get("/api/v1/letters")
+                // then
+                .then()
+                .statusCode(HttpStatus.UNAUTHORIZED.value())
+                .body("code", equalTo("AUTH_005"));
+    }
+
+    @DisplayName("GET /api/v1/letters/{letterId} : 편지 상세 · 피드백 조회 API")
+    @Test
+    void getLetter() {
+        // given
+        Users user = 온보딩을_마친_유저를_저장한다("kakao-letter-9", "jolly09");
+        Letters letter = 피드백완료_편지를_저장한다(user, ORIGINAL_CONTENT, LETTER_DATE, "rose");
+        피드백을_붙여_저장한다(letter, CORRECTED_CONTENT, SEGMENTS, TIPS);
+
+        // when
+        given()
+                .header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                .when().get("/api/v1/letters/{letterId}", letter.getId())
+                // then
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("letterId", equalTo(letter.getId().intValue()))
+                .body("date", equalTo(LETTER_DATE.toString()))
+                .body("originalContent", equalTo(ORIGINAL_CONTENT))
+                .body("status", equalTo(Status.FEEDBACK_COMPLETED.name()))
+                .body("stampImage", equalTo("http://localhost:9000/dear-jolly-stamps/stamps/rose.png"))
+                .body("feedback.feedbackId", notNullValue())
+                .body("feedback.correctedContent", equalTo(CORRECTED_CONTENT))
+                .body("feedback.tips", equalTo(TIPS))
+                .body("feedback.correctionSegments", hasSize(3))
+                .body("feedback.correctionSegments[0].sequence", equalTo(1))
+                .body("feedback.correctionSegments[0].type", equalTo("UNCHANGED"))
+                .body("feedback.correctionSegments[1].sequence", equalTo(2))
+                .body("feedback.correctionSegments[1].originalText", equalTo("make"))
+                .body("feedback.correctionSegments[1].correctedText", equalTo("made"))
+                .body("feedback.correctionSegments[1].type", equalTo("MODIFIED"))
+                .body("feedback.correctionSegments[2].sequence", equalTo(3));
+
+        assertThat(letterRepository.findById(letter.getId()).orElseThrow().isRead()).isTrue();
+    }
+
+    @DisplayName("GET /api/v1/letters/{letterId} : 팁이 없으면 tips 는 빈 배열이다")
+    @Test
+    void getLetterWithoutTips() {
+        // given
+        Users user = 온보딩을_마친_유저를_저장한다("kakao-letter-10", "jolly10");
+        Letters letter = 피드백완료_편지를_저장한다(user, ORIGINAL_CONTENT, LETTER_DATE, "sunflower");
+        피드백을_붙여_저장한다(letter, CORRECTED_CONTENT, SEGMENTS, List.of());
+
+        // when
+        given()
+                .header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                .when().get("/api/v1/letters/{letterId}", letter.getId())
+                // then
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("feedback.tips", hasSize(0))
+                .body("feedback.correctionSegments", hasSize(3));
+    }
+
+    @DisplayName("GET /api/v1/letters/{letterId} : 피드백 완료 전이면 feedback 이 null 이고 읽음 처리도 되지 않는다")
+    @Test
+    void getLetterBeforeFeedbackCompleted() {
+        // given
+        Users user = 온보딩을_마친_유저를_저장한다("kakao-letter-11", "jolly11");
+        Letters letter = 편지를_저장한다(user, ORIGINAL_CONTENT, LETTER_DATE);
+
+        // when
+        given()
+                .header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                .when().get("/api/v1/letters/{letterId}", letter.getId())
+                // then
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("letterId", equalTo(letter.getId().intValue()))
+                .body("originalContent", equalTo(ORIGINAL_CONTENT))
+                .body("status", equalTo(Status.SUBMITTED.name()))
+                .body("feedback", nullValue());
+
+        assertThat(letterRepository.findById(letter.getId()).orElseThrow().isRead()).isFalse();
+    }
+
+    @DisplayName("GET /api/v1/letters/{letterId} : 남의 편지는 LETTER_002")
+    @Test
+    void getLetterOfOtherUser() {
+        // given
+        Users owner = 온보딩을_마친_유저를_저장한다("kakao-letter-12", "jolly12");
+        Users other = 온보딩을_마친_유저를_저장한다("kakao-letter-13", "jolly13");
+        Letters letter = 피드백완료_편지를_저장한다(owner, ORIGINAL_CONTENT, LETTER_DATE, "pumpkin");
+
+        // when
+        given()
+                .header(HttpHeaders.AUTHORIZATION, 액세스토큰(other))
+                .when().get("/api/v1/letters/{letterId}", letter.getId())
+                // then
+                .then()
+                .statusCode(HttpStatus.NOT_FOUND.value())
+                .body("status", equalTo(404))
+                .body("code", equalTo("LETTER_002"));
+
+        assertThat(letterRepository.findById(letter.getId()).orElseThrow().isRead()).isFalse();
+    }
+
+    @DisplayName("GET /api/v1/letters/{letterId} : 존재하지 않는 편지는 LETTER_002")
+    @Test
+    void getLetterNotFound() {
+        // given
+        Users user = 온보딩을_마친_유저를_저장한다("kakao-letter-14", "jolly14");
+
+        // when
+        given()
+                .header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                .when().get("/api/v1/letters/{letterId}", 999_999L)
+                // then
+                .then()
+                .statusCode(HttpStatus.NOT_FOUND.value())
+                .body("code", equalTo("LETTER_002"));
+    }
+
+    @DisplayName("GET /api/v1/letters/{letterId} : 온보딩을 마치지 않았으면 USER_005")
+    @Test
+    void getLetterBeforeOnboarding() {
+        // given
+        Users user = 유저를_저장한다("kakao-letter-15");
+
+        // when
+        given()
+                .header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                .when().get("/api/v1/letters/{letterId}", 1L)
+                // then
+                .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("code", equalTo("USER_005"));
+    }
+
+    @DisplayName("GET /api/v1/letters/{letterId} : 토큰이 없으면 AUTH_005")
+    @Test
+    void getLetterWithoutToken() {
+        // when
+        given()
+                .when().get("/api/v1/letters/{letterId}", 1L)
                 // then
                 .then()
                 .statusCode(HttpStatus.UNAUTHORIZED.value())

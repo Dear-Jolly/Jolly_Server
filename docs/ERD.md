@@ -69,7 +69,7 @@ erDiagram
         DATE letter_date "작성 시각의 날짜 부분"
         VARCHAR_64 time_zone "작성 시점 기기의 IANA 타임존 ID"
         VARCHAR_30 status "피드백 진행 상태 (Status)"
-        BIGINT stamp_id FK "피드백 완료 시 부여되는 우표"
+        BIGINT stamp_id FK "편지에 붙은 우표"
         BOOLEAN is_read "피드백 열람 여부"
         INT retry_count "피드백 재시도 횟수"
         DATETIME created_at "작성 시각"
@@ -176,8 +176,8 @@ erDiagram
 | `letter_date` | DATE | NOT NULL | 요청 `writtenAt` 의 날짜 부분 (R9). API 의 `date`. 목록 정렬·표시 기준 |
 | `time_zone` | VARCHAR(64) | NOT NULL | 작성 시점 기기의 IANA 타임존 ID (예: `Asia/Seoul`). 요청의 `timeZone` 을 그대로 남긴다 |
 | `status` | VARCHAR(30) | NOT NULL | `SUBMITTED` / `FEEDBACK_IN_PROGRESS` / `FEEDBACK_COMPLETED` / `FEEDBACK_FAILED` |
-| `stamp_id` | BIGINT | FK → `STAMPS.stamp_id`, NULL | `FEEDBACK_COMPLETED` 전이 시 부여한다. 그 전에는 NULL |
-| `is_read` | BOOLEAN | NOT NULL, DEFAULT `false` | 피드백 열람 여부 (R6). 상세 조회 시 `true` 로 전환 |
+| `stamp_id` | BIGINT | FK → `STAMPS.stamp_id`, NULL | 편지에 붙은 우표. 등록 시 `soon` 이 들어가고, `FEEDBACK_COMPLETED` 전이 시 LLM 이 고른 우표가 된다 |
+| `is_read` | BOOLEAN | NOT NULL, DEFAULT `false` | 피드백 열람 여부 (R6). `FEEDBACK_COMPLETED` 편지를 상세 조회할 때만 `true` 로 전환 |
 | `retry_count` | INT | NOT NULL, DEFAULT `0` | 피드백 재시도 횟수. 3회를 소진하면 `FEEDBACK_FAILED` |
 | `created_at` | DATETIME(6) | NOT NULL | 서버 저장 시각(KST). 응답의 `createdAt` 은 이 값을 요청 타임존으로 변환해 내려준다 |
 | `updated_at` | DATETIME(6) | NOT NULL | 상태 전이 시각. 이벤트 유실·처리 유실 판별의 기준이다 |
@@ -193,18 +193,18 @@ erDiagram
 
 ### 2.4 `STAMPS` — 우표 마스터
 
-피드백 완료 시 편지에 부여하는 우표의 마스터 데이터다. 우표 종류는 코드가 아니라 이 테이블의 행으로 관리하므로, 추가·교체에 배포가 필요 없다.
+편지에 붙는 우표의 마스터 데이터다. 우표 종류는 코드가 아니라 이 테이블의 행으로 관리하므로, 추가·교체에 배포가 필요 없다.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 | --- | --- | --- | --- |
 | `stamp_id` | BIGINT | PK, AUTO_INCREMENT | |
 | `name` | VARCHAR(30) | NOT NULL, UNIQUE | 우표 한글 이름 (예: `장미`). LLM 이 고른 이름을 이 컬럼으로 조회해 행을 특정한다 |
-| `image_key` | VARCHAR(255) | NOT NULL | 오브젝트 스토리지의 **파일 키** (예: `stamps/rose.png`). URL 은 저장하지 않는다 |
+| `image_key` | VARCHAR(255) | NOT NULL | 오브젝트 스토리지의 **파일 키** (예: `stamp/꽃_장미.png`). URL 은 저장하지 않는다 |
 
 **우표는 이름과 이미지가 전부다.** 컬럼을 이 둘로 좁힌 이유는 각각 분명하다.
 
 - **설명 컬럼을 두지 않는다.** 이름 자체가 이미 분위기를 담고 있어(`장미` · `초승달` · `네잎클로버`) LLM 이 편지에 어울리는 것을 고르는 데 부연이 필요 없고, 앱은 이미지만 렌더링하므로 설명이 노출될 지점도 없다. 아무도 읽지 않는 문구를 우표를 추가할 때마다 지어내야 하는 비용만 남는다.
-- **활성 여부 컬럼을 두지 않는다.** 이 테이블에 있는 행은 **전부 선택 후보**다. 우표 4종으로 시작하는 MVP 에서 "있지만 안 쓰는 우표" 라는 상태는 실체가 없고, 그 상태가 없으면 우표 부여 로직에서 후보를 거르는 분기도 사라진다.
+- **활성 여부 컬럼을 두지 않는다.** 후보에서 빠지는 행은 기본 우표 `soon` 하나뿐이고, 이름으로 걸러진다. "있지만 안 쓰는 우표" 라는 상태는 실체가 없어 플래그 컬럼을 둘 이유가 없다.
 - `name` 이 UNIQUE 인 이유는 LLM 응답을 행으로 되돌리는 조회 키이기 때문이다.
 - **행을 지울 때는 `LETTERS.stamp_id` 가 참조하지 않는지 확인해야 한다.** FK 가 걸려 있어 참조 중이면 DB 가 거부한다. 우표를 바꾸고 싶을 때의 정상 경로는 삭제가 아니라 `image_key` 교체다 — 이미 그 우표를 받은 편지의 이미지까지 함께 바뀐다.
 - 이미지 교체는 `image_key` 갱신으로 처리한다. 앱 배포와 무관하다.
@@ -220,9 +220,27 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 - **우표 종류는 Java enum 으로 정의하지 않는다.** 코드에 우표 이름이 하드코딩되면 이 테이블의 존재 이유가 사라진다.
 - 우표를 추가할 때 채울 값은 **이름과 파일 키 두 개뿐**이다.
 
+#### 초기 데이터 시드
+
+행을 손으로 넣지 않는다. 이미지 원본이 `src/main/resources/seed/stamps/*.png` 로 애플리케이션에 함께 실리고,
+기동할 때 `global/seed/StampSeeder` 가 MinIO 업로드와 행 삽입을 함께 처리한다.
+
+| 항목 | 규칙 |
+| --- | --- |
+| `name` | 확장자를 뗀 파일명 그대로 (`꽃_장미.png` → `꽃_장미`) |
+| `image_key` | `stamp/` + 파일명 (`stamp/꽃_장미.png`) |
+| 순서 | 기본 우표 `soon` 이 항상 첫 행(`stamp_id = 1`), 나머지는 파일명 순 |
+| 재실행 | 같은 키에 같은 크기로 올라가 있으면 업로드를 건너뛰고, 같은 `name` 행이 있으면 `image_key` 가 다를 때만 갱신한다 |
+
+`soon` 은 편지 등록 시점에 붙는 "준비 중" 우표다. `stamp_id = 1` 에 고정되고 LLM 우표 선택 후보에서는 빠진다 (A9-1).
+편지가 실제로 받는 우표는 피드백이 완료되는 시점에 정해진다.
+
+파일명이 곧 `name` 이자 파일 키라서 **파일을 넣는 것 외에 채울 값이 없다.** 우표를 추가하려면 이미지를 이 폴더에 두고 배포하면 된다.
+반대로 파일명을 바꾸면 새 이름의 행이 하나 더 생기므로, 이름 변경은 `image_key` 교체가 아니라 새 우표 추가로 취급된다.
+
 #### 우표 부여 절차
 
-1. 피드백 워커가 `SELECT name FROM stamps` 로 후보를 조회한다. 필터 조건이 없다 — 모든 행이 후보다.
+1. 피드백 워커가 `SELECT name FROM stamps WHERE name <> 'soon'` 으로 후보를 조회한다. `soon` 을 제외한 모든 행이 후보다.
 2. 조회한 **한글 이름 목록을 프롬프트에 동적으로 삽입**하고, 편지 내용에 가장 어울리는 우표 이름 하나를 고르게 한다. 우표 종류가 늘거나 줄어도 프롬프트 템플릿은 그대로다.
 3. LLM 이 반환한 이름을 `name` 으로 조회해 `LETTERS.stamp_id` 에 채운다.
 4. 반환값이 후보 목록에 없으면 랜덤 1개로 대체한다. 우표 선택 실패가 피드백 저장 전체를 실패시키지 않는다.
@@ -370,8 +388,8 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 
 | 값 | 의미 | 앱 표현 |
 | --- | --- | --- |
-| `SUBMITTED` | 제출됨, 워커 픽업 대기 | 회색 `soon` 우표, 상세 진입 불가 (R5) |
-| `FEEDBACK_IN_PROGRESS` | 워커가 픽업해 LLM 호출 중 | 회색 `soon` 우표, 상세 진입 불가 (`SUBMITTED` 와 동일) |
+| `SUBMITTED` | 제출됨, 워커 픽업 대기 | 서버가 내려준 `soon` 우표, 상세 진입 불가 (R5) |
+| `FEEDBACK_IN_PROGRESS` | 워커가 픽업해 LLM 호출 중 | 서버가 내려준 `soon` 우표, 상세 진입 불가 (`SUBMITTED` 와 동일) |
 | `FEEDBACK_COMPLETED` | 피드백 완료 | 컬러 우표, 상세 진입 가능 |
 | `FEEDBACK_FAILED` | 피드백 실패 (내부 전용) | API 응답에서는 `SUBMITTED` 로 변환해 내려보낸다 |
 
@@ -420,8 +438,8 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 | A6 | `concat(original_text ORDER BY sequence)` == `LETTERS.content` | 교정 세그먼트 생성 규칙 | 피드백 저장 트랜잭션 |
 | A7 | `concat(corrected_text ORDER BY sequence)` == `FEEDBACKS.corrected_content` | 교정 세그먼트 생성 규칙 | 피드백 저장 트랜잭션 |
 | A8 | `FEEDBACK_TIPS` 는 피드백당 최대 3행. LLM 이 더 많이 반환하면 **앞 3개만 저장**하고 나머지는 버린다 | LLM 응답 계약 | 워커가 저장 전 절삭 (`Feedbacks.MAX_TIP_COUNT`). 엔티티의 개수 검사는 절삭을 빠뜨렸을 때의 방어선이다 |
-| A9 | `status = 'FEEDBACK_COMPLETED'` 이면 `stamp_id` 는 NOT NULL, 그 외 상태면 NULL | R3 | 상태 전이 메서드 |
-| A9-1 | LLM 이 반환한 우표 이름이 후보 목록에 없으면 랜덤 1개로 대체한다. `STAMPS` 의 모든 행이 후보다 | — | 우표 부여 로직 |
+| A9 | `stamp_id` 는 등록 시 `soon`, `FEEDBACK_COMPLETED` 전이 시 LLM 이 고른 우표다 | R3 | 상태 전이 메서드 |
+| A9-1 | LLM 이 반환한 우표 이름이 후보 목록에 없으면 랜덤 1개로 대체한다. 후보는 `soon` 을 제외한 `STAMPS` 전 행이다 | — | 우표 부여 로직 |
 | A10 | `FEEDBACKS` 행이 존재하면 `LETTERS.status` 는 `FEEDBACK_COMPLETED` | — | 피드백 저장 트랜잭션 |
 | A11 | `SUBMITTED → FEEDBACK_IN_PROGRESS` 전이는 조건부 UPDATE 로만 수행하고, 갱신 건수 0이면 처리를 중단한다 | 워커 중복 실행 방지 | 피드백 워커 |
 | A12 | `retry_count >= 3` 이면 `status = 'FEEDBACK_FAILED'`. 백오프 3단계(30s → 2m → 10m)를 모두 소진한 상태다 | 편지 상태 전이 | 피드백 워커 |
@@ -441,9 +459,9 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 
 | 전이 | 트리거 | 함께 갱신되는 컬럼 |
 | --- | --- | --- |
-| → `SUBMITTED` | 편지 작성 | `is_read = false`, `retry_count = 0` |
+| → `SUBMITTED` | 편지 작성 | `stamp_id` 에 기본 우표(`soon`) 부여, `is_read = false`, `retry_count = 0` |
 | `SUBMITTED` → `FEEDBACK_IN_PROGRESS` | 워커 픽업 (조건부 UPDATE) | `updated_at` |
-| `FEEDBACK_IN_PROGRESS` → `FEEDBACK_COMPLETED` | LLM 응답 저장 성공 | `stamp_id` 부여, `updated_at` |
+| `FEEDBACK_IN_PROGRESS` → `FEEDBACK_COMPLETED` | LLM 응답 저장 성공 | `stamp_id` 에 LLM 이 고른 우표, `updated_at` |
 | `FEEDBACK_IN_PROGRESS` → `SUBMITTED` | LLM 실패 재시도 (워커가 백오프 후 재예약) | `retry_count++`, `updated_at` |
 | `FEEDBACK_IN_PROGRESS` → `SUBMITTED` | 처리 유실 감지 (15분 초과) | `updated_at` |
 | `SUBMITTED` → `SUBMITTED` | 이벤트·재예약 유실 감지 (1시간 초과) 후 재큐잉 | `updated_at` |

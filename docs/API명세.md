@@ -19,15 +19,15 @@
 | [3](#3-post-apiv1authapplecallback-) | `POST` | `/api/v1/auth/apple/callback` | 애플 콜백 (앱이 직접 호출하지 않음) | — | — | ✅ |
 | [4](#4-post-apiv1authreissue-) | `POST` | `/api/v1/auth/reissue` | 토큰 재발급 | — | — | ✅ |
 | [5](#5-post-apiv1authlogout-) | `POST` | `/api/v1/auth/logout` | 로그아웃 | ✔ | — | ✅ |
-| [6](#6-post-apiv1usersterms-) | `POST` | `/api/v1/users/terms` | 약관 동의 · 마케팅 동의 철회 | ✔ | — | ✅ |
+| [6](#6-post-apiv1usersterms-) | `POST` | `/api/v1/users/terms` | 약관 동의, 마케팅 동의 및 철회 | ✔ | — | ✅ |
 | [7](#7-get-apiv1users-) | `GET` | `/api/v1/users` | 계정 정보 조회 | ✔ | — | ✅ |
 | [8](#8-delete-apiv1users-) | `DELETE` | `/api/v1/users` | 회원 탈퇴 | ✔ | — | ✅ |
 | [9](#9-patch-apiv1usersnickname-) | `PATCH` | `/api/v1/users/nickname` | 닉네임 설정 | ✔ | — | ✅ |
 | [10](#10-post-apiv1letters-) | `POST` | `/api/v1/letters` | 편지 작성 | ✔ | ✔ | ✅ |
-| [11](#11-get-apiv1lettersletterid-) | `GET` | `/api/v1/letters/{letterId}` | 편지 상세 · 피드백 조회 | ✔ | ✔ | ❌ |
+| [11](#11-get-apiv1lettersletterid-) | `GET` | `/api/v1/letters/{letterId}` | 편지 상세 조회 (피드백 포함) | ✔ | ✔ | ✅ |
 | [12](#12-get-apiv1letters-) | `GET` | `/api/v1/letters` | 편지 목록 조회 (홈) | ✔ | ✔ | ✅ |
-| [13](#13-get-apiv1home-) | `GET` | `/api/v1/home` | 닉네임 · 모은 우표 수 조회 | ✔ | ✔ | ✅ |
-| [14](#14-get-apiv1version-) | `GET` | `/api/v1/version` | 최소 지원 버전 · 정책 URL 조회 | — | — | ✅ |
+| [13](#13-get-apiv1home-) | `GET` | `/api/v1/home` | 닉네임, 모은 우표 수 조회 (홈) | ✔ | ✔ | ✅ |
+| [14](#14-get-apiv1version-) | `GET` | `/api/v1/version` | 최소 지원 버전, 정책 URL 조회 | — | — | ✅ |
 
 - **인증** ✔ — `Authorization` 헤더가 필요하다.
 - **온보딩** ✔ — 온보딩(필수 약관 동의 + 닉네임 등록) 전에 호출하면 `USER_005` 다.
@@ -564,7 +564,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - 본문은 **영어 전용, 1~500자**다. 한글이 섞이면 거부하고, 숫자·구두점·이모지는 허용한다.
 - 편지 날짜는 앱이 보낸 `writtenAt` 의 날짜 부분이다.
 - **하루 작성 개수 제한이 없다.** 같은 날짜 카드가 목록에 여러 개 쌓일 수 있다.
-- 작성 직후 상태는 항상 `SUBMITTED` 이고 **우표는 아직 없다.** 피드백이 끝나야 우표가 도착한다.
+- 작성 직후 상태는 항상 `SUBMITTED` 이고 **우표는 `soon`(준비 중) 우표**다. 피드백이 끝나야 편지에 맞는 우표로 바뀐다.
 - 검증은 **`content` → `timeZone` → `writtenAt` 순서**로 하며, 먼저 걸린 사유 하나만 내려간다.
 - `writtenAt` 이 `2025-13-45T99:99:99` 처럼 **날짜로 해석조차 되지 않는 문자열**이면 `LETTER_005` 가 아니라 `COMMON_001` 이 나간다.
 - **중복 전달은 서버가 막는다.** 60초 안에 같은 내용을 다시 보내면 새 편지를 만들지 않고 최초 편지를 `200 OK` 로 돌려준다. 앱이 별도 헤더를 보낼 필요가 없다.
@@ -679,14 +679,15 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 ---
 
-## 11) GET /api/v1/letters/{letterId} ❌
+## 11) GET /api/v1/letters/{letterId} ✅
 
 ### [설명]
 
 - 편지 상세와 도착한 피드백(교정문 · 팁)을 조회한다.
-- **조회에 성공하면 해당 편지는 읽음 처리된다.** 별도의 읽음 처리 API 는 없고, 한 번 읽으면 다시 미열람으로 돌아가지 않는다.
+- **피드백이 완료된 편지를 조회하면 읽음 처리된다.** 별도의 읽음 처리 API 는 없고, 한 번 읽으면 다시 미열람으로 돌아가지 않는다.
+- 피드백 완료 전 편지는 조회해도 읽음 처리되지 않는다. **피드백이 도착한 뒤 목록의 빨간 점은 그대로 뜬다.**
 - **본인 편지만** 조회할 수 있다. 없는 편지든 남의 편지든 똑같이 `LETTER_002`(404) 다.
-- 피드백 완료 전에도 응답은 성공하지만 `feedback` 과 `stampImage` 가 `null` 이다. 앱은 완료 전 카드의 진입 자체를 막는다.
+- 피드백 완료 전에도 응답은 성공한다. 이때 `feedback` 은 `null` 이고 `stampImage` 는 `soon`(준비 중) 우표 URL 이다. 앱은 완료 전 카드의 진입 자체를 막는다.
 - 팁은 편지마다 0~3개이며, `tips` 가 `[]` 면 팁 영역을 표시하지 않는다.
 - 우표는 AI 가 편지 내용에 맞춰 고르고 종류가 운영 중 늘거나 바뀔 수 있다. 앱은 **`stampImage` URL 을 그대로 표시하고 우표 종류로 분기하지 않는다.**
 - 교정문은 `correctionSegments` 를 `sequence` 순서대로 이어붙여 그린다. **`originalText` 를 모두 이으면 원문 전체와, `correctedText` 를 모두 이으면 `correctedContent` 전체와 정확히 일치**하므로 앱은 인덱스 계산 없이 순서대로 그리기만 하면 된다.
@@ -720,7 +721,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
     "date": "2025-11-01",
     "originalContent": "I got flowers from a friend today...",
     "status": "FEEDBACK_COMPLETED",
-    "stampImage": "http://localhost:9000/dear-jolly-stamps/stamps/flower_stamp.png",
+    "stampImage": "http://localhost:9000/dear-jolly-stamps/stamp/%EA%BD%83_%EC%9E%A5%EB%AF%B8.png",
     "feedback": {
         "feedbackId": 101,
         "correctedContent": "I received flowers from a friend today...",
@@ -756,7 +757,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - [필수] `date` (LocalDate): 편지 날짜
 - [필수] `originalContent` (String): 원본 편지 내용
 - [필수] `status` (String): 편지 상태 (`SUBMITTED`, `FEEDBACK_IN_PROGRESS`, `FEEDBACK_COMPLETED`)
-- [선택] `stampImage` (String): 우표 이미지 URL (**피드백 완료 전에는 `null`**)
+- [필수] `stampImage` (String): 우표 이미지 URL. 항상 값이 있으며, 피드백 완료 전에는 `soon`(준비 중) 우표다
 - [선택] `feedback` (Object): 피드백 정보 (**피드백 완료 전에는 `null`**)
     - [필수] `feedbackId` (Long): 피드백 ID
     - [필수] `correctedContent` (String): 교정된 전체 내용
@@ -799,7 +800,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - 정렬은 서버가 처리하므로 앱은 받은 순서대로 그린다. `page` · `size` · `sort` 가 허용 범위를 벗어나면 `COMMON_001` 이다.
 - 정렬 기준은 **편지 날짜**이며, 같은 날짜에 여러 통을 썼다면 `LATEST` 는 **나중에 쓴 편지가 먼저**, `OLDEST` 는 **먼저 쓴 편지가 먼저** 온다.
 - 편지가 한 통도 없으면 `letters` 는 빈 배열이고 `hasNext` 는 `false` 다.
-- 앱은 `SUBMITTED` 와 `FEEDBACK_IN_PROGRESS` 를 동일하게 처리한다. 이 상태의 카드는 **회색 `soon` 우표 · `ic_more_sm` 미노출 · 터치 불가**다.
+- 앱은 `SUBMITTED` 와 `FEEDBACK_IN_PROGRESS` 를 동일하게 처리한다. 이 상태의 카드는 **회색 `soon` 우표 · `ic_more_sm` 미노출 · 터치 불가**다. 우표는 상태와 무관하게 `stampImage` 를 그대로 표시한다.
 - `FEEDBACK_COMPLETED` 카드는 **`stampImage` 표시 · `ic_more_sm` 노출 · 카드 전체 영역 터치 시 상세 이동**이다.
 - `FEEDBACK_COMPLETED` 이면서 `isRead == false` 면 **날짜 앞에 빨간 점**을 찍는다. 완료 전 편지도 `isRead` 는 `false` 지만 빨간 점을 표시하지 않는다.
 - 목록에 `FEEDBACK_COMPLETED` 가 아닌 항목이 있으면, 앱은 화면 재진입 · 새로고침 때 다시 조회해 상태 변화를 확인한다.
@@ -835,7 +836,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
             "summary": "I got flowers from a friend today. It really touch",
             "status": "FEEDBACK_COMPLETED",
             "isRead": false,
-            "stampImage": "http://localhost:9000/dear-jolly-stamps/stamps/flower_stamp.png"
+            "stampImage": "http://localhost:9000/dear-jolly-stamps/stamp/%EA%BD%83_%EC%9E%A5%EB%AF%B8.png"
         },
         {
             "letterId": 12,
@@ -843,7 +844,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
             "summary": "Hi! Jolly. I made a new friend at a Halloween part",
             "status": "FEEDBACK_COMPLETED",
             "isRead": true,
-            "stampImage": "http://localhost:9000/dear-jolly-stamps/stamps/pumpkin_stamp.png"
+            "stampImage": "http://localhost:9000/dear-jolly-stamps/stamp/%ED%98%B8%EB%B0%95_%ED%95%A0%EB%A1%9C%EC%9C%88.png"
         },
         {
             "letterId": 11,
@@ -851,7 +852,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
             "summary": "Lately I've been really worried about my new job a",
             "status": "SUBMITTED",
             "isRead": false,
-            "stampImage": null
+            "stampImage": "http://localhost:9000/dear-jolly-stamps/stamp/soon.png"
         }
     ],
     "hasNext": true
@@ -864,7 +865,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
     - [필수] `summary` (String): 편지 미리보기 (**원문 앞 50자**, 말줄임은 앱에서 처리)
     - [필수] `status` (String): 편지 상태 (`SUBMITTED`, `FEEDBACK_IN_PROGRESS`, `FEEDBACK_COMPLETED`)
     - [필수] `isRead` (Boolean): 피드백 열람 여부
-    - [선택] `stampImage` (String): 우표 이미지 URL (피드백 완료 전에는 `null`)
+    - [필수] `stampImage` (String): 우표 이미지 URL. 항상 값이 있으며, 피드백 완료 전에는 `soon`(준비 중) 우표다
 - [필수] `hasNext` (Boolean): 다음 페이지 존재 여부
 
 ### [실패 Response 404]
