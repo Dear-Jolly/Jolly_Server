@@ -5,7 +5,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 최종 갱신 | 2026-08-22 |
+| 최종 갱신 | 2026-08-23 |
 | 실행 방식 | Docker Compose (앱 · MySQL · MinIO · Caddy) |
 
 ---
@@ -78,40 +78,6 @@ docker compose -f infra/docker/compose.yaml --env-file infra/env/.env.local ps
 
 DB·이미지 데이터는 컨테이너가 아니라 호스트의 `dear-jolly/mount/{mysql,minio}` 에 쌓인다.
 컨테이너를 지워도 남고, 지우려면 `./run.sh clean` 을 쓴다.
-
-### 목 사용자로 API 두드리기
-
-인증이 필요한 API 를 소셜 로그인 없이 시험하려고, 기동할 때 계정 하나를 시드로 넣는다.
-약관 동의·닉네임 등록까지 끝난 상태라 온보딩 인터셉터를 그대로 통과하고,
-피드백까지 완료된 편지 몇 통과 아직 제출 상태인 편지가 함께 들어간다.
-
-`.env.local` 에서 켠다 (기본값은 꺼짐, 운영에는 넣지 않는다).
-
-```bash
-MOCK_USER_SEED_ENABLED=true
-MOCK_USER_OAUTH_ID=mock-user     # 계정을 구분하는 자연키
-```
-
-껐다 켠 뒤 `./run.sh restart` 로 시드를 돌린다.
-같은 `oauth_id`·같은 편지 본문은 다시 만들지 않으므로 몇 번을 재기동해도 데이터가 불어나지 않는다.
-
-토큰은 로컬 스크립트로 발급한다. `.env.local` 의 `JWT_SECRET` 으로 서버와 같은 HS256 토큰을 서명하고,
-Refresh Token 은 `USERS.refresh_token` 에도 기록해 `/api/v1/auth/reissue` 까지 그대로 시험할 수 있다.
-
-```bash
-./infra/scripts-local/seed/mock-token.sh              # 사람이 읽는 형식
-eval $(./infra/scripts-local/seed/mock-token.sh --export)
-curl -k -H "Authorization: Bearer $ACCESS_TOKEN" https://localhost:8080/api/v1/home
-
-./infra/scripts-local/seed/mock-token.sh --json       # jq 로 파싱
-./infra/scripts-local/seed/mock-token.sh --user-id 3  # 다른 계정으로 발급
-```
-
-| 증상 | 원인 |
-| --- | --- |
-| `목 사용자(...)가 없습니다` | 시드가 꺼져 있거나 아직 재기동하지 않았다 |
-| 편지에 우표가 안 붙는다 | 우표 시드가 먼저 끝나야 한다. `STAMP_SEED_ENABLED` 와 MinIO 버킷을 확인한다 |
-| 401 `ACCESS_TOKEN_INVALID` | `JWT_SECRET` 을 바꾸고 앱을 재기동하지 않았다 |
 
 ---
 
@@ -206,7 +172,63 @@ export TESTCONTAINERS_RYUK_DISABLED=true
 
 ---
 
-## 6. 함께 볼 문서
+## 6. 시드 데이터
+
+기동할 때 애플리케이션이 스스로 채워 넣는 데이터다. 이미 있으면 건너뛰므로 몇 번을 재기동해도 데이터가 불어나지 않는다.
+
+| 시드 | 채우는 것 | 기본값 | 끄는 방법 |
+| --- | --- | :---: | --- |
+| 우표 | `seed/stamps/*.png` 를 MinIO 에 올리고 `STAMPS` 행을 맞춘다 | 켜짐 | `STAMP_SEED_ENABLED=false` |
+| 앱 버전 | 플랫폼별 최소 지원 버전 행을 **비어 있을 때만** `1.0.0` 으로 채운다 | 켜짐 | `APP_VERSION_SEED_ENABLED=false` |
+| 시드 User | 관리자 권한 계정 하나 + 약관 동의 + 편지 6통 | **꺼짐** | `USER_SEED_ENABLED=true` 로 켠다 |
+
+### 관리자 권한의 시드 User
+
+소셜 로그인을 거치지 않고 인증이 필요한 API 를 시험하기 위한 계정이다.
+약관 동의·닉네임 등록까지 끝난 평범한 계정이고 `role` 만 `ROLE_ADMIN` 이며, 피드백까지 완료된 편지가 함께 들어간다.
+
+**관리자는 회원가입을 하지 않는다.** 이 시드가 유일한 생성 지점이라, 켜지 않으면 관리자 로그인도 되지 않는다.
+
+```bash
+# infra/env/.env.local
+USER_SEED_ENABLED=true
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin1234
+```
+
+`./run.sh restart` 로 시드를 돌린 뒤 아이디·비밀번호로 로그인해 토큰을 받는다.
+발급되는 토큰은 소셜 로그인이 주는 것과 같아서, 앱 사용자 API 도 그대로 호출된다.
+
+```bash
+TOKEN=$(curl -sk -X POST https://localhost:8080/api/v1/admin/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"admin1234"}' | jq -r .accessToken)
+
+curl -sk -H "Authorization: Bearer $TOKEN" https://localhost:8080/api/v1/home
+curl -sk -H "Authorization: Bearer $TOKEN" https://localhost:8080/api/v1/letters
+```
+
+최소 지원 버전 변경은 관리자 권한이 필요한 유일한 API 다. 재배포 없이 즉시 반영된다.
+
+```bash
+curl -sk -X PATCH 'https://localhost:8080/api/v1/version?platform=AOS' \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"minSupportedVersion":"1.2.0"}'
+```
+
+### 시드가 안 될 때
+
+| 증상 | 원인 |
+| --- | --- |
+| 로그인이 `AUTH_008` | 아이디·비밀번호가 다르거나, `USER_SEED_ENABLED` 가 꺼져 있어 관리자 계정이 없다 |
+| 관리자 API 가 `AUTH_006` | 관리자 권한이 없는 계정의 토큰으로 호출했다 |
+| 버전 조회가 `VERSION_002` | 앱 버전 시드가 돌지 않았다. 기동 로그의 `앱 버전 시드 완료` 를 확인한다 |
+| 편지에 우표가 안 붙는다 | 우표 시드가 먼저 끝나야 한다. `STAMP_SEED_ENABLED` 와 MinIO 버킷을 확인한다 |
+| 시드가 통째로 실패했다 | 기동은 막지 않는다. 로그에 `... 시드에 실패했다` 가 남고 다음 기동에서 다시 시도한다 |
+
+---
+
+## 7. 함께 볼 문서
 
 | 문서 | 내용 |
 | --- | --- |

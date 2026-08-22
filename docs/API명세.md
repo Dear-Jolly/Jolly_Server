@@ -7,7 +7,7 @@
 | 인증 | `Authorization: Bearer {accessToken}` |
 | Content-Type | `application/json; charset=UTF-8` |
 | 날짜 포맷 | 날짜 → `yyyy-MM-dd` / 날짜+시각 → `yyyy-MM-dd'T'HH:mm:ss` |
-| Swagger UI | `/swagger-ui/index.html` — 이 문서와 같은 내용을 담고 직접 호출까지 된다. 우측 상단에서 전체 · 인증 · 사용자 · 편지·홈 · 버전 그룹을 고른다 |
+| Swagger UI | `/swagger-ui/index.html` — 이 문서와 같은 내용을 담고 직접 호출까지 된다. 우측 상단에서 전체 · 인증 · 사용자 · 편지·홈 · 버전 · 관리자 그룹을 고른다 |
 
 ---
 
@@ -28,12 +28,15 @@
 | [11](#11-get-apiv1lettersletterid-) | `GET` | `/api/v1/letters/{letterId}` | 편지 상세 조회 (피드백 포함) | ✔ | ✔ | ✅ |
 | [12](#12-get-apiv1letters-) | `GET` | `/api/v1/letters` | 편지 목록 조회 (홈) | ✔ | ✔ | ✅ |
 | [13](#13-get-apiv1home-) | `GET` | `/api/v1/home` | 닉네임, 모은 우표 수 조회 (홈) | ✔ | ✔ | ✅ |
-| [14](#14-get-apiv1version-) | `GET` | `/api/v1/version` | 최소 지원 버전, 정책 URL 조회 | — | — | ✅ |
+| [14](#14-get-apiv1version-) | `GET` | `/api/v1/version` | 최소 지원 버전 조회, 강제 업데이트 판정 | — | — | ✅ |
+| [15](#15-patch-apiv1version-) | `PATCH` | `/api/v1/version` | 최소 지원 버전 변경 (관리자) | ✔ | — | ✅ |
+| [16](#16-post-apiv1adminlogin-) | `POST` | `/api/v1/admin/login` | 관리자 로그인 (아이디 · 비밀번호) | — | — | ✅ |
 
 - **인증** ✔ — `Authorization` 헤더가 필요하다.
 - **온보딩** ✔ — 온보딩(필수 약관 동의 + 닉네임 등록) 전에 호출하면 `USER_005` 다.
 - **구현** — ✅ 호출 가능, ❌ 명세만 확정되고 아직 개발 전이다.
 - `{provider}` 는 `KAKAO` · `APPLE` 이며 **대소문자를 가리지 않는다**. (`kakao`, `Kakao` 모두 같다)
+- **관리자 API** — 15) 는 **관리자 권한 계정의 토큰**이 필요하다. 16) 으로 받는다.
 
 ---
 
@@ -907,13 +910,16 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 ### [설명]
 
-- 앱 최소 지원 버전과 정책 페이지 URL 을 조회한다. **로그인 전에도 호출할 수 있다.**
-- 앱 버전이 `minSupportedVersion` 미만이면 강제 업데이트를 유도한다. **판정은 앱이 한다.** 서버는 앱 버전을 받지 않는다.
-- `forceUpdate` 는 **서버가 켜고 끄는 보조 신호**이며 `latestVersion` · `minSupportedVersion` 에서 계산한 값이 아니다. 두 값이 같아도 자동으로 `true` 가 되지 않는다.
-- 앱은 `forceUpdate` 를 믿고 판정하지 않는다. 자기 버전과 `minSupportedVersion` 을 직접 비교한다.
+- 플랫폼별 최소 지원 버전을 조회하고, **강제 업데이트가 필요한지 서버가 판정해 준다.**
+- **앱은 자기 버전을 `appVersion` 으로 보낸다.** 서버가 `minSupportedVersion` 과 비교해 `forceUpdate` 를 계산한다.
+- 비교는 `x.y.z` 를 `x` → `y` → `z` 순으로 한다. `appVersion` 이 `minSupportedVersion` 보다 **낮을 때만** `forceUpdate` 가 `true` 다.
+- 같은 버전이거나 더 높으면 `forceUpdate` 는 `false` 다.
+- **로그인 전에도 호출할 수 있다.**
+- `platform` 과 `appVersion` 은 **둘 다 필수**다. 하나라도 빠지면 `COMMON_001` 이다.
+- `platform` 이 `IOS` · `AOS` 가 아니면 `COMMON_001` 이다.
+- `appVersion` 이 `x.y.z` 형식이 아니면 `VERSION_001` 이다.
 - **공지사항 · 개인정보처리방침 · 이용약관은 별도 API 가 없다.** 이 응답의 링크를 웹뷰로 연다.
 - 설정 화면 하단의 `현재 버전` 표기는 앱 로컬 값이며 이 응답과 무관하다.
-- `platform` 이 `IOS` · `AOS` 가 아니면 `COMMON_001` 이다.
 
 ### [스펙]
 
@@ -927,24 +933,23 @@ GET /api/v1/version
 
 **Query Parameter**
 
-- [선택] `platform` (String): 플랫폼 (`IOS`, `AOS`). 생략하면 공통 값을 반환하고, 값을 주면 **그 플랫폼에 설정된 값만** 공통 값을 덮어쓴다
+- [필수] `platform` (String): 플랫폼 (`IOS`, `AOS`)
+- [필수] `appVersion` (String): 앱이 실행 중인 자기 버전 (`x.y.z`)
 
 ### [성공 Response 200]
 
 ```json
 {
-    "latestVersion": "1.0.0",
-    "minSupportedVersion": "1.0.0",
-    "forceUpdate": false,
+    "minSupportedVersion": "1.2.0",
+    "forceUpdate": true,
     "privacyPolicyUrl": "https://dearjolly.com/privacy",
     "termsOfServiceUrl": "https://dearjolly.com/terms",
     "noticeUrl": "https://dearjolly.com/notice"
 }
 ```
 
-- [필수] `latestVersion` (String): 최신 배포 버전
-- [필수] `minSupportedVersion` (String): 이 버전 미만이면 강제 업데이트
-- [필수] `forceUpdate` (Boolean): 강제 업데이트 여부
+- [필수] `minSupportedVersion` (String): 이 버전 미만이면 강제 업데이트 대상이다
+- [필수] `forceUpdate` (Boolean): 보낸 `appVersion` 이 강제 업데이트 대상인지 여부
 - [선택] `privacyPolicyUrl` (String): 개인정보처리방침 URL
 - [선택] `termsOfServiceUrl` (String): 서비스 이용약관 URL
 - [선택] `noticeUrl` (String): 공지사항 URL
@@ -959,6 +964,162 @@ GET /api/v1/version
 }
 ```
 
+```json
+{
+    "status": 400,
+    "code": "VERSION_001",
+    "message": "앱 버전은 x.y.z 형식이어야 합니다."
+}
+```
+
+### [실패 Response 404]
+
+```json
+{
+    "status": 404,
+    "code": "VERSION_002",
+    "message": "해당 플랫폼의 최소 지원 버전이 설정되어 있지 않습니다."
+}
+```
+
+---
+
+## 15) PATCH /api/v1/version ✅
+
+### [설명]
+
+- 플랫폼 하나의 최소 지원 버전을 바꾼다.
+- **관리자 토큰이 필요하다.** [16) POST /api/v1/admin/login](#16-post-apiv1adminlogin-) 으로 받는다.
+- 바꾼 값은 **즉시** [14) GET /api/v1/version](#14-get-apiv1version-) 의 판정에 반영된다.
+- 관리자 권한이 없는 계정의 토큰으로 호출하면 `AUTH_006` 이다.
+- `platform` 이 빠지거나 `IOS` · `AOS` 가 아니면 `COMMON_001` 이다.
+- `minSupportedVersion` 이 비었거나 `x.y.z` 형식이 아니면 `COMMON_001` 이다.
+
+### [스펙]
+
+**Endpoint**
+
+```
+PATCH /api/v1/version
+```
+
+**Authorization 헤더**: 필요 (관리자 토큰)
+
+**Query Parameter**
+
+- [필수] `platform` (String): 플랫폼 (`IOS`, `AOS`)
+
+**Body**
+
+```json
+{
+    "minSupportedVersion": "1.2.0"
+}
+```
+
+- [필수] `minSupportedVersion` (String): 새 최소 지원 버전 (`x.y.z`)
+
+### [성공 Response 200]
+
+```json
+{
+    "platform": "IOS",
+    "minSupportedVersion": "1.2.0"
+}
+```
+
+- [필수] `platform` (String): 변경된 플랫폼
+- [필수] `minSupportedVersion` (String): 변경된 최소 지원 버전
+
+### [실패 Response 400]
+
+```json
+{
+    "status": 400,
+    "code": "COMMON_001",
+    "message": "잘못된 요청입니다."
+}
+```
+
+### [실패 Response 404]
+
+```json
+{
+    "status": 404,
+    "code": "VERSION_002",
+    "message": "해당 플랫폼의 최소 지원 버전이 설정되어 있지 않습니다."
+}
+```
+
+---
+
+## 16) POST /api/v1/admin/login ✅
+
+### [설명]
+
+- 관리자 아이디와 비밀번호로 로그인해 **소셜 로그인과 똑같은 토큰 한 쌍**을 받는다.
+- **회원가입 API 는 없다.** 관리자 계정은 서버가 미리 만들어 둔 것 하나뿐이고, 이 API 는 로그인만 한다.
+- 관리자도 **일반 사용자와 똑같은 계정**이다. 다른 점은 권한뿐이라, 이 토큰으로 편지 · 홈 · 계정 API 를 그대로 호출할 수 있다.
+- 발급된 토큰은 [15) PATCH /api/v1/version](#15-patch-apiv1version-) 같은 관리자 전용 API 에도 쓴다.
+- `refreshToken` 은 [4) POST /api/v1/auth/reissue](#4-post-apiv1authreissue-) 에 그대로 쓴다.
+- 아이디나 비밀번호가 틀리면 `AUTH_008` 이다. **둘 중 무엇이 틀렸는지는 구분해 주지 않는다.**
+- 관리자 계정이 준비되지 않은 환경에서도 `AUTH_008` 이다.
+- 아이디나 비밀번호가 비어 있으면 `COMMON_001` 이다.
+
+### [스펙]
+
+**Endpoint**
+
+```
+POST /api/v1/admin/login
+```
+
+**Authorization 헤더**: 불필요
+
+**Body**
+
+```json
+{
+    "username": "admin",
+    "password": "admin1234"
+}
+```
+
+- [필수] `username` (String): 관리자 아이디
+- [필수] `password` (String): 관리자 비밀번호
+
+### [성공 Response 200]
+
+```json
+{
+    "accessToken": "eyJhbGciOiJIUzUxMiJ9...",
+    "refreshToken": "eyJhbGciOiJIUzUxMiJ9..."
+}
+```
+
+- [필수] `accessToken` (String): Access Token. `Authorization` 헤더에 그대로 넣는다
+- [필수] `refreshToken` (String): Refresh Token. 토큰 재발급에 쓴다
+
+### [실패 Response 400]
+
+```json
+{
+    "status": 400,
+    "code": "COMMON_001",
+    "message": "잘못된 요청입니다."
+}
+```
+
+### [실패 Response 401]
+
+```json
+{
+    "status": 401,
+    "code": "AUTH_008",
+    "message": "관리자 아이디 또는 비밀번호가 올바르지 않습니다."
+}
+```
+
 ---
 
 # 3. Enum 정의
@@ -970,7 +1131,7 @@ GET /api/v1/version
 | `Status` (letter) | `SUBMITTED`, `FEEDBACK_IN_PROGRESS`, `FEEDBACK_COMPLETED` | 편지 상태. 앱은 앞의 두 값을 동일하게 렌더링한다 |
 | `CorrectionType` | `UNCHANGED`, `MODIFIED` | 교정 조각의 수정 여부 (응답 필드명은 `type`) |
 | `Sort` | `LATEST`, `OLDEST` | 편지 목록 정렬 기준 |
-| `Platform` | `IOS`, `AOS` | 버전 조회의 `platform` 파라미터 |
+| `Platform` | `IOS`, `AOS` | 버전 조회 · 변경의 `platform` 파라미터 |
 
 ---
 
@@ -988,6 +1149,7 @@ GET /api/v1/version
 | `AUTH_005` | 401 | 유효하지 않은 토큰입니다. | 인증이 필요한 모든 API |
 | `AUTH_006` | 403 | 접근 권한이 없습니다. | 인증이 필요한 모든 API |
 | `AUTH_007` | 401 | 탈퇴한 계정입니다. 다시 로그인해주세요. | 인증이 필요한 모든 API |
+| `AUTH_008` | 401 | 관리자 아이디 또는 비밀번호가 올바르지 않습니다. | 관리자 로그인 |
 
 ## 2) USER
 
@@ -1009,7 +1171,14 @@ GET /api/v1/version
 | `LETTER_004` | 400 | 편지는 영어로만 작성할 수 있습니다. | 편지 작성 |
 | `LETTER_005` | 400 | 편지 작성 시각 정보가 올바르지 않습니다. | 편지 작성 |
 
-## 4) COMMON
+## 4) VERSION
+
+| code | status | message | 발생 지점 |
+| --- | --- | --- | --- |
+| `VERSION_001` | 400 | 앱 버전은 x.y.z 형식이어야 합니다. | 최소 지원 버전 조회 |
+| `VERSION_002` | 404 | 해당 플랫폼의 최소 지원 버전이 설정되어 있지 않습니다. | 최소 지원 버전 조회 · 변경 |
+
+## 5) COMMON
 
 모든 API 에서 공통으로 발생하므로 개별 API 의 실패 표에는 적지 않는다.
 
@@ -1034,11 +1203,13 @@ GET /api/v1/version
 | 헤더 | `Authorization: Bearer {accessToken}` |
 | 액세스 토큰 만료 | 30분 |
 | 리프레시 토큰 만료 | 14일 |
-| 인증 불필요 | 소셜 로그인 시작 · 콜백 2종, 토큰 재발급, 버전 조회 |
+| 인증 불필요 | 소셜 로그인 시작 · 콜백 2종, 토큰 재발급, 버전 조회, 관리자 로그인 |
+| 관리자 토큰 필요 | 최소 지원 버전 변경 |
 
 - 리프레시 토큰은 재발급 때마다 새 값으로 교체되며, **이전 값으로는 재발급할 수 없다.**
 - 로그인은 **기기 1대만 유지**된다. 다른 기기에서 로그인하면 이전 로그인은 풀린다.
 - 탈퇴한 계정의 토큰은 만료 전이라도 `AUTH_007` 로 거절된다.
+- 관리자 계정도 일반 계정과 같은 토큰을 쓴다. **관리자 토큰으로 앱 사용자 API 를 호출할 수 있고**, 권한이 없는 계정이 관리자 API 를 호출하면 `AUTH_006` 이다.
 
 ## 2) 성공 · 실패 응답 정의
 
@@ -1056,7 +1227,7 @@ GET /api/v1/version
 ```
 
 - [필수] `status` (Integer): HTTP 상태 코드
-- [필수] `code` (String): `{도메인}_{일련번호}` 형식 (`AUTH_`, `USER_`, `LETTER_`, `COMMON_`)
+- [필수] `code` (String): `{도메인}_{일련번호}` 형식 (`AUTH_`, `USER_`, `LETTER_`, `VERSION_`, `COMMON_`)
 - [필수] `message` (String): 사용자에게 그대로 보여줘도 되는 문구
 
 - **같은 `code` 라도 `message` 는 상황에 따라 더 구체적인 문구로 내려올 수 있다.** 앱은 `code` 로만 분기하고 `message` 는 받은 그대로 표시한다.
@@ -1089,7 +1260,7 @@ GET /api/v1/version
 | --- | --- |
 | 완료 조건 | 필수 약관 2종에 모두 동의 **그리고** 닉네임 등록 |
 | 차단 대상 | 엔드포인트 목록의 **온보딩** 열이 ✔ 인 API (`/api/v1/letters` 3종, `/api/v1/home`) |
-| 통과 대상 | 로그인 · 로그아웃 · 토큰 재발급, 약관 동의, 닉네임 설정, 계정 조회, 회원 탈퇴, 버전 조회 |
+| 통과 대상 | 로그인 · 로그아웃 · 토큰 재발급, 약관 동의, 닉네임 설정, 계정 조회, 회원 탈퇴, 버전 조회 · 변경, 관리자 로그인 |
 | 위반 시 | `USER_005` (400) |
 
 - 온보딩(필수 약관 동의 + 닉네임 등록)을 마치지 않은 유저는 **편지 · 홈 API 를 호출할 수 없다.**
