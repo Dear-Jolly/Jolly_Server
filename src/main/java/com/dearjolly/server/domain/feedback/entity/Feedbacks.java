@@ -32,7 +32,8 @@ import org.hibernate.annotations.BatchSize;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Feedbacks {
 
-    private static final int MAX_TIP_COUNT = 3;
+    /** 워커가 LLM 응답을 이 개수로 잘라 넣는다. 여기 예외는 그 절삭을 빠뜨렸을 때의 방어선이다. */
+    public static final int MAX_TIP_COUNT = 3;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

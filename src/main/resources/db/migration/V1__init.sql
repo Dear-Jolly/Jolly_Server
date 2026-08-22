@@ -33,9 +33,7 @@ CREATE TABLE terms_agreements (
 CREATE TABLE stamps (
     stamp_id    BIGINT       NOT NULL AUTO_INCREMENT,
     name        VARCHAR(30)  NOT NULL,
-    description VARCHAR(100) NOT NULL,
     image_key   VARCHAR(255) NOT NULL,
-    is_active   BOOLEAN      NOT NULL DEFAULT TRUE,
     PRIMARY KEY (stamp_id),
     UNIQUE KEY uk_stamps_name (name)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
@@ -46,6 +44,7 @@ CREATE TABLE letters (
     stamp_id    BIGINT       NULL,
     content     VARCHAR(500) NOT NULL,
     letter_date DATE         NOT NULL,
+    time_zone   VARCHAR(64)  NOT NULL,
     status      VARCHAR(30)  NOT NULL,
     is_read     BOOLEAN      NOT NULL DEFAULT FALSE,
     retry_count INT          NOT NULL DEFAULT 0,
@@ -73,8 +72,8 @@ CREATE TABLE correction_segments (
     correction_segment_id BIGINT       NOT NULL AUTO_INCREMENT,
     feedback_id           BIGINT       NOT NULL,
     sequence              INT          NOT NULL,
-    original_text         VARCHAR(500) NOT NULL,
-    corrected_text        VARCHAR(500) NOT NULL,
+    original_text         VARCHAR(1000) NOT NULL,
+    corrected_text        VARCHAR(1000) NOT NULL,
     correction_type       VARCHAR(20)  NOT NULL,
     PRIMARY KEY (correction_segment_id),
     UNIQUE KEY uk_segments_order (feedback_id, sequence),
@@ -92,8 +91,8 @@ CREATE TABLE feedback_tips (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 -- 초기 우표 마스터 데이터
-INSERT INTO stamps (name, description, image_key, is_active) VALUES
-    ('장미',      '마음을 담아 건네는 붉은 장미',        'stamps/flower_stamp.png',  TRUE),
-    ('호박',      '포근하고 든든한 가을 호박',           'stamps/pumpkin_stamp.png', TRUE),
-    ('네잎클로버', '오늘 하루에 깃든 작은 행운',          'stamps/clover_stamp.png',  TRUE),
-    ('초승달',    '조용히 하루를 마무리하는 밤의 달',     'stamps/moon_stamp.png',    TRUE);
+INSERT INTO stamps (name, image_key) VALUES
+    ('장미',      'stamps/flower_stamp.png'),
+    ('호박',      'stamps/pumpkin_stamp.png'),
+    ('네잎클로버', 'stamps/clover_stamp.png'),
+    ('초승달',    'stamps/moon_stamp.png');
