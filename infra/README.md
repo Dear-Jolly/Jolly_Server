@@ -215,7 +215,30 @@ Let's Encrypt 인증서를 자동으로 받아온다.
 
 ---
 
-## 6. 운영
+## 6. 인스턴스 스펙
+
+| 항목 | 값 | 조정 위치 (`.env.prod`) |
+| --- | --- | --- |
+| 타입 | t3.micro (vCPU 2 · 메모리 1GB) | `EC2_INSTANCE_TYPE` |
+| 스왑 | 4GB, `vm.swappiness=20` | `EC2_SWAP_SIZE` |
+| 디스크 | 30GB gp3 (암호화) | `EC2_VOLUME_SIZE` |
+| OS | Ubuntu 24.04 LTS | 템플릿의 SSM 파라미터 |
+
+메모리 1GB 에 컨테이너 5개(전환 중 6개)가 뜨므로 스왑으로 보완한다.
+JVM 힙은 `compose.prod.yaml` 의 `JAVA_OPTS` 가 `MaxRAMPercentage=35` 로 묶어, 전환 중 앱 2개가 동시에 떠도 버티게 한다.
+
+| 상황 | 명령 | 비고 |
+| --- | --- | --- |
+| 스왑 크기 변경 | `aws-manage.sh swap` | 실행 중인 인스턴스에 바로 적용 (재생성 없음) |
+| 타입·디스크 변경 | `aws-manage.sh sync` | **타입이 바뀌면 자동으로 백업 후 진행** ↓ |
+| 백업 AMI 확인 | `aws-manage.sh amis` | 타입 변경 전에 남긴 스냅샷 목록 |
+
+> **인스턴스 타입을 바꾸면 CloudFormation 이 인스턴스를 정지·교체한다.**
+> 그래서 `sync`·`update-ec2` 는 타입 변경을 감지하면 진행 전에 반드시
+> ① 데이터 백업(`backup.sh`) → ② 인스턴스 전체 AMI 스냅샷을 만든다. 둘 중 하나라도 실패하면 변경을 중단한다.
+> user-data 는 최초 부팅에만 실행되므로, 이미 떠 있는 인스턴스의 스왑은 `swap` 명령으로 맞춘다.
+
+## 7. 운영
 
 ```bash
 ./infra/scripts-local/aws-manage.sh <명령>
@@ -227,7 +250,8 @@ Let's Encrypt 인증서를 자동으로 받아온다.
 | `images` | ECR 에 올라온 태그 목록 |
 | `restart` · `files` | 현재 이미지로 재배포 / 배포 파일만 재전송 |
 | `status` · `outputs` · `logs` · `ssh` | 상태·출력값·로그 확인, 서버 접속 |
-| `sync` | `.env.prod` 기준으로 스택 재적용 (보안그룹·포트·SSH 대역 반영) |
+| `sync` | `.env.prod` 기준으로 스택 재적용 (보안그룹·포트·SSH 대역). 타입 변경 시 백업 선행 |
+| `swap` · `amis` | 스왑 크기 적용 / 백업 AMI 목록 |
 | `drift` · `sg` | 콘솔에서 손댄 리소스 탐지 / 현재 보안그룹 규칙 확인 |
 | `backup` · `backups` | 백업 즉시 실행 / 보관 목록 |
 | `update-ecr` · `update-ec2` | 템플릿 변경분 반영 |
@@ -237,7 +261,7 @@ Let's Encrypt 인증서를 자동으로 받아온다.
 
 ---
 
-## 7. 트러블슈팅 — 실제로 겪은 것들
+## 8. 트러블슈팅 — 실제로 겪은 것들
 
 | 증상 | 원인 | 해결 |
 | --- | --- | --- |
@@ -253,7 +277,7 @@ Let's Encrypt 인증서를 자동으로 받아온다.
 
 ---
 
-## 8. 참고
+## 9. 참고
 
 - 각 스크립트 상단 주석에 사전 조건과 필요한 권한이 적혀 있다.
 - 프로젝트 전체 개요·로컬 실행은 [루트 README](../README.md) 를 본다.
