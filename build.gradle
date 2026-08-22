@@ -30,6 +30,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 
+	// 운영 헬스체크 (기능명세 §4.3)
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
 	// JWT
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
@@ -43,7 +46,9 @@ dependencies {
 	implementation 'org.flywaydb:flyway-mysql'
 
 	// API 문서
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+	// 2.6.0 은 Spring Framework 6.2(= Boot 3.5)에서 제거된 ControllerAdviceBean(Object) 생성자를
+	// 호출해 /v3/api-docs 가 NoSuchMethodError 로 500 을 낸다. 2.8 부터 대응됐다.
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13'
 
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
@@ -52,10 +57,35 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testImplementation 'io.rest-assured:rest-assured'
+
+	// Flyway 마이그레이션과 엔티티 매핑을 실제 MySQL 로 대조한다 (기능명세 §4.3)
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.testcontainers:mysql'
+
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testRuntimeOnly 'com.h2database:h2'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+
+	// SchemaMigrationTest 는 Testcontainers 로 실제 MySQL 을 띄운다.
+	// Colima·Podman 처럼 소켓 경로와 최소 API 버전이 Docker Desktop 과 다른 환경에서는
+	// 아래 두 값을 쉘에서 내보내야 붙는다. CI(GitHub Actions)는 기본 경로라 아무 영향이 없다.
+	//   export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
+	//   export DOCKER_API_VERSION=1.47
+	//   export TESTCONTAINERS_RYUK_DISABLED=true
+	// 마지막 값이 없으면 정리 컨테이너(Ryuk)가 colima 소켓을 마운트하려다
+	// "operation not supported" 로 죽는다. 컨테이너는 테스트 종료 시 함께 내려간다.
+	['DOCKER_HOST', 'DOCKER_API_VERSION', 'TESTCONTAINERS_RYUK_DISABLED'].each { key ->
+		String value = System.getenv(key)
+		if (value) {
+			environment key, value
+		}
+	}
+	// docker-java 는 환경변수가 아니라 이 시스템 프로퍼티로 API 버전을 읽는다.
+	if (System.getenv('DOCKER_API_VERSION')) {
+		systemProperty 'api.version', System.getenv('DOCKER_API_VERSION')
+	}
 }
