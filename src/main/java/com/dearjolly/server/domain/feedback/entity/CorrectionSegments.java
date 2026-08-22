@@ -50,11 +50,15 @@ public class CorrectionSegments {
     @Column(name = "sequence", nullable = false)
     private int sequence;
 
-    @Column(name = "original_text", nullable = false, length = 500)
+    /**
+     * 상한을 FEEDBACKS.corrected_content 와 같은 1000자로 맞춘다. 교정문이 길고 diff 가
+     * 단일 MODIFIED 로 뭉치면 조각 하나가 문장 전체가 되기 때문이다 (ERD §2.6).
+     */
+    @Column(name = "original_text", nullable = false, length = 1000)
     private String originalText;
 
     /** 삭제 제안이면 빈 문자열이다. null 이 아니다. */
-    @Column(name = "corrected_text", nullable = false, length = 500)
+    @Column(name = "corrected_text", nullable = false, length = 1000)
     private String correctedText;
 
     @Enumerated(EnumType.STRING)

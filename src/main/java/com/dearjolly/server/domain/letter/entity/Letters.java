@@ -26,6 +26,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -47,6 +48,7 @@ import lombok.NoArgsConstructor;
 public class Letters {
 
     private static final int MAX_RETRY_COUNT = 3;
+    private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -70,6 +72,14 @@ public class Letters {
 
     @Column(name = "letter_date", nullable = false)
     private LocalDate letterDate;
+
+    /**
+     * 작성 시점에 기기가 있던 IANA 타임존 ID. 서버 시각(KST)으로 저장한 createdAt 을
+     * 나중에 다시 조회할 때도 작성지 기준으로 되돌리기 위해 남긴다. 이 값이 없으면
+     * 편지 작성 응답에서만 변환이 가능하고, 이후의 모든 조회는 KST 로 굳는다.
+     */
+    @Column(name = "time_zone", nullable = false, length = 64)
+    private String timeZone;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
@@ -103,10 +113,11 @@ public class Letters {
 
     /**
      * 임시저장이 없으므로 편지는 항상 SUBMITTED 로 생성된다.
-     * letterDate 는 요청의 writtenAt 을 요청 타임존 기준으로 환산한 날짜다.
+     * letterDate 는 요청의 writtenAt 이 가진 날짜 부분이고, timeZone 은 그 시각을
+     * 해석한 기기의 타임존이다. 파싱된 ZoneId 를 받으므로 해석 불가능한 문자열은 저장될 수 없다.
      */
-    public static Letters create(Users user, String content, LocalDate letterDate) {
-        Letters letter = new Letters(user, content, letterDate);
+    public static Letters create(Users user, String content, LocalDate letterDate, ZoneId timeZone) {
+        Letters letter = new Letters(user, content, letterDate, timeZone);
         user.addLetter(letter);
         return letter;
     }
@@ -159,12 +170,20 @@ public class Letters {
         this.retryCount = 0;
     }
 
+    /** 백오프 3단계(30s → 2m → 10m)를 모두 소진하면 실패로 확정한다 (기능명세 §3.5.4). */
     public boolean isRetryExhausted() {
-        return this.retryCount > MAX_RETRY_COUNT;
+        return this.retryCount >= MAX_RETRY_COUNT;
     }
 
     public boolean isFeedbackCompleted() {
         return this.status.isCompleted();
+    }
+
+    /** 서버 시각(KST)으로 저장된 createdAt 을 작성지 기준 시각으로 되돌린다. */
+    public LocalDateTime createdAtInWrittenZone() {
+        return this.createdAt.atZone(SERVER_ZONE)
+                .withZoneSameInstant(ZoneId.of(this.timeZone))
+                .toLocalDateTime();
     }
 
     /** FEEDBACK_FAILED 는 내부 상태이므로 응답에서는 SUBMITTED 로 치환한다. */
@@ -173,12 +192,14 @@ public class Letters {
     }
 
     // ========= 생성자 =========
-    private Letters(Users user, String content, LocalDate letterDate) {
+    private Letters(Users user, String content, LocalDate letterDate, ZoneId timeZone) {
         validateContent(content);
         validateLetterDate(letterDate);
+        validateTimeZone(timeZone);
         this.user = user;
         this.content = content;
         this.letterDate = letterDate;
+        this.timeZone = timeZone.getId();
         this.status = SUBMITTED;
         this.isRead = false;
         this.retryCount = 0;
@@ -194,6 +215,12 @@ public class Letters {
     private void validateLetterDate(LocalDate letterDate) {
         if (letterDate == null) {
             throw new IllegalArgumentException("편지 날짜는 필수입니다.");
+        }
+    }
+
+    private void validateTimeZone(ZoneId timeZone) {
+        if (timeZone == null) {
+            throw new IllegalArgumentException("작성 타임존은 필수입니다.");
         }
     }
 
