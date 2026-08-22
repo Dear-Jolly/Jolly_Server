@@ -1,6 +1,23 @@
 name: dear-jolly
 
 services:
+  # ===== Caddy (외부 진입점. https://localhost:8080 을 종단한다) =====
+  caddy:
+    image: caddy:2.9-alpine
+    container_name: dear-jolly-caddy
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:8080"      # HTTPS
+      - "${APP_HTTP_PORT:-80}:80"     # HTTP → HTTPS 리다이렉트
+    environment:
+      APP_PORT: ${APP_PORT:-8080}
+    volumes:
+      - ../caddy/Caddyfile.local:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - dear-jolly
+
   # ===== MySQL =====
   mysql:
     image: mysql:8.4
@@ -19,7 +36,8 @@ services:
     ports:
       - "${MYSQL_PORT:-3306}:3306"
     volumes:
-      - mysql-data:/var/lib/mysql
+      # 프로젝트 루트(dear-jolly/mount/mysql)에 저장한다. 컨테이너를 지워도 데이터가 남는다.
+      - ${MYSQL_DATA_PATH:-../../../mount/mysql}:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 5s
@@ -43,7 +61,7 @@ services:
       - "${MINIO_API_PORT:-9000}:9000"    # S3 API
       - "${MINIO_CONSOLE_PORT:-9001}:9001" # 웹 콘솔
     volumes:
-      - minio-data:/data
+      - ${MINIO_DATA_PATH:-../../../mount/minio}:/data
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 5s
@@ -77,8 +95,9 @@ services:
   # ===== Spring Boot 애플리케이션 =====
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      # 컨텍스트는 리포지터리 루트 (소스·gradle 파일이 거기 있다)
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
     image: dear-jolly-server:local
     container_name: dear-jolly-app
     restart: unless-stopped
@@ -87,9 +106,13 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+    # .env.local 의 값을 통째로 주입한다. 설정이 늘어도 compose 를 고칠 필요가 없다.
+    env_file:
+      - ../env/.env.local
     environment:
+      # 아래는 compose 가 조립하는 값이라 env_file 보다 우선한다
       TZ: Asia/Seoul
-      SERVER_PORT: 8080
+      SERVER_PORT: ${APP_INTERNAL_PORT:-8081}
       # --- DB ---
       MYSQL_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
       MYSQL_USER: ${MYSQL_USER}
@@ -103,9 +126,10 @@ services:
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET}
     ports:
-      - "${APP_PORT:-8080}:8080"
+      # 디버깅용 직접 접근. 외부 진입점은 Caddy 다
+      - "127.0.0.1:${APP_INTERNAL_PORT:-8081}:${APP_INTERNAL_PORT:-8081}"
     healthcheck:
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/${APP_INTERNAL_PORT:-8081}"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -114,8 +138,8 @@ services:
       - dear-jolly
 
 volumes:
-  mysql-data:
-  minio-data:
+  caddy-data:
+  caddy-config:
 
 networks:
   dear-jolly:
