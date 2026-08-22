@@ -53,5 +53,6 @@ out/
 ## Mac ##
 .DS_Store
 
-## Local Run Script ##
-/run.sh
+## Docker 환경변수 ##
+.env
+!.env.example
