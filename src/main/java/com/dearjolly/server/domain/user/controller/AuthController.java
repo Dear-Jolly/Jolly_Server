@@ -39,7 +39,7 @@ public class AuthController {
     @Operation(summary = "소셜 로그인 시작 - provider 로그인 페이지로 리다이렉트")
     @GetMapping("/{provider}")
     public ResponseEntity<Void> authorize(
-            @Parameter(description = "로그인 수단 (KAKAO, APPLE)", required = true)
+            @Parameter(description = "로그인 수단 (KAKAO, APPLE) - 대소문자를 가리지 않는다", required = true)
             @PathVariable OauthProvider provider
     ) {
         String state = UUID.randomUUID().toString();
