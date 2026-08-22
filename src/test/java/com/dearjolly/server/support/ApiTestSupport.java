@@ -1,11 +1,14 @@
 package com.dearjolly.server.support;
 
+import static com.dearjolly.server.domain.letter.constants.StampConstants.DEFAULT_STAMP_NAME;
+
 import com.dearjolly.server.domain.feedback.entity.CorrectionSegments;
 import com.dearjolly.server.domain.feedback.entity.FeedbackTips;
 import com.dearjolly.server.domain.feedback.entity.Feedbacks;
 import com.dearjolly.server.domain.letter.entity.Letters;
 import com.dearjolly.server.domain.letter.entity.Stamps;
 import com.dearjolly.server.domain.letter.repository.LetterRepository;
+import com.dearjolly.server.domain.letter.repository.StampRepository;
 import com.dearjolly.server.domain.user.entity.TermsAgreements;
 import com.dearjolly.server.domain.user.entity.Users;
 import com.dearjolly.server.domain.user.enums.OauthProvider;
@@ -44,6 +47,9 @@ public abstract class ApiTestSupport {
     protected LetterRepository letterRepository;
 
     @Autowired
+    protected StampRepository stampRepository;
+
+    @Autowired
     protected TransactionTemplate transactionTemplate;
 
     @PersistenceContext
@@ -73,15 +79,22 @@ public abstract class ApiTestSupport {
         termsAgreementRepository.save(TermsAgreements.create(user, TermsType.PRIVACY, true, "1.0.0"));
     }
 
+    protected Stamps 기본우표를_저장한다() {
+        return stampRepository.findByName(DEFAULT_STAMP_NAME)
+                .orElseGet(() -> stampRepository.save(
+                        Stamps.create(DEFAULT_STAMP_NAME, "stamp/" + DEFAULT_STAMP_NAME + ".png")));
+    }
+
     protected Letters 편지를_저장한다(Users user, String content, LocalDate letterDate) {
-        return letterRepository.save(Letters.create(user, content, letterDate, ZoneId.of("Asia/Seoul")));
+        return letterRepository.save(
+                Letters.create(user, content, letterDate, ZoneId.of("Asia/Seoul"), 기본우표를_저장한다()));
     }
 
     protected Letters 피드백완료_편지를_저장한다(Users user, String content, LocalDate letterDate, String stampName) {
         return transactionTemplate.execute(status -> {
             Stamps stamp = Stamps.create(stampName, "stamps/" + stampName + ".png");
             entityManager.persist(stamp);
-            Letters letter = Letters.create(user, content, letterDate, ZoneId.of("Asia/Seoul"));
+            Letters letter = Letters.create(user, content, letterDate, ZoneId.of("Asia/Seoul"), null);
             letter.completeFeedback(stamp);
             entityManager.persist(letter);
             return letter;
