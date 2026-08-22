@@ -16,27 +16,26 @@ source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 load_env
 
-DUMP_FILE="infra/env/.env.githubsecrets"
+SECRETS_DUMP_FILE="infra/env/.env.githubsecrets"
+VARIABLES_DUMP_FILE="infra/env/.env.githubvariables"
 
-# 토큰 권한이 없거나 손으로 넣고 싶을 때: 등록할 값 10개를 파일로 떨군다
+# 토큰 권한이 없거나 손으로 넣고 싶을 때: 등록할 값을 파일로 떨군다.
+# Secret 과 Variable 은 GitHub 등록 화면의 탭이 다르므로 파일도 나눈다.
 if [ "${1:-}" = "dump" ]; then
   [ -f "$KEY_PATH" ] || die "키페어 파일이 없습니다: ${KEY_PATH}"
+
+  # ===== Secrets =====
   {
     echo "# GitHub Actions Secrets 등록용 목록 (자동 생성 — 직접 수정하지 말 것)"
     echo "# 생성 명령: ./infra/scripts-local/github-secrets.sh dump"
-    echo "# 등록 위치: GitHub > Settings > Secrets and variables > Actions > New repository secret"
+    echo "# 등록 위치: GitHub > Settings > Secrets and variables > Actions > [Secrets] 탭"
     echo "#"
     echo "# 값이 바뀌면 이 명령을 다시 실행해 갱신한다."
     echo "# 이 파일은 gitignore 대상이다 (실제 비밀값 포함)."
+    echo "# 비밀이 아닌 설정값은 ${VARIABLES_DUMP_FILE} 에 따로 있다."
     echo
-    echo "# ===== 1. Secret ${#SECRET_KEYS[@]}개 (Settings > Secrets and variables > Actions > Secrets) ====="
+    echo "# ===== 1. 단일 행 ${#SECRET_KEYS[@]}개 (이름 = 값) ====="
     for key in "${SECRET_KEYS[@]}"; do
-      printf '%s=%s\n' "$key" "$(read_env "$key")"
-    done
-    echo
-    echo "# ===== 1-2. Variable ${#VARIABLE_KEYS[@]}개 (같은 화면의 Variables 탭) ====="
-    echo "# 비밀이 아니다. Secret 으로 등록하면 이미지 주소가 마스킹돼 배포가 깨진다."
-    for key in "${VARIABLE_KEYS[@]}"; do
       printf '%s=%s\n' "$key" "$(read_env "$key")"
     done
     echo
@@ -44,18 +43,37 @@ if [ "${1:-}" = "dump" ]; then
     echo "# 클립보드 복사 (리포지터리 루트에서 실행):"
     echo "#   cat ${KEY_PATH} | pbcopy"
     echo "# 또는 이 파일에서 바로 추출:"
-    echo "#   sed -n '/^-----BEGIN/,/^-----END/p' ${DUMP_FILE} | pbcopy"
+    echo "#   sed -n '/^-----BEGIN/,/^-----END/p' ${SECRETS_DUMP_FILE} | pbcopy"
     cat "$KEY_PATH"
     echo
     echo "# ===== 3. PROD_ENV_FILE (아래 전체를 값으로) ====="
     echo "# 클립보드 복사 (리포지터리 루트에서 실행):"
     echo "#   bash -c 'source infra/scripts-local/common.sh && load_env && app_env_lines' | pbcopy"
     echo "# 또는 이 파일에서 바로 추출:"
-    echo "#   sed -n '/^# ===== 3\./,\$p' ${DUMP_FILE} | grep -vE '^#' | pbcopy"
+    echo "#   sed -n '/^# ===== 3\./,\$p' ${SECRETS_DUMP_FILE} | grep -vE '^#' | pbcopy"
     app_env_lines
-  } > "$DUMP_FILE"
-  chmod 600 "$DUMP_FILE"
-  log "${DUMP_FILE} 생성 완료 (Secret ${#SECRET_KEYS[@]}개 + Variable ${#VARIABLE_KEYS[@]}개 + EC2_SSH_KEY + PROD_ENV_FILE)"
+  } > "$SECRETS_DUMP_FILE"
+  chmod 600 "$SECRETS_DUMP_FILE"
+  log "${SECRETS_DUMP_FILE} 생성 완료 (Secret ${#SECRET_KEYS[@]}개 + EC2_SSH_KEY + PROD_ENV_FILE)"
+
+  # ===== Variables =====
+  {
+    echo "# GitHub Actions Variables 등록용 목록 (자동 생성 — 직접 수정하지 말 것)"
+    echo "# 생성 명령: ./infra/scripts-local/github-secrets.sh dump"
+    echo "# 등록 위치: GitHub > Settings > Secrets and variables > Actions > [Variables] 탭"
+    echo "#"
+    echo "# 비밀이 아니다. 오히려 Secret 으로 등록하면 배포가 깨진다."
+    echo "# 이미지 주소(<계정>.dkr.ecr.<리전>.amazonaws.com/<리포지터리>:<태그>)에 이 값들이 들어가는데,"
+    echo "# 잡 출력에 Secret 문자열이 섞이면 GitHub 이 출력을 통째로 버려"
+    echo "# needs.build.outputs.image 가 빈 값이 되고 APP_IMAGE 검사에서 실패한다."
+    echo
+    echo "# ===== 단일 행 ${#VARIABLE_KEYS[@]}개 (이름 = 값) ====="
+    for key in "${VARIABLE_KEYS[@]}"; do
+      printf '%s=%s\n' "$key" "$(read_env "$key")"
+    done
+  } > "$VARIABLES_DUMP_FILE"
+  chmod 600 "$VARIABLES_DUMP_FILE"
+  log "${VARIABLES_DUMP_FILE} 생성 완료 (Variable ${#VARIABLE_KEYS[@]}개)"
   exit 0
 fi
 
