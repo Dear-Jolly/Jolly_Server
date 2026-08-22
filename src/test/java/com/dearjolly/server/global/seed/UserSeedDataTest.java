@@ -17,24 +17,24 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 // 시드 데이터가 편지 작성 API 의 제약을 그대로 만족하는지 본다.
 // 어긋나면 시드가 API 로는 만들 수 없는 편지를 DB 에 넣어 테스트를 헛돌게 한다.
-class MockUserSeedDataTest {
+class UserSeedDataTest {
     @DisplayName("편지 본문은 서로 달라야 시드를 다시 돌려도 늘어나지 않는다.")
     @Test
     void contentsAreUnique() {
         // when
-        Set<String> contents = MockUserSeedData.LETTERS.stream()
-                .map(MockLetterSeed::content)
+        Set<String> contents = UserSeedData.LETTERS.stream()
+                .map(LetterSeed::content)
                 .collect(Collectors.toSet());
 
         // then
-        assertThat(contents).hasSameSizeAs(MockUserSeedData.LETTERS);
+        assertThat(contents).hasSameSizeAs(UserSeedData.LETTERS);
     }
 
     @DisplayName("편지 본문은 편지 작성 API 의 길이·영문 제약을 지킨다.")
     @Test
     void contentsSatisfyLetterConstraints() {
         // when & then
-        assertThat(MockUserSeedData.LETTERS).allSatisfy(seed -> {
+        assertThat(UserSeedData.LETTERS).allSatisfy(seed -> {
             assertThat(seed.content()).isNotBlank();
             assertThat(seed.content().codePointCount(0, seed.content().length()))
                     .isLessThanOrEqualTo(CONTENT_MAX_LENGTH);
@@ -46,8 +46,8 @@ class MockUserSeedDataTest {
     @Test
     void tipsAreWithinLimit() {
         // when & then
-        assertThat(MockUserSeedData.LETTERS)
-                .filteredOn(MockLetterSeed::isFeedbackCompleted)
+        assertThat(UserSeedData.LETTERS)
+                .filteredOn(LetterSeed::isFeedbackCompleted)
                 .allSatisfy(seed -> assertThat(seed.tips()).isNotEmpty().hasSizeLessThanOrEqualTo(MAX_TIP_COUNT));
     }
 
@@ -58,8 +58,8 @@ class MockUserSeedDataTest {
         Set<String> seededStampNames = seededStampNames();
 
         // when & then
-        assertThat(MockUserSeedData.LETTERS)
-                .filteredOn(MockLetterSeed::isFeedbackCompleted)
+        assertThat(UserSeedData.LETTERS)
+                .filteredOn(LetterSeed::isFeedbackCompleted)
                 .allSatisfy(seed -> assertThat(seed.stampName())
                         .isNotEqualTo(DEFAULT_STAMP_NAME)
                         .isIn(seededStampNames));

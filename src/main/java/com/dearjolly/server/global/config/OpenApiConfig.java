@@ -82,6 +82,11 @@ public class OpenApiConfig {
         return group("version", "버전", "/api/v1/version");
     }
 
+    @Bean
+    public GroupedOpenApi adminApi() {
+        return group("admin", "관리자", "/api/v1/admin/**");
+    }
+
     private GroupedOpenApi group(String name, String displayName, String... paths) {
         return GroupedOpenApi.builder()
                 .group(name)
@@ -97,6 +102,7 @@ public class OpenApiConfig {
                 .bearerFormat("JWT")
                 .in(SecurityScheme.In.HEADER)
                 .name("Authorization")
-                .description("소셜 로그인 딥링크로 받은 accessToken 을 그대로 넣는다. `Bearer` 는 붙이지 않는다.");
+                .description("소셜 로그인 딥링크로 받은 accessToken 을 그대로 넣는다. `Bearer` 는 붙이지 않는다. "
+                        + "관리자 API 는 `POST /api/v1/admin/login` 으로 받은 토큰을 쓴다.");
     }
 }

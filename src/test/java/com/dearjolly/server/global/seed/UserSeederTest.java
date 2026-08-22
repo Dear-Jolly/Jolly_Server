@@ -15,21 +15,21 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.DefaultApplicationArguments;
 
 @ExtendWith(MockitoExtension.class)
-class MockUserSeederTest {
+class UserSeederTest {
     @Mock
-    private MockUserSeedWriter mockUserSeedWriter;
+    private UserSeedWriter userSeedWriter;
 
-    @DisplayName("시드가 켜져 있으면 목 사용자 시드 데이터를 그대로 넘긴다.")
+    @DisplayName("시드가 켜져 있으면 편지 시드 데이터를 그대로 넘긴다.")
     @Test
     void seed() {
         // given
-        given(mockUserSeedWriter.write(any(), any())).willReturn(new MockUserSeedResult(1L, 6, 4));
+        given(userSeedWriter.write(any(), any())).willReturn(new UserSeedResult(1L, 6, 4));
 
         // when
         seeder(true).run(new DefaultApplicationArguments());
 
         // then
-        verify(mockUserSeedWriter).write(properties(true), MockUserSeedData.LETTERS);
+        verify(userSeedWriter).write(properties(true), UserSeedData.LETTERS);
     }
 
     @DisplayName("시드가 비활성화되어 있으면 DB 를 건드리지 않는다.")
@@ -39,25 +39,25 @@ class MockUserSeederTest {
         seeder(false).run(new DefaultApplicationArguments());
 
         // then
-        verifyNoInteractions(mockUserSeedWriter);
+        verifyNoInteractions(userSeedWriter);
     }
 
     @DisplayName("시드가 실패해도 예외를 밖으로 던지지 않아 기동을 막지 않는다.")
     @Test
     void seedSwallowsFailure() {
         // given
-        given(mockUserSeedWriter.write(any(), any())).willThrow(new IllegalStateException("boom"));
+        given(userSeedWriter.write(any(), any())).willThrow(new IllegalStateException("boom"));
 
         // when & then
         assertThatCode(() -> seeder(true).run(new DefaultApplicationArguments()))
                 .doesNotThrowAnyException();
     }
 
-    private MockUserSeeder seeder(boolean enabled) {
-        return new MockUserSeeder(properties(enabled), mockUserSeedWriter);
+    private UserSeeder seeder(boolean enabled) {
+        return new UserSeeder(properties(enabled), userSeedWriter);
     }
 
-    private MockUserSeedProperties properties(boolean enabled) {
-        return new MockUserSeedProperties(enabled, KAKAO, "mock-user", "mock@dearjolly.local", "jolly");
+    private UserSeedProperties properties(boolean enabled) {
+        return new UserSeedProperties(enabled, KAKAO, "seed-admin", "admin@dearjolly.local", "jolly");
     }
 }

@@ -5,15 +5,15 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-public final class MockUserSeedData {
-    // 편지 본문은 시드 재실행 시 같은 편지인지 가리는 식별자로도 쓰인다. 본문을 고치면 새 편지가 하나 더 생긴다.
-    public static final List<MockLetterSeed> LETTERS = List.of(
-            MockLetterSeed.pending(
+public final class UserSeedData {
+    // 편지 본문이 곧 재실행 시의 식별자다. 본문을 고치면 기존 편지가 남고 새 편지가 하나 더 생긴다.
+    public static final List<LetterSeed> LETTERS = List.of(
+            LetterSeed.pending(
                     0,
                     "This morning I woke up late and ran to the station. "
                             + "I almost miss the train but the driver waited a few seconds for me."
             ),
-            MockLetterSeed.completed(
+            LetterSeed.completed(
                     1,
                     "I stayed up late to watch a long movie, so I slept only four hours. "
                             + "I feel so tired today and I could not focus at work.",
@@ -26,7 +26,7 @@ public final class MockUserSeedData {
                     "잠_침대_늦잠",
                     false
             ),
-            MockLetterSeed.completed(
+            LetterSeed.completed(
                     3,
                     "I met my old friend at a ordinary cafe near my house. "
                             + "We talk about our new jobs for almost two hours.",
@@ -39,7 +39,7 @@ public final class MockUserSeedData {
                     "커피잔",
                     true
             ),
-            MockLetterSeed.completed(
+            LetterSeed.completed(
                     5,
                     "I go running along the river this morning. "
                             + "The air was very cold but it make me feel alive again.",
@@ -53,7 +53,7 @@ public final class MockUserSeedData {
                     "달리기_런닝_운동",
                     true
             ),
-            MockLetterSeed.completed(
+            LetterSeed.completed(
                     8,
                     "Yesterday was my birthday. My family got me a small cake which had only one candle on it.",
                     "Yesterday was my birthday. My family got me a small cake that had only one candle on it.",
@@ -63,7 +63,7 @@ public final class MockUserSeedData {
                     "케이크_생일",
                     true
             ),
-            MockLetterSeed.pending(
+            LetterSeed.pending(
                     12,
                     "I tried to cook pasta by myself for the first time. "
                             + "It was too salty but I eat all of it anyway."

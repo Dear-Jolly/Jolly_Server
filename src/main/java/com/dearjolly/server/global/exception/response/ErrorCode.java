@@ -13,6 +13,7 @@ public enum ErrorCode {
     ACCESS_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "AUTH_005", "유효하지 않은 토큰입니다."),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "AUTH_006", "접근 권한이 없습니다."),
     WITHDRAWN_USER(HttpStatus.UNAUTHORIZED, "AUTH_007", "탈퇴한 계정입니다. 다시 로그인해주세요."),
+    ADMIN_CREDENTIALS_INVALID(HttpStatus.UNAUTHORIZED, "AUTH_008", "관리자 아이디 또는 비밀번호가 올바르지 않습니다."),
 
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_001", "사용자를 찾을 수 없습니다."),
     REQUIRED_TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "USER_002", "필수 약관에 모두 동의해야 합니다."),
@@ -25,6 +26,9 @@ public enum ErrorCode {
     LETTER_CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "LETTER_003", "편지 내용은 500자를 초과할 수 없습니다."),
     LETTER_CONTENT_NOT_ENGLISH(HttpStatus.BAD_REQUEST, "LETTER_004", "편지는 영어로만 작성할 수 있습니다."),
     LETTER_WRITTEN_AT_INVALID(HttpStatus.BAD_REQUEST, "LETTER_005", "편지 작성 시각 정보가 올바르지 않습니다."),
+
+    APP_VERSION_INVALID(HttpStatus.BAD_REQUEST, "VERSION_001", "앱 버전은 x.y.z 형식이어야 합니다."),
+    APP_VERSION_NOT_FOUND(HttpStatus.NOT_FOUND, "VERSION_002", "해당 플랫폼의 최소 지원 버전이 설정되어 있지 않습니다."),
 
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "COMMON_001", "잘못된 요청입니다."),
     PATH_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMON_002", "요청하신 경로를 찾을 수 없습니다."),
