@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-@Schema(description = "약관 종류. SERVICE · PRIVACY 는 필수 동의, MARKETING 은 선택 동의다")
+@Schema(description = "약관 종류. SERVICE · PRIVACY 는 필수, MARKETING 은 선택이다")
 @Getter
 @RequiredArgsConstructor
 public enum TermsType {

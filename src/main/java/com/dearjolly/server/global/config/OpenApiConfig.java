@@ -18,15 +18,10 @@ public class OpenApiConfig {
     private static final String DESCRIPTION = """
             Dear Jolly 앱과 서버 사이의 계약 문서다.
 
-            ### 공통 규약
             - 인증: `Authorization: Bearer {accessToken}` (액세스 30분 / 리프레시 14일)
-            - Content-Type: `application/json; charset=UTF-8`
             - 날짜 `yyyy-MM-dd` · 날짜+시각 `yyyy-MM-dd'T'HH:mm:ss`
-            - 성공 응답은 래퍼 없이 DTO 를 그대로 내려준다. 조회·수정 `200`, 생성 `201`, 본문 없음 `204`.
-            - 실패 응답은 모든 API 가 `{ status, code, message }` 형태로 같다. `message` 는 유저에게 그대로 보여줘도 된다.
-
-            ### 온보딩 가드
-            필수 약관 2종 동의 + 닉네임 등록을 마쳐야 편지 · 홈 API 를 호출할 수 있다. 미완료면 `USER_005` 다.
+            - 성공 응답은 래퍼 없이 DTO 를 그대로 내려준다. 실패 응답은 모두 `{ status, code, message }` 형태이며 `message` 는 유저에게 그대로 보여줘도 된다.
+            - 온보딩(필수 약관 2종 동의 + 닉네임 등록)을 마쳐야 편지 · 홈 API 를 호출할 수 있다. 미완료면 `USER_005` 다.
 
             ### 모든 API 공통 에러
             | code | status | message |

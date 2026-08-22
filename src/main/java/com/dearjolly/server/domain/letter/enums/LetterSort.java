@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 
-@Schema(description = "편지 목록 정렬 기준. 기준은 편지 날짜이며, 같은 날짜면 LATEST 는 나중에 쓴 편지가 먼저 온다")
+@Schema(description = "편지 목록 정렬 기준 (편지 날짜 기준)")
 @Getter
 @RequiredArgsConstructor
 public enum LetterSort {
