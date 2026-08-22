@@ -162,8 +162,7 @@ export TESTCONTAINERS_RYUK_DISABLED=true
 | Caddy 기동 실패 | 80/443 을 다른 프로세스가 점유 | `lsof -nP -iTCP:80 -sTCP:LISTEN` 로 확인 후 중지, 또는 `APP_HTTP_PORT` 변경 |
 | 브라우저 인증서 경고 | Caddy 내장 CA(자체 서명) | `./run.sh trust` (macOS) |
 | `WeakKeyException` 으로 기동 실패 | `JWT_SECRET` 이 32바이트 미만이거나 비어 있음 | `openssl rand -base64 48` 로 생성해 교체 |
-| `Schema-validation: missing column` | 엔티티는 바뀌었는데 스키마가 그대로 | 마이그레이션 추가, 또는 개발 중이라면 `./run.sh reset-db` |
-| 엔티티에서 지운 컬럼이 DB 에 남음 | `update` 는 컬럼을 삭제하지 않는다 | `./run.sh reset-db` |
+| `Schema-validation: missing column` | 엔티티는 바뀌었는데 마이그레이션이 없다 | 마이그레이션 파일 추가 |
 | Flyway checksum 불일치 | 적용된 마이그레이션 파일을 수정 | `./run.sh reset-db` |
 | 컨테이너를 지웠는데 옛 데이터가 남음 | 호스트 바인드 마운트라 `down -v` 로는 안 지워진다 | `./run.sh clean` |
 | Testcontainers 가 Docker 를 못 찾음 | Docker 가 안 떠 있거나 소켓 경로가 자동 탐지 대상 밖 | `colima start` 후 재시도, 그래도 안 되면 §4 의 환경변수 |
