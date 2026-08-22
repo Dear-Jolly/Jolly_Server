@@ -13,7 +13,8 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
 
     // auth
-    UNSUPPORTED_OAUTH_PROVIDER(HttpStatus.BAD_REQUEST, "AUTH_001", "지원하지 않는 로그인 방식입니다."),
+    // 미지원 provider 는 전용 코드를 두지 않는다. {provider} 를 OauthProvider enum 으로
+    // 받으므로 정의되지 않은 값은 컨트롤러 앞의 타입 변환에서 COMMON_001 로 걸러진다.
     OAUTH_AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "AUTH_002", "소셜 로그인 인증에 실패했습니다."),
     OAUTH_SERVER_ERROR(HttpStatus.BAD_GATEWAY, "AUTH_003", "소셜 로그인 서버와 통신하지 못했습니다."),
     REFRESH_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "AUTH_004", "로그인이 만료되었습니다. 다시 로그인해주세요."),

@@ -8,6 +8,7 @@ import com.dearjolly.server.global.exception.response.ErrorResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -35,6 +36,26 @@ public class SecurityConfig {
             "/v3/api-docs/**"
     };
 
+    /**
+     * JWT 필터 자체를 건너뛸 경로.
+     *
+     * <p>{@link #PUBLIC_PATHS} 와 나누는 이유는 둘이 막는 계층이 다르기 때문이다.
+     * permitAll 은 인가만 열어줄 뿐 필터 실행을 막지 못한다. 재발급은 만료된 Access Token 을
+     * 헤더에 달고 오는 것이 정상이므로 필터가 그 토큰을 검사해서는 안 된다 (API명세 §3.2).
+     *
+     * <p>{@code GET /api/v1/auth/{provider}} 는 넣지 않는다. 토큰이 없으면 필터가 그냥 통과시키고,
+     * 같은 프리픽스의 {@code POST /api/v1/auth/logout} 은 인증이 필요하기 때문이다.
+     */
+    private static final List<String> JWT_FILTER_SKIP_PATHS = List.of(
+            "/api/v1/auth/reissue",
+            "/api/v1/auth/*/callback",
+            "/api/v1/version",
+            "/actuator/**",
+            "/error",
+            "/swagger-ui/**",
+            "/v3/api-docs/**"
+    );
+
     private final JwtProvider jwtProvider;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
@@ -56,7 +77,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtProvider, userRepository, objectMapper),
+                        new JwtAuthenticationFilter(jwtProvider, userRepository, objectMapper, JWT_FILTER_SKIP_PATHS),
                         UsernamePasswordAuthenticationFilter.class
                 )
                 .exceptionHandling(handling -> handling

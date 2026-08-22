@@ -75,6 +75,26 @@ class AuthApiTest extends ApiTestSupport {
         assertThat(userRepository.findById(user.getId()).orElseThrow().getRefreshToken()).isEqualTo(reissued);
     }
 
+    @DisplayName("POST /api/v1/auth/reissue : 만료된 Access Token 을 헤더에 달고 와도 재발급된다")
+    @Test
+    void reissueWithExpiredAccessTokenHeader() {
+        // given - 앱의 토큰 인터셉터가 모든 요청에 Authorization 을 붙이는 상황
+        Users user = 유저를_저장한다("kakao-r4");
+        String refreshToken = jwtProvider.createRefreshToken(user.getId(), user.getRole());
+        user.updateRefreshToken(refreshToken);
+        userRepository.save(user);
+
+        // when & then - 재발급은 정의상 만료된 토큰을 들고 오는 요청이라 필터가 검사하면 안 된다
+        given().contentType(ContentType.JSON)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer expired.access.token")
+                .body(Map.of("refreshToken", refreshToken))
+                .when().post("/api/v1/auth/reissue")
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("accessToken", notNullValue())
+                .body("refreshToken", notNullValue());
+    }
+
     @DisplayName("POST /api/v1/auth/reissue : 저장값과 다른 토큰이면 AUTH_004")
     @Test
     void reissueWithMismatchedToken() {
