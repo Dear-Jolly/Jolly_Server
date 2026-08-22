@@ -1,17 +1,33 @@
+server:
+  port: ${SERVER_PORT:8080}
+
 spring:
   application:
     name: server
 
   datasource:
-    url: ${MYSQL_HOST}
-    username: ${MYSQL_USER}
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/dearjolly?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+    username: ${MYSQL_USER:jolly}
     password: ${MYSQL_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
-      ddl-auto: create
-    show-sql: true
+      ddl-auto: ${JPA_DDL_AUTO:create}
+    show-sql: ${JPA_SHOW_SQL:true}
     properties:
       hibernate:
         format_sql: true
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+# ===== MinIO (우표 이미지 저장소) =====
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}       # 서버 → MinIO 내부 호출용
+  public-endpoint: ${MINIO_PUBLIC_ENDPOINT:http://localhost:9000}  # 클라이언트에 내려줄 이미지 URL 기준
+  access-key: ${MINIO_ACCESS_KEY}
+  secret-key: ${MINIO_SECRET_KEY}
+  bucket: ${MINIO_BUCKET:dear-jolly-stamps}
