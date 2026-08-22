@@ -28,7 +28,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: ECR 로그인
         id: ecr
@@ -38,7 +38,7 @@ jobs:
         id: meta
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
-          REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
         run: |
           # build.gradle 의 version 을 이미지 버전으로 쓴다
           VERSION=$(grep -E "^version = " build.gradle | head -1 | sed -E "s/version = '(.*)'/\1/")
@@ -54,7 +54,7 @@ jobs:
 
       - name: ECR 리포지터리 확인
         env:
-          REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
         run: |
           if ! aws ecr describe-repositories --repository-names "$REPOSITORY" >/dev/null 2>&1; then
             echo "ECR 리포지터리 '${REPOSITORY}' 가 없습니다." >&2
@@ -91,7 +91,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: ECR 로그인
         id: ecr
@@ -148,7 +148,7 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           APP_IMAGE: ${{ needs.build.outputs.image }}
           ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
         run: |
           # ECR 인증은 EC2 인스턴스 역할이 처리하므로 토큰을 넘기지 않는다
           # shellcheck disable=SC2029  # DEPLOY_PATH 는 의도적으로 로컬에서 확장한다
