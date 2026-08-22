@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 최종 갱신 | 2026-08-22 |
+| 최종 갱신 | 2026-08-23 |
 | Base URL | `https://{host}` |
 | 인증 | `Authorization: Bearer {accessToken}` |
 | Content-Type | `application/json; charset=UTF-8` |
@@ -686,7 +686,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
     "date": "2025-11-01",
     "originalContent": "I got flowers from a friend today...",
     "status": "FEEDBACK_COMPLETED",
-    "stampImage": "http://localhost:9000/dear-jolly-stamps/stamp/%EA%BD%83_%EC%9E%A5%EB%AF%B8.png",
+    "stampImage": "https://{host}/dear-jolly-stamps/stamp/%EA%BD%83_%EC%9E%A5%EB%AF%B8.png",
     "feedback": {
         "feedbackId": 101,
         "correctedContent": "I received flowers from a friend today...",
@@ -801,7 +801,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
             "summary": "I got flowers from a friend today. It really touch",
             "status": "FEEDBACK_COMPLETED",
             "isRead": false,
-            "stampImage": "http://localhost:9000/dear-jolly-stamps/stamp/%EA%BD%83_%EC%9E%A5%EB%AF%B8.png"
+            "stampImage": "https://{host}/dear-jolly-stamps/stamp/%EA%BD%83_%EC%9E%A5%EB%AF%B8.png"
         },
         {
             "letterId": 12,
@@ -809,7 +809,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
             "summary": "Hi! Jolly. I made a new friend at a Halloween part",
             "status": "FEEDBACK_COMPLETED",
             "isRead": true,
-            "stampImage": "http://localhost:9000/dear-jolly-stamps/stamp/%ED%98%B8%EB%B0%95_%ED%95%A0%EB%A1%9C%EC%9C%88.png"
+            "stampImage": "https://{host}/dear-jolly-stamps/stamp/%ED%98%B8%EB%B0%95_%ED%95%A0%EB%A1%9C%EC%9C%88.png"
         },
         {
             "letterId": 11,
@@ -817,7 +817,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
             "summary": "Lately I've been really worried about my new job a",
             "status": "SUBMITTED",
             "isRead": false,
-            "stampImage": "http://localhost:9000/dear-jolly-stamps/stamp/soon.png"
+            "stampImage": "https://{host}/dear-jolly-stamps/stamp/soon.png"
         }
     ],
     "hasNext": true
@@ -1021,6 +1021,8 @@ GET /api/v1/version
 | `COMMON_004` | 429 | 요청이 너무 많습니다. 잠시 후 다시 시도해주세요. | 요청 횟수 초과 |
 | `COMMON_005` | 500 | 일시적인 오류가 발생했습니다. | 서버 오류 |
 
+- `COMMON_002` 는 **인증을 통과한 요청에만** 나간다. 인증이 필요한 경로에서 토큰이 없거나 유효하지 않으면, 경로가 없더라도 `AUTH_005`(401) 가 먼저 나간다.
+
 ---
 
 # 5. 그 외 규약 정의
@@ -1056,6 +1058,8 @@ GET /api/v1/version
 - [필수] `status` (Integer): HTTP 상태 코드
 - [필수] `code` (String): `{도메인}_{일련번호}` 형식 (`AUTH_`, `USER_`, `LETTER_`, `COMMON_`)
 - [필수] `message` (String): 사용자에게 그대로 보여줘도 되는 문구
+
+- **같은 `code` 라도 `message` 는 상황에 따라 더 구체적인 문구로 내려올 수 있다.** 앱은 `code` 로만 분기하고 `message` 는 받은 그대로 표시한다.
 
 ## 3) 시간 · 타임존 정의
 
