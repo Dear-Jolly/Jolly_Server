@@ -120,8 +120,9 @@ public class UserService implements OnboardingChecker {
         return TermsAgreementReader.toCurrentState(history);
     }
 
+    /** null 과 빈 문자열은 0자로 본다. 공백만 있는 값은 길이를 통과하고 문자 검증에서 걸린다. */
     private void validateNicknameLength(String nickname) {
-        int length = nickname.codePointCount(0, nickname.length());
+        int length = nickname == null ? 0 : nickname.codePointCount(0, nickname.length());
         if (length < NICKNAME_MIN_LENGTH || length > NICKNAME_MAX_LENGTH) {
             throw new BusinessException(ErrorCode.NICKNAME_INVALID_LENGTH);
         }
