@@ -1,0 +1,33 @@
+# 로컬 개발용 Caddy 설정. infra/docker/compose.yaml 이 마운트한다.
+# 운영용은 같은 폴더의 Caddyfile.prod.template 이며, 배포 시 EC2 로 전송돼 치환된다.
+# 앱을 직접 여는 대신 Caddy 가 앞단에서 TLS 를 종단해 https://localhost:8080 을 제공한다.
+# 운영과 동일하게 "프론트는 Caddy 만 바라본다" 구조를 로컬에서도 맞추기 위함이다.
+{
+	# 로컬은 공인 인증서를 받을 수 없으므로 자동 HTTPS(ACME)를 끄고 내장 CA 를 쓴다
+	auto_https disable_redirects
+}
+
+# HTTP(80)로 들어오면 HTTPS 로 넘긴다. http://localhost → https://localhost:8080
+http://localhost {
+	redir https://localhost:{$APP_PORT:8080}{uri} permanent
+}
+
+https://localhost:8080 {
+	# Caddy 내장 CA 가 발급하는 인증서. 브라우저 경고를 없애려면 아래로 루트 CA 를 신뢰시킨다.
+	#   docker exec dear-jolly-caddy cat /data/caddy/pki/authorities/local/root.crt > /tmp/caddy-root.crt
+	#   sudo security add-trusted-cert -d -k /Library/Keychains/System.keychain /tmp/caddy-root.crt
+	tls internal
+
+	encode gzip
+
+	reverse_proxy app:8081 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

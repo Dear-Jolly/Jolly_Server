@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Dear Jolly - ECR repository for application images
+
+Parameters:
+  RepositoryName:
+    Type: String
+    Default: dear-jolly-server
+    Description: ECR repository name
+  ImageRetentionCount:
+    Type: Number
+    Default: 10
+    MinValue: 2
+    MaxValue: 100
+    Description: Number of images to keep. Older ones expire automatically
+
+Resources:
+  Repository:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: !Ref RepositoryName
+      ImageTagMutability: MUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        # ECR 은 최신 10개(ImageRetentionCount 기본값)만 남기고 오래된 이미지를 자동 정리한다.
+        # EC2 쪽 보관 개수(현재 + 직전 1개)는 infra/scripts-ec2/deploy.sh 가 따로 관리한다.
+        LifecyclePolicyText: !Sub |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep only the latest ${ImageRetentionCount} images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": ${ImageRetentionCount}
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+      Tags:
+        - Key: Project
+          Value: dear-jolly
+
+Outputs:
+  RepositoryName:
+    Description: ECR repository name (ECR_REPOSITORY in .env.prod)
+    Value: !Ref Repository
+    Export:
+      Name: !Sub '${AWS::StackName}-RepositoryName'
+  RepositoryUri:
+    Description: ECR repository URI
+    Value: !GetAtt Repository.RepositoryUri
+    Export:
+      Name: !Sub '${AWS::StackName}-RepositoryUri'
+  RegistryId:
+    Description: ECR registry id (AWS account id)
+    Value: !Ref AWS::AccountId
