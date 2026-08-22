@@ -19,10 +19,7 @@ public record CorrectionSegmentResponse(
                 requiredMode = Schema.RequiredMode.REQUIRED)
         String correctedText,
 
-        @Schema(
-                description = "수정 여부. UNCHANGED 는 검은 글씨 그대로, "
-                        + "MODIFIED 는 originalText 를 빨간 취소선으로 찍고 바로 뒤에 correctedText 를 초록 하이라이트로 찍는다",
-                requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "수정 여부", requiredMode = Schema.RequiredMode.REQUIRED)
         CorrectionType type
 ) {
     public static CorrectionSegmentResponse from(CorrectionSegments segment) {

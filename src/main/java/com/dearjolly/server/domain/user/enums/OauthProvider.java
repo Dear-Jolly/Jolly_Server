@@ -5,7 +5,7 @@ import java.util.Arrays;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-@Schema(description = "로그인 수단. 유저는 (provider + provider 회원 식별자) 로 구분한다")
+@Schema(description = "로그인 수단")
 @Getter
 @RequiredArgsConstructor
 public enum OauthProvider {

@@ -26,10 +26,7 @@ public record LetterSummaryResponse(
                 requiredMode = Schema.RequiredMode.REQUIRED)
         Status status,
 
-        @Schema(
-                description = "피드백 열람 여부. FEEDBACK_COMPLETED 이면서 false 면 날짜 앞에 빨간 점을 찍는다",
-                example = "false",
-                requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "피드백 열람 여부", example = "false", requiredMode = Schema.RequiredMode.REQUIRED)
         boolean isRead,
 
         @Schema(

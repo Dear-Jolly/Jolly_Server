@@ -14,9 +14,7 @@ public record VersionGetResponse(
                 requiredMode = Schema.RequiredMode.REQUIRED)
         String minSupportedVersion,
 
-        @Schema(
-                description = "강제 업데이트 여부. latest 와 minSupported 가 같다는 것은 그 아래 버전을 더 받아주지 않겠다는 뜻이며, "
-                        + "앱은 자기 버전과 minSupportedVersion 을 직접 비교하고 이 값은 보조 신호로 쓴다",
+        @Schema(description = "강제 업데이트 여부. 앱은 자기 버전과 minSupportedVersion 을 직접 비교하고 이 값은 보조 신호로 쓴다",
                 example = "false",
                 requiredMode = Schema.RequiredMode.REQUIRED)
         boolean forceUpdate,
