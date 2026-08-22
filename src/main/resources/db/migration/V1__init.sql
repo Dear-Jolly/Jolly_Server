@@ -1,5 +1,5 @@
 -- Dear Jolly 초기 스키마.
--- docs/ERD.md §7 의 DDL 을 그대로 옮긴 것이다. 문서와 이 파일이 어긋나면 문서를 기준으로 고친다.
+-- ERD 문서의 DDL 을 그대로 옮긴 것이다. 문서와 이 파일이 어긋나면 문서를 기준으로 고친다.
 
 CREATE TABLE users (
     user_id        BIGINT       NOT NULL AUTO_INCREMENT,
@@ -90,9 +90,3 @@ CREATE TABLE feedback_tips (
     CONSTRAINT fk_tips_feedback FOREIGN KEY (feedback_id) REFERENCES feedbacks (feedback_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
--- 초기 우표 마스터 데이터
-INSERT INTO stamps (name, image_key) VALUES
-    ('장미',      'stamps/flower_stamp.png'),
-    ('호박',      'stamps/pumpkin_stamp.png'),
-    ('네잎클로버', 'stamps/clover_stamp.png'),
-    ('초승달',    'stamps/moon_stamp.png');
