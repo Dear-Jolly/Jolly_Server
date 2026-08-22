@@ -1,8 +1,10 @@
 package com.dearjolly.server.domain.letter.enums;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+@Schema(description = "편지 상태. 앱은 SUBMITTED 와 FEEDBACK_IN_PROGRESS 를 동일하게 렌더링한다")
 @Getter
 @RequiredArgsConstructor
 public enum Status {
