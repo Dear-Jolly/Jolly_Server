@@ -32,7 +32,7 @@
 - **인증** ✔ — `Authorization` 헤더가 필요하다.
 - **온보딩** ✔ — 온보딩(필수 약관 동의 + 닉네임 등록) 전에 호출하면 `USER_005` 다.
 - **구현** — ✅ 호출 가능, ❌ 명세만 확정되고 아직 개발 전이다.
-- `{provider}` 는 **대문자**(`KAKAO` · `APPLE`)다. 소문자로 호출하면 `COMMON_001` 이다.
+- `{provider}` 는 `KAKAO` · `APPLE` 이며 **대소문자를 가리지 않는다**. (`kakao`, `Kakao` 모두 같다)
 
 ---
 
@@ -46,7 +46,7 @@
 - 앱이 할 일은 세 가지다. **① 이 주소를 연다 → ② 열린 페이지에서 유저가 로그인한다 → ③ 딥링크로 토큰을 받는다.** 코드 교환·회원 생성·토큰 발급은 서버가 처리한다.
 - **앱 SDK 로 받은 소셜 토큰을 서버에 전달하는 방식은 지원하지 않는다.**
 - 유저는 `(provider + provider 회원 식별자)` 로 구분한다. 이메일이 같아도 카카오와 애플은 별개 계정이다.
-- `provider` 가 `KAKAO` · `APPLE` 이 아니면(소문자 포함) `COMMON_001` 이다.
+- `provider` 는 대소문자를 가리지 않는다. `KAKAO` · `APPLE` 중 어느 것도 아니면 `COMMON_001` 이다.
 
 ### [스펙]
 
@@ -58,7 +58,7 @@ GET /api/v1/auth/{provider}
 
 **Path Variable**
 
-- [필수] `provider` (String): 로그인 수단 (`KAKAO`, `APPLE`). 대문자만 허용한다
+- [필수] `provider` (String): 로그인 수단 (`KAKAO`, `APPLE`). 대소문자를 가리지 않는다
 
 **Authorization 헤더**: 불필요
 
