@@ -5,7 +5,7 @@ import com.dearjolly.server.domain.user.enums.OauthProvider;
 
 /**
  * @param nickname 온보딩 전에는 null
- * @param email provider 미제공 시 null
+ * @param email provider 미제공 시 null /
  */
 public record UserGetResponse(
         String nickname,

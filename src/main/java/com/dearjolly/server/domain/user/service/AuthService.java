@@ -26,22 +26,15 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AuthService {
-
     private final UserRepository userRepository;
     private final TermsAgreementRepository termsAgreementRepository;
     private final OauthClientResolver oauthClientResolver;
     private final JwtProvider jwtProvider;
 
-    /** provider 의 로그인 페이지 URL. 컨트롤러가 이 주소로 302 리다이렉트한다. */
     public String buildAuthorizationUri(OauthProvider provider, String state) {
         return oauthClientResolver.resolve(provider).buildAuthorizationUri(state);
     }
 
-    /**
-     * 콜백으로 받은 authorization code 를 교환해 회원을 찾거나 만들고 JWT 를 발급한다.
-     * 탈퇴 유예기간 중인 계정이 걸리면 식별자를 치환해 UNIQUE 를 비우고 신규 가입으로 처리한다
-     * (기능명세 §3.1.1).
-     */
     @Transactional
     public OauthLoginResult handleCallback(OauthProvider provider, String code, String idToken) {
         OauthUserInfo userInfo = oauthClientResolver.resolve(provider).exchange(code, idToken);
@@ -61,10 +54,6 @@ public class AuthService {
         return OauthLoginResult.of(user, accessToken, refreshToken, isNewUser, isRequiredTermsAgreed(user.getId()));
     }
 
-    /**
-     * Access / Refresh 를 모두 새로 발급하고 저장값을 교체(회전)한다.
-     * 저장값과 문자열까지 일치하지 않으면 탈취된 이전 토큰의 재사용으로 보고 거절한다.
-     */
     @Transactional
     public ReissueResponse reissue(ReissueRequest request) {
         String presented = request.refreshToken();
@@ -84,7 +73,6 @@ public class AuthService {
         return ReissueResponse.of(accessToken, refreshToken);
     }
 
-    /** 세션만 끊는다. 편지·계정 데이터는 그대로 보존된다. */
     @Transactional
     public void logout(Long userId) {
         Users user = userRepository.findById(userId)

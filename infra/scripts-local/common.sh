@@ -109,7 +109,7 @@ PY
 # 공백이 있는 값은 따옴표로 감싼다 (예: BACKUP_SCHEDULE=30 3 * * *).
 app_env_lines() {
   local exclude
-  exclude=$(printf '%s\n' "${SECRET_KEYS[@]}" "${LOCAL_ONLY_KEYS[@]}" | paste -sd '|' -)
+  exclude=$(printf '%s\n' "${SECRET_KEYS[@]}" "${VARIABLE_KEYS[@]}" "${LOCAL_ONLY_KEYS[@]}" | paste -sd '|' -)
   grep -vE '^[[:space:]]*(#|$)' "$ENV_FILE" \
     | grep -vE "^(${exclude})=" \
     | sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]+$//' \
