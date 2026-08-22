@@ -149,6 +149,38 @@ class UserApiTest extends ApiTestSupport {
                 .body("code", equalTo("USER_003"));
     }
 
+    @DisplayName("PATCH /api/v1/users/nickname : 빈 값은 0자이므로 USER_004")
+    @Test
+    void updateNicknameWithEmpty() {
+        // given
+        Users user = 유저를_저장한다("kakao-n4");
+
+        // when & then
+        given().contentType(ContentType.JSON)
+                .header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                .body(Map.of("nickname", ""))
+                .when().patch("/api/v1/users/nickname")
+                .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("code", equalTo("USER_004"));
+    }
+
+    @DisplayName("PATCH /api/v1/users/nickname : 공백만 있는 값은 길이를 통과하므로 USER_003")
+    @Test
+    void updateNicknameWithOnlyBlank() {
+        // given
+        Users user = 유저를_저장한다("kakao-n5");
+
+        // when & then - 길이 → 문자 순서 검증이라 공백은 문자 위반으로 잡힌다
+        given().contentType(ContentType.JSON)
+                .header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                .body(Map.of("nickname", "   "))
+                .when().patch("/api/v1/users/nickname")
+                .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("code", equalTo("USER_003"));
+    }
+
     @DisplayName("DELETE /api/v1/users : 회원 탈퇴 API - soft delete 후 접근이 차단된다")
     @Test
     void withdraw() {
