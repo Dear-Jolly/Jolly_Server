@@ -11,8 +11,14 @@ import com.dearjolly.server.domain.letter.dto.response.LetterListResponse;
 import com.dearjolly.server.domain.letter.enums.LetterSort;
 import com.dearjolly.server.domain.letter.service.LetterService;
 import com.dearjolly.server.global.auth.principal.LoginUser;
+import com.dearjolly.server.global.exception.response.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -27,14 +33,88 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "편지", description = "편지 작성, 조회 API")
+@Tag(name = "편지", description = """
+        편지 작성, 조회 API.
+
+        **온보딩 가드 대상이다.** 필수 약관 2종 동의와 닉네임 등록을 마치지 않은 유저가 호출하면 `USER_005`(400) 다.
+
+        편지는 **전달 후 수정 · 삭제할 수 없다.** 수정 · 삭제 API 가 없다.
+        작성하면 AI 피드백이 비동기로 시작되며, 상태는 `SUBMITTED` → `FEEDBACK_IN_PROGRESS` → `FEEDBACK_COMPLETED` 로 진행된다.
+        앱은 앞의 두 상태를 동일하게 렌더링한다.""")
 @RestController
 @RequestMapping("/api/v1/letters")
 @RequiredArgsConstructor
 public class LetterController {
     private final LetterService letterService;
 
-    @Operation(summary = "편지 작성 및 피드백 요청 (60초 이내 같은 본문 재전송은 200 으로 최초 편지 반환)")
+    @Operation(
+            summary = "편지 작성 및 피드백 요청 (60초 이내 같은 본문 재전송은 200 으로 최초 편지 반환)",
+            description = """
+                    편지를 작성한다. 저장되면 AI 피드백이 시작되지만 **응답은 피드백을 기다리지 않고 바로 내려온다.**
+
+                    - 본문은 **영어 전용, 1~500자**다. 한글이 섞이면 거부하고, 숫자 · 구두점 · 이모지는 허용한다.
+                    - 편지 날짜는 앱이 보낸 `writtenAt` 의 날짜 부분이다. **KST 를 강제하지 않아** 해외에서 쓴 편지는 현지 날짜로 기록된다.
+                    - **하루 작성 개수 제한이 없다.** 같은 날짜 카드가 목록에 여러 개 쌓일 수 있다.
+                    - 작성 직후 상태는 항상 `SUBMITTED` 이고 **우표는 `soon`(준비 중) 우표**다. 피드백이 끝나야 편지에 맞는 우표로 바뀐다.
+
+                    **검증 규칙** — `content` → `timeZone` → `writtenAt` 순서로 보며, 먼저 걸린 사유 하나만 내려간다.
+
+                    | 순서 | 규칙 | 상세 | code |
+                    | --- | --- | --- | --- |
+                    | 1 | 필수 | `content` 가 비었거나 공백만 있는 값 불가 | `LETTER_001` |
+                    | 1 | 길이 | **500자 초과** 불가 (문자 수, 공백 포함) | `LETTER_003` |
+                    | 1 | 언어 | 한글 포함 시 거부 | `LETTER_004` |
+                    | 2 | 타임존 | 유효한 타임존 ID. 누락 불가 | `LETTER_005` |
+                    | 3 | 작성 시각 | 서버 현재 시각 기준 **±24시간 이내**. 누락 불가 | `LETTER_005` |
+
+                    `writtenAt` 이 `2025-13-45T99:99:99` 처럼 **날짜로 해석조차 되지 않는 문자열**이면 `LETTER_005` 가 아니라 `COMMON_001` 이다.
+
+                    **중복 전달은 서버가 막는다.** 60초 안에 같은 내용을 다시 보내면 새 편지를 만들지 않고 최초 편지를 `200 OK` 로 돌려준다.
+                    앱이 별도 헤더를 보낼 필요가 없다. 중복 판정은 그 유저의 **직전 편지 1건**만 보므로, 60초 안이라도 사이에 다른 내용의 편지를
+                    한 통 쓰면 중복으로 잡히지 않는다. 앱은 `201` 과 `200` 을 구분할 필요 없이 동일하게 완료 화면으로 이동한다.""")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "작성 성공"),
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "중복 전달. 60초 안에 같은 내용을 다시 보낸 경우이며, 본문은 최초 편지의 201 응답과 완전히 같다",
+                    content = @Content(schema = @Schema(implementation = LetterCreateResponse.class))),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "`LETTER_001` · `LETTER_003` · `LETTER_004` · `LETTER_005` 검증 실패 / "
+                            + "`COMMON_001` 날짜 파싱 실패 · 바디 형식 오류 / `USER_005` 온보딩 미완료",
+                    content = @Content(
+                            schema = @Schema(implementation = ErrorResponse.class),
+                            examples = {
+                                    @ExampleObject(
+                                            name = "LETTER_001",
+                                            value = """
+                                                    {"status": 400, "code": "LETTER_001", "message": "편지 내용은 null일 수 없습니다."}"""),
+                                    @ExampleObject(
+                                            name = "LETTER_003",
+                                            value = """
+                                                    {"status": 400, "code": "LETTER_003", "message": "편지 내용은 500자를 초과할 수 없습니다."}"""),
+                                    @ExampleObject(
+                                            name = "LETTER_004",
+                                            value = """
+                                                    {"status": 400, "code": "LETTER_004", "message": "편지는 영어로만 작성할 수 있습니다."}"""),
+                                    @ExampleObject(
+                                            name = "LETTER_005",
+                                            value = """
+                                                    {"status": 400, "code": "LETTER_005", "message": "편지 작성 시각 정보가 올바르지 않습니다."}"""),
+                                    @ExampleObject(
+                                            name = "COMMON_001",
+                                            value = """
+                                                    {"status": 400, "code": "COMMON_001", "message": "잘못된 요청입니다."}"""),
+                                    @ExampleObject(
+                                            name = "USER_005",
+                                            value = """
+                                                    {"status": 400, "code": "USER_005", "message": "온보딩을 먼저 완료해야 합니다."}""")
+                            })),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "`AUTH_005` 유효하지 않은 토큰 / `AUTH_007` 탈퇴한 계정",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
     @PostMapping
     public ResponseEntity<LetterCreateResponse> createLetter(
             @LoginUser Long userId,
@@ -47,7 +127,43 @@ public class LetterController {
                 .body(result.response());
     }
 
-    @Operation(summary = "편지 상세 · 피드백 조회 (피드백이 완료된 편지는 조회 시 읽음 처리)")
+    @Operation(
+            summary = "편지 상세 · 피드백 조회 (피드백이 완료된 편지는 조회 시 읽음 처리)",
+            description = """
+                    편지 상세와 도착한 피드백(교정문 · 팁)을 조회한다.
+
+                    - **피드백이 완료된 편지를 조회하면 읽음 처리된다.** 별도의 읽음 처리 API 는 없고, 한 번 읽으면 다시 미열람으로 돌아가지 않는다.
+                    - 피드백 완료 전 편지는 조회해도 읽음 처리되지 않는다. **피드백이 도착한 뒤 목록의 빨간 점은 그대로 뜬다.**
+                    - **본인 편지만** 조회할 수 있다. 없는 편지든 남의 편지든 똑같이 `LETTER_002`(404) 다.
+                    - 피드백 완료 전에도 응답은 성공한다. 이때 `feedback` 은 `null` 이고 `stampImage` 는 `soon`(준비 중) 우표 URL 이다.
+                      앱은 완료 전 카드의 진입 자체를 막는다.
+                    - 팁은 편지마다 0~3개이며, `tips` 가 `[]` 면 팁 영역을 표시하지 않는다.
+                    - 우표는 AI 가 편지 내용에 맞춰 고르고 종류가 운영 중 늘거나 바뀔 수 있다.
+                      앱은 **`stampImage` URL 을 그대로 표시하고 우표 종류로 분기하지 않는다.**
+
+                    **교정문 그리는 법** — `correctionSegments` 를 `sequence` 순서대로 이어붙인다.
+                    `originalText` 를 모두 이으면 원문 전체와, `correctedText` 를 모두 이으면 `correctedContent` 전체와 정확히 일치하므로
+                    앱은 인덱스 계산 없이 순서대로 그리기만 하면 된다.
+
+                    - `type == "UNCHANGED"` → 검은 글씨 그대로
+                    - `type == "MODIFIED"` → `originalText` 를 빨간 취소선으로 찍고 바로 뒤에 `correctedText` 를 초록 하이라이트로 찍는다
+                    - 삭제 제안은 `type == "MODIFIED"` 이면서 `correctedText` 가 빈 문자열인 조각이다
+                    - 공백도 조각에 포함돼 내려가므로 **앱이 공백을 임의로 추가하지 않는다.**""")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공. 피드백 완료 전이면 feedback 이 null 이다"),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "`USER_005` 온보딩 미완료",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "`AUTH_005` 유효하지 않은 토큰 / `AUTH_007` 탈퇴한 계정",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "`LETTER_002` 존재하지 않거나 본인 편지가 아니다",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
     @GetMapping("/{letterId}")
     public ResponseEntity<LetterGetResponse> getLetter(
             @LoginUser Long userId,
@@ -59,15 +175,56 @@ public class LetterController {
                 .body(letterService.getLetter(userId, letterId));
     }
 
-    @Operation(summary = "전체 편지 목록 조회")
+    @Operation(
+            summary = "전체 편지 목록 조회",
+            description = """
+                    홈 화면의 편지 목록을 조회한다. 닉네임 · 우표 수는 내려가지 않으므로,
+                    **홈 진입 시 `GET /api/v1/home` 과 함께 호출한다.**
+
+                    - **본인 편지만** 조회된다. 유저 정보는 토큰에서 가져오므로 파라미터로 보내지 않는다.
+                    - 편지를 쓰지 않은 날은 응답에 나타나지 않는다. **캘린더가 아니라 기록이 쌓이는 목록**이다.
+                    - 정렬은 서버가 처리하므로 앱은 받은 순서대로 그린다. `page` · `size` · `sort` 가 허용 범위를 벗어나면 `COMMON_001` 이다.
+                    - 정렬 기준은 **편지 날짜**이며, 같은 날짜에 여러 통을 썼다면 `LATEST` 는 **나중에 쓴 편지가 먼저**,
+                      `OLDEST` 는 **먼저 쓴 편지가 먼저** 온다.
+                    - 편지가 한 통도 없으면 `letters` 는 빈 배열이고 `hasNext` 는 `false` 다.
+
+                    **앱의 카드 렌더링**
+                    - `SUBMITTED` · `FEEDBACK_IN_PROGRESS` — 회색 `soon` 우표 · `ic_more_sm` 미노출 · 터치 불가.
+                      우표는 상태와 무관하게 `stampImage` 를 그대로 표시한다.
+                    - `FEEDBACK_COMPLETED` — `stampImage` 표시 · `ic_more_sm` 노출 · 카드 전체 영역 터치 시 상세 이동.
+                    - `FEEDBACK_COMPLETED` 이면서 `isRead == false` 면 **날짜 앞에 빨간 점**을 찍는다.
+                      완료 전 편지도 `isRead` 는 `false` 지만 빨간 점을 표시하지 않는다.
+                    - 목록에 `FEEDBACK_COMPLETED` 가 아닌 항목이 있으면, 앱은 화면 재진입 · 새로고침 때 다시 조회해 상태 변화를 확인한다.""")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공. 편지가 없으면 빈 배열이다"),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "`COMMON_001` 페이징 파라미터 제약 위반 / `USER_005` 온보딩 미완료",
+                    content = @Content(
+                            schema = @Schema(implementation = ErrorResponse.class),
+                            examples = {
+                                    @ExampleObject(
+                                            name = "COMMON_001",
+                                            value = """
+                                                    {"status": 400, "code": "COMMON_001", "message": "잘못된 요청입니다."}"""),
+                                    @ExampleObject(
+                                            name = "USER_005",
+                                            value = """
+                                                    {"status": 400, "code": "USER_005", "message": "온보딩을 먼저 완료해야 합니다."}""")
+                            })),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "`AUTH_005` 유효하지 않은 토큰 / `AUTH_007` 탈퇴한 계정",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
     @GetMapping
     public ResponseEntity<LetterListResponse> getLetters(
             @LoginUser Long userId,
-            @Parameter(description = "페이지 번호 (0 이상)")
+            @Parameter(description = "페이지 번호 (0 이상)", example = "0")
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @Parameter(description = "페이지 크기 (1~50)")
+            @Parameter(description = "페이지 크기 (1~50)", example = "10")
             @RequestParam(defaultValue = "10") @Min(1) @Max(50) int size,
-            @Parameter(description = "정렬 기준 (LATEST, OLDEST)")
+            @Parameter(description = "정렬 기준 - LATEST 최신순 / OLDEST 오래된 순")
             @RequestParam(defaultValue = "LATEST") LetterSort sort
     ) {
         return ResponseEntity

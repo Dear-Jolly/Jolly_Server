@@ -7,6 +7,7 @@
 | 인증 | `Authorization: Bearer {accessToken}` |
 | Content-Type | `application/json; charset=UTF-8` |
 | 날짜 포맷 | 날짜 → `yyyy-MM-dd` / 날짜+시각 → `yyyy-MM-dd'T'HH:mm:ss` |
+| Swagger UI | `/swagger-ui/index.html` — 이 문서와 같은 내용을 담고 직접 호출까지 된다. 우측 상단에서 전체 · 인증 · 사용자 · 편지·홈 · 버전 그룹을 고른다 |
 
 ---
 
