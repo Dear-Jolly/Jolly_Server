@@ -15,4 +15,6 @@ public final class LetterValidationConstants {
     public static final int WRITTEN_AT_TOLERANCE_HOURS = 24;
 
     public static final int DUPLICATE_WINDOW_SECONDS = 60;
+
+    public static final int STAMP_NAME_MAX_LENGTH = 30;
 }

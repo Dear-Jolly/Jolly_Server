@@ -4,6 +4,7 @@ import static com.dearjolly.server.domain.letter.constants.LetterValidationConst
 import static com.dearjolly.server.domain.letter.constants.LetterValidationConstants.DUPLICATE_WINDOW_SECONDS;
 import static com.dearjolly.server.domain.letter.constants.LetterValidationConstants.KOREAN_PATTERN;
 import static com.dearjolly.server.domain.letter.constants.LetterValidationConstants.WRITTEN_AT_TOLERANCE_HOURS;
+import static com.dearjolly.server.domain.letter.constants.StampConstants.DEFAULT_STAMP_NAME;
 
 import com.dearjolly.server.domain.feedback.service.FeedbackRequester;
 import com.dearjolly.server.domain.letter.dto.request.LetterCreateRequest;
@@ -17,6 +18,7 @@ import com.dearjolly.server.domain.letter.entity.Stamps;
 import com.dearjolly.server.domain.letter.enums.LetterSort;
 import com.dearjolly.server.domain.letter.enums.Status;
 import com.dearjolly.server.domain.letter.repository.LetterRepository;
+import com.dearjolly.server.domain.letter.repository.StampRepository;
 import com.dearjolly.server.domain.user.entity.Users;
 import com.dearjolly.server.domain.user.repository.UserRepository;
 import com.dearjolly.server.global.exception.exception.BusinessException;
@@ -30,11 +32,13 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -42,6 +46,7 @@ public class LetterService {
     private static final Duration WRITTEN_AT_TOLERANCE = Duration.ofHours(WRITTEN_AT_TOLERANCE_HOURS);
 
     private final LetterRepository letterRepository;
+    private final StampRepository stampRepository;
     private final UserRepository userRepository;
     private final FeedbackRequester feedbackRequester;
     private final FileUrlProvider fileUrlProvider;
@@ -62,7 +67,7 @@ public class LetterService {
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Letters letter = letterRepository.save(
-                Letters.create(user, content, writtenAt.toLocalDate(), timeZone)
+                Letters.create(user, content, writtenAt.toLocalDate(), timeZone, defaultStamp())
         );
 
         feedbackRequester.requestFeedback(letter.getId());
@@ -104,6 +109,15 @@ public class LetterService {
     private String stampImageOf(Letters letter) {
         Stamps stamp = letter.getStamp();
         return stamp == null ? null : fileUrlProvider.toPublicUrl(stamp.getImageKey());
+    }
+
+    // 편지에는 등록 시점부터 "준비 중" 우표가 붙는다. 시드가 돌지 않은 환경이면 우표 없이 등록한다.
+    private Stamps defaultStamp() {
+        return stampRepository.findByName(DEFAULT_STAMP_NAME)
+                .orElseGet(() -> {
+                    log.warn("기본 우표({})가 없어 우표 없이 편지를 등록한다. 우표 시드를 확인한다.", DEFAULT_STAMP_NAME);
+                    return null;
+                });
     }
 
     private void validateContent(String content) {

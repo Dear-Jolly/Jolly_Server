@@ -10,6 +10,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import com.dearjolly.server.domain.letter.entity.Letters;
+import com.dearjolly.server.domain.letter.entity.Stamps;
 import com.dearjolly.server.domain.letter.enums.Status;
 import com.dearjolly.server.domain.letter.repository.LetterRepository;
 import com.dearjolly.server.domain.user.entity.Users;
@@ -54,6 +55,7 @@ class LetterApiTest extends ApiTestSupport {
     void createLetter() {
         // given
         Users user = 온보딩을_마친_유저를_저장한다("kakao-letter-1", "jolly01");
+        Stamps 기본우표 = 기본우표를_저장한다();
         LocalDateTime writtenAt = LocalDateTime.now();
 
         // when
@@ -74,7 +76,7 @@ class LetterApiTest extends ApiTestSupport {
         assertThat(saved.getTimeZone()).isEqualTo(TIME_ZONE);
         assertThat(saved.getStatus()).isEqualTo(Status.SUBMITTED);
         assertThat(saved.isRead()).isFalse();
-        assertThat(saved.getStamp()).isNull();
+        assertThat(saved.getStamp().getId()).isEqualTo(기본우표.getId());
     }
 
     @DisplayName("POST /api/v1/letters : 60초 이내 같은 본문을 다시 보내면 200 으로 최초 편지를 반환한다")
@@ -245,7 +247,7 @@ class LetterApiTest extends ApiTestSupport {
                 .body("letters", hasSize(3))
                 .body("letters.date", contains("2025-11-01", "2025-10-30", "2025-10-29"))
                 .body("letters[0].status", equalTo("SUBMITTED"))
-                .body("letters[0].stampImage", nullValue())
+                .body("letters[0].stampImage", equalTo("http://localhost:9000/dear-jolly-stamps/stamp/soon.png"))
                 .body("letters[0].isRead", equalTo(false))
                 .body("letters[1].status", equalTo("FEEDBACK_COMPLETED"))
                 .body("letters[1].stampImage", equalTo("http://localhost:9000/dear-jolly-stamps/stamps/rose.png"))
@@ -499,7 +501,7 @@ class LetterApiTest extends ApiTestSupport {
                 .body("feedback.correctionSegments", hasSize(3));
     }
 
-    @DisplayName("GET /api/v1/letters/{letterId} : 피드백 완료 전이면 feedback 이 null 이고 읽음 처리도 되지 않는다")
+    @DisplayName("GET /api/v1/letters/{letterId} : 피드백 완료 전이면 stampImage 는 기본 우표이고 feedback 은 null 이다")
     @Test
     void getLetterBeforeFeedbackCompleted() {
         // given
@@ -516,6 +518,7 @@ class LetterApiTest extends ApiTestSupport {
                 .body("letterId", equalTo(letter.getId().intValue()))
                 .body("originalContent", equalTo(ORIGINAL_CONTENT))
                 .body("status", equalTo(Status.SUBMITTED.name()))
+                .body("stampImage", equalTo("http://localhost:9000/dear-jolly-stamps/stamp/soon.png"))
                 .body("feedback", nullValue());
 
         assertThat(letterRepository.findById(letter.getId()).orElseThrow().isRead()).isFalse();
