@@ -365,16 +365,6 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 }
 ```
 
-### [실패 Response 404]
-
-```json
-{
-    "status": 404,
-    "code": "USER_001",
-    "message": "사용자를 찾을 수 없습니다."
-}
-```
-
 ---
 
 ## 7) GET /api/v1/users ✅
@@ -385,6 +375,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - **이메일이 비어 있을 수 있다.** 애플에서 이메일 제공을 거부한 경우이며, 이때 앱은 로그인 수단만 표시한다.
 - 온보딩 전에도 호출할 수 있고, 이 경우 `nickname` 이 비어 있다.
 - `marketingAgreed` 는 마케팅 동의 이력이 없으면 `false` 다.
+- 실패는 공통 인증 오류(`AUTH_005` · `AUTH_007`)뿐이다.
 
 ### [스펙]
 
@@ -416,16 +407,6 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - [선택] `email` (String): 소셜 계정 이메일 (제공되지 않으면 `null`)
 - [필수] `marketingAgreed` (Boolean): 마케팅 수신 동의 여부
 
-### [실패 Response 404]
-
-```json
-{
-    "status": 404,
-    "code": "USER_001",
-    "message": "사용자를 찾을 수 없습니다."
-}
-```
-
 ---
 
 ## 8) DELETE /api/v1/users ✅
@@ -437,6 +418,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - 탈퇴 후 같은 소셜 계정으로 다시 로그인하면 **신규 가입**으로 처리되고, 이전 편지는 돌아오지 않는다.
 - 소셜 연결 해제(카카오 unlink / 애플 revoke)는 서버가 처리한다. **앱이 인가 코드를 따로 보낼 필요가 없다.**
 - 온보딩 미완료 상태에서도 탈퇴할 수 있다.
+- 실패는 공통 인증 오류(`AUTH_005` · `AUTH_007`)뿐이다.
 
 ### [스펙]
 
@@ -458,16 +440,6 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 ```
 (No Content)
-```
-
-### [실패 Response 404]
-
-```json
-{
-    "status": 404,
-    "code": "USER_001",
-    "message": "사용자를 찾을 수 없습니다."
-}
 ```
 
 ---
@@ -540,16 +512,6 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
     "status": 400,
     "code": "USER_004",
     "message": "닉네임은 1자 이상 20자 이하여야 합니다."
-}
-```
-
-### [실패 Response 404]
-
-```json
-{
-    "status": 404,
-    "code": "USER_001",
-    "message": "사용자를 찾을 수 없습니다."
 }
 ```
 
@@ -868,16 +830,6 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
     - [필수] `stampImage` (String): 우표 이미지 URL. 항상 값이 있으며, 피드백 완료 전에는 `soon`(준비 중) 우표다
 - [필수] `hasNext` (Boolean): 다음 페이지 존재 여부
 
-### [실패 Response 404]
-
-```json
-{
-    "status": 404,
-    "code": "USER_001",
-    "message": "사용자를 찾을 수 없습니다."
-}
-```
-
 ### [실패 Response 400]
 
 ```json
@@ -935,16 +887,6 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 - [필수] `nickname` (String): 유저 닉네임
 - [필수] `totalStampCount` (Integer): 모은 우표 총 개수 (피드백 완료된 편지 수)
-
-### [실패 Response 404]
-
-```json
-{
-    "status": 404,
-    "code": "USER_001",
-    "message": "사용자를 찾을 수 없습니다."
-}
-```
 
 ### [실패 Response 400]
 
@@ -1047,7 +989,7 @@ GET /api/v1/version
 
 | code | status | message | 발생 지점 |
 | --- | --- | --- | --- |
-| `USER_001` | 404 | 사용자를 찾을 수 없습니다. | 유저 조회가 필요한 모든 API |
+| `USER_001` | 404 | 사용자를 찾을 수 없습니다. | 서버 내부 방어용. 토큰이 가리키는 유저가 없으면 `AUTH_005` 가 먼저 나가므로 앱은 이 코드를 받지 않는다 |
 | `USER_002` | 400 | 필수 약관에 모두 동의해야 합니다. | 약관 동의 |
 | `USER_003` | 400 | 닉네임은 공백, 특수기호, 한글 없이 작성해야 합니다. | 닉네임 설정 |
 | `USER_004` | 400 | 닉네임은 1자 이상 20자 이하여야 합니다. | 닉네임 설정 |
@@ -1143,4 +1085,4 @@ GET /api/v1/version
 | 위반 시 | `USER_005` (400) |
 
 - 온보딩(필수 약관 동의 + 닉네임 등록)을 마치지 않은 유저는 **편지 · 홈 API 를 호출할 수 없다.**
-- 이 가드 덕분에 편지 목록 · 홈 응답의 `nickname` 은 **항상 값이 있다.**
+- 이 가드 덕분에 홈 응답의 `nickname` 은 **항상 값이 있다.**

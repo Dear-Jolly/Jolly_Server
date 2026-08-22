@@ -4,7 +4,7 @@
 #   1. ECR 리포지터리 스택 생성
 #   2. EC2 스택 생성 (VPC·서브넷·IGW·보안그룹·IAM·키페어·탄력적 IP·EC2)
 #   3. 키페어(.pem) 생성 결과를 SSM 에서 내려받아 로컬에 저장  ← 여기서만 만든다
-#   4. 스택 출력값을 .env.prod 에 반영 (EC2_HOST · MINIO_PUBLIC_ENDPOINT)
+#   4. 스택 출력값을 .env.prod 에 반영 (EC2_HOST · SITE_ADDRESS · MINIO_PUBLIC_ENDPOINT · OAuth 콜백)
 #   5. EC2 초기 설정(Docker 설치) 완료 대기
 #
 # 구축이 끝난 뒤의 배포·운영 관리는 infra/scripts-local/aws-manage.sh 를 쓴다.
@@ -126,7 +126,9 @@ if [ -z "$CURRENT_SITE" ] || [ "$CURRENT_SITE" = "CHANGE_ME" ] || [ "$CURRENT_SI
   set_env SITE_ADDRESS "$(echo "$PUBLIC_IP" | tr '.' '-').sslip.io"
   CURRENT_SITE=$(read_env SITE_ADDRESS)
 fi
-set_env MINIO_PUBLIC_ENDPOINT "http://${CURRENT_SITE}:${MINIO_API_PORT}"
+# 우표 이미지도 Caddy 가 버킷 경로로 프록시해 API 와 같은 인증서를 쓴다.
+# 9000 을 직접 가리키면 평문 HTTP 라 iOS ATS·Android cleartext 정책에 막힌다.
+set_env MINIO_PUBLIC_ENDPOINT "https://${CURRENT_SITE}"
 
 # OAuth 콜백도 서비스 주소를 따라간다 (각 개발자 콘솔에도 같은 URL 을 등록해야 한다)
 set_env KAKAO_REDIRECT_URI "https://${CURRENT_SITE}/api/v1/auth/kakao/callback"
