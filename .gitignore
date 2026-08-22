@@ -52,3 +52,7 @@ out/
 
 ## Mac ##
 .DS_Store
+
+## Docker 환경변수 ##
+.env
+!.env.example
