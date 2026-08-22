@@ -4,6 +4,7 @@ import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.notNullValue;
@@ -12,7 +13,6 @@ import static org.hamcrest.Matchers.nullValue;
 import com.dearjolly.server.domain.letter.entity.Letters;
 import com.dearjolly.server.domain.letter.entity.Stamps;
 import com.dearjolly.server.domain.letter.enums.Status;
-import com.dearjolly.server.domain.letter.repository.LetterRepository;
 import com.dearjolly.server.domain.user.entity.Users;
 import com.dearjolly.server.support.ApiTestSupport;
 import io.restassured.http.ContentType;
@@ -43,12 +43,9 @@ class LetterApiTest extends ApiTestSupport {
     );
     private static final List<String> TIPS = List.of(
             "문장에 동사에 따라 to 부정사와 동명사가 오는 경우가 달라요! 그 부분을 확인해보세요!",
-            "'that'은 선행사를 한정하는 필수 정보를, 'which'는 추가 정보를 제공하는 데 쓰여요! 또 'that'은 사람/사물 모두 가능하지만 'which'는 보통 사물에 쓰인답니다!"
+            "'that'은 선행사를 한정하는 필수 정보를, 'which'는 추가 정보를 제공하는 데 쓰여요!"
     );
     private static final LocalDate LETTER_DATE = LocalDate.of(2025, 10, 30);
-
-    @Autowired
-    LetterRepository letterRepository;
 
     @DisplayName("POST /api/v1/letters : 편지 작성 API")
     @Test
@@ -224,7 +221,6 @@ class LetterApiTest extends ApiTestSupport {
                 .statusCode(HttpStatus.UNAUTHORIZED.value())
                 .body("code", equalTo("AUTH_005"));
     }
-
 
     @DisplayName("GET /api/v1/letters : 편지 목록 조회 API")
     @Test
@@ -501,7 +497,7 @@ class LetterApiTest extends ApiTestSupport {
                 .body("feedback.correctionSegments", hasSize(3));
     }
 
-    @DisplayName("GET /api/v1/letters/{letterId} : 피드백 완료 전이면 stampImage 는 기본 우표이고 feedback 은 null 이다")
+    @DisplayName("GET /api/v1/letters/{letterId} : 피드백 완료 전이면 feedback 은 null 이고 stampImage 는 기본 우표다")
     @Test
     void getLetterBeforeFeedbackCompleted() {
         // given
@@ -587,6 +583,39 @@ class LetterApiTest extends ApiTestSupport {
                 .then()
                 .statusCode(HttpStatus.UNAUTHORIZED.value())
                 .body("code", equalTo("AUTH_005"));
+    }
+
+    @DisplayName("POST /api/v1/letters : 우표 후보가 있으면 mock 피드백이 만들어져 상세 조회에 내려온다")
+    @Test
+    void createLetterGeneratesMockFeedback() {
+        // given
+        Users user = 온보딩을_마친_유저를_저장한다("kakao-letter-16", "jolly16");
+        transactionTemplate.executeWithoutResult(
+                status -> entityManager.persist(Stamps.create("rose", "stamp/rose.png"))
+        );
+
+        long letterId = given().contentType(ContentType.JSON)
+                .header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                .body(편지_요청(CONTENT, LocalDateTime.now(), TIME_ZONE))
+                .when().post("/api/v1/letters")
+                .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("letterId");
+
+        // when
+        given()
+                .header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                .when().get("/api/v1/letters/{letterId}", letterId)
+                // then
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("status", equalTo(Status.FEEDBACK_COMPLETED.name()))
+                .body("stampImage", equalTo("http://localhost:9000/dear-jolly-stamps/stamp/rose.png"))
+                .body("originalContent", equalTo(CONTENT))
+                .body("feedback.correctedContent",
+                        equalTo("I received flowers from a friend today. It really touched me."))
+                .body("feedback.tips", hasSize(1))
+                .body("feedback.correctionSegments.size()", greaterThan(0));
     }
 
     private Map<String, Object> 편지_요청(String content, LocalDateTime writtenAt, String timeZone) {

@@ -1,6 +1,6 @@
 # Dear Jolly 🎀
 
-> *Write to Jolly ✏️, feel jolly 🎀*
+*Write to Jolly ✏️, feel jolly 🎀*
 
 ## 소개 ✨
 
@@ -99,7 +99,7 @@ flowchart TB
 
 | 문서 | 내용 |
 | --- | --- |
-| [docs/RUN.md](docs/RUN.md) | **로컬 실행 방법 · 환경변수 · 테스트** |
+| [infra/RUN.md](infra/RUN.md) | **로컬·원격 실행 방법 · 테스트** |
 | [docs/기능명세.md](docs/기능명세.md) | 도메인 규칙 · 처리 흐름 |
 | [docs/API명세.md](docs/API명세.md) | 요청/응답 계약의 정본 |
 | [docs/ERD.md](docs/ERD.md) | 데이터 모델의 정본 |

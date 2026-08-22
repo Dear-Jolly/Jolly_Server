@@ -20,10 +20,18 @@ https://localhost:8080 {
 
 	encode gzip
 
-	reverse_proxy app:8081 {
-		header_up Host {host}
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-Proto {scheme}
+	# 우표 이미지. MinIO 를 9000 으로 직접 열면 평문 HTTP 라 iOS ATS·Android cleartext 정책에 막힌다.
+	# 같은 호스트의 버킷 경로로 태워 API 와 같은 인증서를 태운다.
+	handle /{$MINIO_BUCKET:dear-jolly-stamps}/* {
+		reverse_proxy minio:9000
+	}
+
+	handle {
+		reverse_proxy app:8081 {
+			header_up Host {host}
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+		}
 	}
 
 	log {

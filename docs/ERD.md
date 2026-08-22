@@ -214,7 +214,7 @@ erDiagram
 stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 ```
 
-  스토리지 주소는 환경마다 다르고(로컬 `localhost:9000`, 운영 `EC2 공인 IP:9000`) 도메인 교체·CDN 도입 시 바뀐다.
+  스토리지 주소는 환경마다 다르고 도메인 교체·CDN 도입 시 바뀐다.
   URL 을 저장해 두면 그때마다 전체 행을 일괄 수정해야 하지만, 파일 키만 저장하면 환경변수만 갈아끼우면 된다.
   조립은 `global/storage/FileUrlProvider` 가 담당하며, `image_key` 가 비어 있으면 `null` 을 반환한다.
 - **우표 종류는 Java enum 으로 정의하지 않는다.** 코드에 우표 이름이 하드코딩되면 이 테이블의 존재 이유가 사라진다.
