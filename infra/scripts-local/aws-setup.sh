@@ -126,6 +126,10 @@ if [ -z "$CURRENT_SITE" ] || [ "$CURRENT_SITE" = "CHANGE_ME" ] || [ "$CURRENT_SI
   CURRENT_SITE=$(read_env SITE_ADDRESS)
 fi
 set_env MINIO_PUBLIC_ENDPOINT "http://${CURRENT_SITE}:${MINIO_API_PORT}"
+
+# OAuth 콜백도 서비스 주소를 따라간다 (각 개발자 콘솔에도 같은 URL 을 등록해야 한다)
+set_env KAKAO_REDIRECT_URI "https://${CURRENT_SITE}/api/v1/auth/kakao/callback"
+set_env APPLE_REDIRECT_URI "https://${CURRENT_SITE}/api/v1/auth/apple/callback"
 # shellcheck disable=SC2034  # common.sh 의 ssh_run 이 사용한다
 EC2_HOST="$PUBLIC_IP"
 
