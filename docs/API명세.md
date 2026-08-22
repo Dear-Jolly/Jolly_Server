@@ -16,7 +16,9 @@
 
 | # | 패키지 | Method | 엔드포인트 | 설명 | 인증 | 온보딩 |
 | --- | --- | --- | --- | --- | :---: | :---: |
-| 1 | user | `POST` | `/api/v1/auth/login` | 소셜 로그인 (회원가입 포함) | — | — |
+| 1 | user | `GET` | `/api/v1/auth/{provider}` | 소셜 로그인 시작 (provider 로그인 페이지로 리다이렉트) | — | — |
+| 1-1 | user | `GET` | `/api/v1/auth/kakao/callback` | 카카오 콜백 (앱 딥링크로 리다이렉트) | — | — |
+| 1-2 | user | `POST` | `/api/v1/auth/apple/callback` | 애플 콜백 (`form_post`, 앱 딥링크로 리다이렉트) | — | — |
 | 2 | user | `POST` | `/api/v1/auth/reissue` | 토큰 재발급 | — | — |
 | 3 | user | `POST` | `/api/v1/auth/logout` | 로그아웃 | ✔ | — |
 | 4 | user | `POST` | `/api/v1/users/terms` | 약관 동의 · 마케팅 동의 철회 | ✔ | — |
@@ -43,7 +45,7 @@
 | 헤더 | `Authorization: Bearer {accessToken}` |
 | Access Token 만료 | 30분 |
 | Refresh Token 만료 | 14일 |
-| 인증 불필요 | `POST /api/v1/auth/login`, `POST /api/v1/auth/reissue`, `GET /api/v1/version` |
+| 인증 불필요 | `GET /api/v1/auth/{provider}`, 콜백 2종, `POST /api/v1/auth/reissue`, `GET /api/v1/version` |
 
 - Refresh Token 은 재발급 시 **회전(rotate)** 되며, 서버에 저장된 값과 다르면 `AUTH_004` 로 거절한다.
 - 인증 필터는 토큰 서명·만료를 검증한 뒤 **계정 상태까지 확인**한다. 탈퇴 처리된 계정의 토큰은 `AUTH_007`(401) 로 거절한다. 탈퇴 직후 최대 30분간 유효한 Access Token 이 남아 있기 때문이다.
@@ -62,7 +64,7 @@
 
 | API | 코드 | 이유 |
 | --- | --- | --- |
-| `POST /api/v1/auth/login` | `200 OK` | 신규 가입을 함께 처리하지만 로그인/가입이 단일 엔드포인트이며, 앱은 `isNewUser` 로 구분한다. 같은 요청이 상황에 따라 200/201 을 오가지 않도록 200 으로 고정한다 |
+| 소셜 로그인 3종 (§3.1) | `302 Found` | JSON 을 반환하지 않는다. provider 로그인 페이지 또는 앱 딥링크로 리다이렉트한다 |
 | `POST /api/v1/letters` (중복) | `200 OK` | 60초 내 동일 본문 재요청은 새 편지를 만들지 않고 최초 편지를 반환하므로 생성이 아니다 (§4.1) |
 
 ### 2.3 에러 응답
@@ -134,62 +136,105 @@
 
 ## 3. user
 
-### 3.1 `POST /api/v1/auth/login`
+### 3.1 소셜 로그인 (authorization code 플로우)
 
 > **API 설명**
-> - 카카오 / 애플 소셜 로그인을 수행합니다.
-> - 가입되지 않은 유저라면 회원가입을 함께 처리합니다.
+> - 카카오 / 애플 소셜 로그인을 수행합니다. 가입되지 않은 유저라면 회원가입을 함께 처리합니다.
+> - **인증 책임을 전부 백엔드가 진다.** 앱은 `GET /api/v1/auth/{provider}` 로 이동하기만 하면 되고,
+>   로그인 페이지 요청 → 코드 발급 → 토큰 교환 → 유저 정보 조회 → JWT 발급은 서버가 처리합니다.
+> - 앱 SDK 로 받은 소셜 토큰을 서버에 전달하는 방식은 **지원하지 않습니다.**
 >
 > **도메인 규칙**
 > - 유저는 `(provider, provider 회원 식별자)` 조합으로 식별한다. 같은 이메일이라도 카카오/애플은 별개 계정이다.
-> - 가입 직후에는 약관 동의 이력이 없고 닉네임이 `null` 이다. 앱은 응답의 온보딩 상태로 진입 화면을 결정한다.
+> - 가입 직후에는 약관 동의 이력이 없고 닉네임이 `null` 이다. 앱은 딥링크로 받은 온보딩 상태로 진입 화면을 결정한다.
 > - Refresh Token 은 **유저당 1개만 유지**한다(단일 세션). 새로 로그인하면 이전 토큰은 무효가 된다.
-> - **탈퇴한 계정으로 다시 로그인하면 항상 신규 가입**이다 (`isNewUser: true`). 이전 편지는 복원되지 않으며 온보딩을 처음부터 다시 거친다.
-> - 회원가입을 포함하지만 응답은 `201` 이 아니라 `200` 이다 (§2.2).
+> - **탈퇴한 계정으로 다시 로그인하면 항상 신규 가입**이다 (`isNewUser=true`). 이전 편지는 복원되지 않는다.
+> - 서버는 provider 가 준 refresh token 을 함께 저장한다. 탈퇴 시 연결 해제(revoke)에 필요하기 때문이다 ([ERD §2.1](./ERD.md#21-users--사용자)).
 
-#### Request
+#### 전체 흐름
 
-**Endpoint**
+```mermaid
+sequenceDiagram
+    participant App as 앱
+    participant API as Dear Jolly API
+    participant P as 소셜 인증 서버
 
+    App->>API: 1. GET /api/v1/auth/{provider}
+    API-->>App: 2. 302 → provider 로그인 페이지
+    App->>P: 3. 로그인 페이지에서 로그인
+    P-->>API: 4. 콜백 (code 발급)
+    API->>P: 5. code 로 토큰 요청
+    P-->>API: 6. access / refresh token
+    API->>P: 7. 토큰으로 유저 정보 요청
+    P-->>API: 8. 유저 정보 (id, email)
+    API->>API: 9. 회원 조회·생성 후 JWT 발급
+    API-->>App: 10. 302 → 앱 딥링크 (JWT 포함)
 ```
-/api/v1/auth/login
-```
+
+---
+
+#### 3.1.1 `GET /api/v1/auth/{provider}` — 로그인 시작
+
+**Path Variable**
+
+- [필수] `provider`: 로그인 수단 (`KAKAO`, `APPLE`)
 
 **Authorization 헤더**: 불필요
 
-**Body**
+##### `성공` Response 302
 
-```json
-{
-    "provider": "KAKAO",
-    "token": "IwGRZ8bLXsC0hR..."
-}
+provider 의 로그인 페이지로 리다이렉트한다. 앱은 이 주소를 외부 브라우저 또는 웹뷰로 열면 된다.
+
+```
+HTTP/1.1 302 Found
+Location: https://kauth.kakao.com/oauth/authorize?client_id=...&redirect_uri=...&response_type=code&state=...
 ```
 
-- [필수] `provider` (String): 로그인 수단 (`KAKAO`, `APPLE`)
-- [필수] `token` (String): 소셜 인증 토큰
-    - `KAKAO`: 앱에서 발급받은 access token
-    - `APPLE`: identity token (JWT)
+##### `실패` Error Response
 
-#### `성공` Response 200
+| code | status | 상황 |
+| --- | --- | --- |
+| `AUTH_001` | 400 | 지원하지 않는 `provider` |
 
-```json
-{
-    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiJ9...",
-    "userId": 1,
-    "isNewUser": true,
-    "termsAgreed": false,
-    "nicknameRegistered": false
-}
+---
+
+#### 3.1.2 콜백 — `GET /api/v1/auth/kakao/callback` · `POST /api/v1/auth/apple/callback`
+
+provider 가 호출하는 주소다. **앱이 직접 호출하지 않는다.**
+
+| provider | Method | 이유 |
+| --- | --- | --- |
+| Kakao | `GET` | 쿼리 파라미터로 `code` 를 돌려준다 |
+| Apple | `POST` | `scope` 를 요청하면 Apple 이 `response_mode=form_post` 를 강제한다. `code` 와 `id_token` 이 form 으로 온다 |
+
+**Request Parameter**
+
+- [필수] `code` (String): provider 가 발급한 인가 코드
+- [필수] `id_token` (String): **Apple 전용.** 회원 식별자(`sub`)와 이메일을 여기서 꺼낸다
+
+##### `성공` Response 302
+
+발급한 JWT 와 온보딩 상태를 쿼리 파라미터에 실어 앱 딥링크로 리다이렉트한다.
+
+```
+HTTP/1.1 302 Found
+Location: dearjolly://auth/callback
+            ?accessToken=eyJhbGciOiJIUzI1NiJ9...
+            &refreshToken=eyJhbGciOiJIUzI1NiJ9...
+            &userId=1
+            &isNewUser=true
+            &termsAgreed=false
+            &nicknameRegistered=false
 ```
 
-- [필수] `accessToken` (String): 액세스 토큰
-- [필수] `refreshToken` (String): 리프레시 토큰
+- [필수] `accessToken` (String): 액세스 토큰 (30분)
+- [필수] `refreshToken` (String): 리프레시 토큰 (14일)
 - [필수] `userId` (Long): 유저 ID
 - [필수] `isNewUser` (Boolean): 이번 요청으로 가입된 유저인지 여부
 - [필수] `termsAgreed` (Boolean): 필수 약관(`SERVICE` · `PRIVACY`) 동의 완료 여부
 - [필수] `nicknameRegistered` (Boolean): 닉네임 등록 여부
+
+딥링크 주소는 `OAUTH_APP_REDIRECT_URI` 환경변수로 바꿀 수 있다.
 
 **앱 분기**
 
@@ -199,20 +244,16 @@
 | `termsAgreed == true && nicknameRegistered == false` | 온보딩 – 닉네임 |
 | 둘 다 `true` | 홈 |
 
-#### `실패` Error Response
+> **주의**: 토큰이 URL 쿼리 파라미터에 실린다. 앱은 딥링크를 받은 즉시 토큰을 보안 저장소
+> (iOS Keychain / Android EncryptedSharedPreferences)로 옮기고, 웹뷰를 쓴다면 히스토리를 비운다.
 
-```json
-{
-    "status": 401,
-    "code": "AUTH_002",
-    "message": "소셜 로그인 인증에 실패했습니다."
-}
-```
+##### `실패` Error Response
+
+콜백 단계의 실패는 딥링크가 아니라 **JSON 에러 응답**으로 나간다.
 
 | code | status | 상황 |
 | --- | --- | --- |
-| `AUTH_001` | 400 | 지원하지 않는 `provider` |
-| `AUTH_002` | 401 | 소셜 토큰 검증 실패 |
+| `AUTH_002` | 401 | 인가 코드·id_token 검증 실패 |
 | `AUTH_003` | 502 | 카카오 / 애플 서버 통신 실패 |
 
 ---
@@ -463,7 +504,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 > - **서버는 즉시 접근을 차단한 뒤 30일간 데이터를 보존하고, 유예기간이 지나면 완전 삭제한다.** 오삭제 복구와 분쟁 대응을 위한 내부 보존이며, 사용자에게 노출되는 복구 수단은 없다. 이 사실은 개인정보처리방침의 보유기간 항목에 명시한다.
 > - 탈퇴 즉시 Refresh Token 이 무효화되고, 남아 있는 Access Token 도 `AUTH_007`(401) 로 거절된다.
 > - 탈퇴 후 같은 소셜 계정으로 다시 로그인하면 **신규 가입**으로 처리된다. 이전 편지는 복원되지 않는다.
-> - Apple 유저는 **토큰 revoke 가 필수**다. 누락 시 App Store 심사 리젝 사유가 된다.
+> - Apple 유저는 **토큰 revoke 가 필수**다(App Store 심사 요건). 서버가 로그인 때 저장해 둔 refresh token 으로 수행한다.
 > - 소셜 연결 해제(unlink / revoke)에 실패해도 **탈퇴 처리는 계속 진행**한다. 사용자가 탈퇴하지 못하는 상태에 갇히지 않게 하기 위함이다.
 > - 온보딩 미완료 상태에서도 탈퇴할 수 있다.
 
@@ -481,17 +522,10 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 Bearer eyJhbGciOiJIUzI1NiJ9...
 ```
 
-**Body**
+**Body**: 없음
 
-```json
-{
-    "authorizationCode": "c1a2b3d4e5..."
-}
-```
-
-- [선택] `authorizationCode` (String): Apple 토큰 revoke 용 인가 코드
-    - **Apple 로그인 유저는 필수.** App Store 심사 요건(연동 해제)에 해당한다.
-    - Kakao 유저는 생략한다.
+> 로그인 시 서버가 provider 의 refresh token 을 저장해 두므로, 앱이 revoke 용 인가 코드를
+> 따로 보낼 필요가 없다. Apple 연동 해제(App Store 심사 요건)는 서버가 단독으로 수행한다.
 
 #### `성공` Response 204
 
@@ -501,7 +535,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 **처리 순서**
 
-1. 소셜 연결 해제 (Kakao `unlink` / Apple `revoke`) — **트랜잭션 밖에서** 수행하며, 실패해도 로그만 남기고 탈퇴는 계속 진행
+1. 소셜 연결 해제 (Kakao `unlink` / Apple `revoke`, 저장해 둔 provider refresh token 사용) — **트랜잭션 밖에서** 수행하며, 실패해도 로그만 남기고 탈퇴는 계속 진행
 2. 계정을 탈퇴 상태로 전환하고 Refresh Token 을 무효화 (단일 트랜잭션)
 3. 유예기간(30일) 경과 후 배치가 유저 행을 삭제하면 약관 이력·편지·피드백·교정 조각·팁이 cascade 로 함께 제거된다 ([ERD §3.3](./ERD.md#33-삭제-전파))
 
@@ -781,7 +815,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - [필수] `date` (LocalDate): 편지 날짜 (`yyyy-MM-dd`)
 - [필수] `originalContent` (String): 원본 편지 내용
 - [필수] `status` (String): 편지 상태 (`SUBMITTED`, `FEEDBACK_IN_PROGRESS`, `FEEDBACK_COMPLETED`)
-- [선택] `stampImage` (String): 우표 이미지 URL (피드백 완료 전에는 `null`)
+- [선택] `stampImage` (String): 우표 이미지 URL. 서버가 `MINIO_PUBLIC_ENDPOINT` + 버킷 + `image_key` 로 조립해 내려준다 (피드백 완료 전에는 `null`)
 - [선택] `feedback` (Object): 피드백 정보 (**피드백 생성 전일 경우 `null`**)
     - [필수] `feedbackId` (Long): 피드백 ID
     - [필수] `correctedContent` (String): 교정된 전체 내용
@@ -831,6 +865,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 > - 피드백 완료 전 카드는 우표가 없고(`stampImage: null`) 상세로 들어갈 수 없다.
 > - 정렬은 **서버가 처리**한다. 페이징된 일부만 앱에서 뒤집으면 전체 정렬이 깨지기 때문이다.
 > - `stampImage` 는 DB 가 관리하는 우표 마스터의 이미지 URL 이다. 종류가 운영 중 늘어날 수 있으므로 앱은 **URL 을 그대로 렌더링**한다.
+> - DB 에는 파일 키(`stamps.image_key`)만 저장되고, 서버가 응답 시점에 `MINIO_PUBLIC_ENDPOINT + 버킷 + 파일 키` 로 **완성된 URL 을 조립해 내려준다** ([ERD §2.4](./ERD.md#24-stamps--우표-마스터)). 앱은 키를 조합할 필요가 없다.
 > - 온보딩 가드(§2.6)를 통과한 유저만 호출할 수 있으므로 `nickname` 은 **항상 non-null** 이다.
 
 #### Request
@@ -902,7 +937,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
         - `FEEDBACK_IN_PROGRESS`: 피드백 생성 중
         - `FEEDBACK_COMPLETED`: 피드백 완료
     - [필수] `isRead` (Boolean): 피드백 열람 여부
-    - [선택] `stampImage` (String): 우표 이미지 URL (피드백 완료 전에는 `null`)
+    - [선택] `stampImage` (String): 우표 이미지 URL. 서버가 `MINIO_PUBLIC_ENDPOINT` + 버킷 + `image_key` 로 조립해 내려준다 (피드백 완료 전에는 `null`)
 - [필수] `hasNext` (Boolean): 다음 페이지 존재 여부
 
 **클라이언트 렌더링 규칙**
@@ -1069,9 +1104,9 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 | code | status | message | 발생 지점 |
 | --- | --- | --- | --- |
-| `AUTH_001` | 400 | 지원하지 않는 로그인 방식입니다. | `POST /auth/login` |
-| `AUTH_002` | 401 | 소셜 로그인 인증에 실패했습니다. | `POST /auth/login` |
-| `AUTH_003` | 502 | 소셜 로그인 서버와 통신하지 못했습니다. | `POST /auth/login` |
+| `AUTH_001` | 400 | 지원하지 않는 로그인 방식입니다. | `GET /auth/{provider}` |
+| `AUTH_002` | 401 | 소셜 로그인 인증에 실패했습니다. | 소셜 로그인 콜백 |
+| `AUTH_003` | 502 | 소셜 로그인 서버와 통신하지 못했습니다. | 소셜 로그인 콜백 |
 | `AUTH_004` | 401 | 로그인이 만료되었습니다. 다시 로그인해주세요. | `POST /auth/reissue` |
 | `AUTH_005` | 401 | 유효하지 않은 토큰입니다. | 인증 필터 공통 (§2.3) |
 | `AUTH_006` | 403 | 접근 권한이 없습니다. | Security `AccessDeniedHandler` 공통 (§2.3) |
