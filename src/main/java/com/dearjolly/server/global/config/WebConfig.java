@@ -12,8 +12,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 @RequiredArgsConstructor
 public class WebConfig implements WebMvcConfigurer {
-
-    /** 온보딩 가드 대상 (API명세 §1 의 온보딩 열이 ✔ 인 API) */
     private static final String[] ONBOARDING_REQUIRED_PATHS = {
             "/api/v1/letters",
             "/api/v1/letters/**",

@@ -11,7 +11,7 @@
 | ID 전략 | 전 테이블 `GenerationType.IDENTITY` (`BIGINT AUTO_INCREMENT`) |
 | Enum 저장 | 전부 `EnumType.STRING` (문자열 저장) |
 | 시각 컬럼 | `DATETIME(6)`. `@PrePersist` / `@PreUpdate` 로 주입. 서버 TZ `Asia/Seoul` |
-| 날짜 컬럼 | `DATE`. **클라이언트가 보낸 작성 시각의 날짜 부분**을 그대로 저장하고, 해석에 쓴 타임존을 `LETTERS.time_zone` 에 함께 남긴다 (§5.2 A3) |
+| 날짜 컬럼 | `DATE`. **클라이언트가 보낸 작성 시각의 날짜 부분**을 그대로 저장하고, 해석에 쓴 타임존을 `LETTERS.time_zone` 에 함께 남긴다 (불변식 A3) |
 
 ---
 
@@ -258,7 +258,7 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 - UNIQUE `(feedback_id, sequence)`.
 - 조회 시 항상 `ORDER BY sequence ASC` 로 정렬한다 (`@OrderBy("sequence ASC")`).
 - 공백은 조각 문자열에 포함해 저장한다. 앱은 조각 사이에 공백을 넣지 않는다.
-- `correction_type` 은 저장 시 `original_text` 와 `corrected_text` 의 일치 여부로 결정된다 (§5.2 A5).
+- `correction_type` 은 저장 시 `original_text` 와 `corrected_text` 의 일치 여부로 결정된다 (불변식 A5).
 - **두 텍스트 컬럼의 상한은 `FEEDBACKS.corrected_content` 와 같은 1000자다.** A7 이 "조각을 이어붙이면 교정문 전체" 를 요구하므로, 교정문이 길고 diff 가 단일 `MODIFIED` 로 뭉치면 조각 하나가 문장 전체가 된다. 원문 상한은 500 이라 `original_text` 는 절반만 쓰지만, 두 컬럼을 같은 길이로 맞춰야 조각 분할·병합 로직에 길이 제약이 생기지 않는다.
 
 ### 2.7 `FEEDBACK_TIPS` — 학습 팁
@@ -293,7 +293,7 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 
 `Stamps` 는 마스터 데이터라 편지 쪽에서만 참조하는 단방향이다. cascade 를 걸지 않으므로 편지·유저 삭제가 우표 행에 영향을 주지 않는다.
 
-> **Fetch 열의 예외 하나** — `Letters.feedback` 은 `@OneToOne(mappedBy)` 라 `LAZY` 로 선언해도 실제로는 즉시 로딩된다. FK 를 갖지 않는 쪽이라 Hibernate 가 "행이 있는지" 를 알아야 프록시 여부를 정할 수 있기 때문이다. 선언은 의도 표시로 남겨 두되, 성능을 논할 때는 §3.4 를 기준으로 판단한다.
+> **Fetch 열의 예외 하나** — `Letters.feedback` 은 `@OneToOne(mappedBy)` 라 `LAZY` 로 선언해도 실제로는 즉시 로딩된다. FK 를 갖지 않는 쪽이라 Hibernate 가 "행이 있는지" 를 알아야 프록시 여부를 정할 수 있기 때문이다. 선언은 의도 표시로 남겨 두되, 성능을 논할 때는 조회 전략을 기준으로 판단한다.
 
 ### 3.2 연관관계 편의 메서드
 
@@ -329,7 +329,7 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 
 모두 `EnumType.STRING` 으로 저장한다. `ORDINAL` 은 사용하지 않는다.
 
-우표 종류는 enum 이 아니라 `STAMPS` 테이블의 행으로 관리한다 (§2.4).
+우표 종류는 enum 이 아니라 `STAMPS` 테이블의 행으로 관리한다.
 
 ### 4.1 `OauthProvider` — `USERS.oauth_provider`
 
@@ -347,14 +347,14 @@ API 요청/응답의 `provider` 필드가 이 enum 이다. 문서 전체에서 �
 | `ROLE_USER` | 일반 사용자. `Users.create(…)` 의 기본값 |
 | `ROLE_ADMIN` | 관리자. `Users.createAdmin(…)` 로만 생성 |
 
-MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 재처리(§6.1) 같은 후속 경로를 위해 스키마에만 존재한다.
+MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 재처리 같은 후속 경로를 위해 스키마에만 존재한다.
 
 ### 4.3 `UserStatus` — `USERS.status`
 
 | 값 | 설명 |
 | --- | --- |
 | `ACTIVE` | 정상 이용 중 |
-| `WITHDRAWN` | 탈퇴 처리됨. 모든 API 접근 차단(`AUTH_007`). 유예기간 경과 후 행 삭제 (§6.2) |
+| `WITHDRAWN` | 탈퇴 처리됨. 모든 API 접근 차단(`AUTH_007`). 유예기간 경과 후 행 삭제 |
 
 ### 4.4 `TermsType` — `TERMS_AGREEMENTS.type`
 
@@ -388,7 +388,7 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 | `UNCHANGED` | 교정 없음 | 검은 글씨 그대로 |
 | `MODIFIED` | 교정됨 | 원문에 빨간 취소선 + 뒤에 교정문 초록 하이라이트 |
 
-문법·어휘·철자 등 세부 교정 카테고리는 두지 않는다. API 응답에서의 필드명은 `type` 이다 (§2.6).
+문법·어휘·철자 등 세부 교정 카테고리는 두지 않는다. API 응답에서의 필드명은 `type` 이다.
 
 ---
 
@@ -428,7 +428,7 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 | A13 | `status = 'WITHDRAWN'` 이면 `deleted_at` NOT NULL, `refresh_token` · `oauth_refresh_token` NULL | R8 | 탈퇴 서비스 |
 | A14 | `refresh_token` 은 유저당 1개만 유지 (단일 세션) | — | 인증 서비스 |
 | A15 | 온보딩 완료 = `SERVICE` · `PRIVACY` 의 최신 행이 모두 `agreed = true` **그리고** `nickname IS NOT NULL` | 온보딩 규칙 | 온보딩 가드 (`USER_005`) |
-| A16 | `TERMS_AGREEMENTS` 는 UPDATE 하지 않고 INSERT 만 한다 | §2.2 | 약관 동의 서비스 |
+| A16 | `TERMS_AGREEMENTS` 는 UPDATE 하지 않고 INSERT 만 한다 | 약관 동의 이력 | 약관 동의 서비스 |
 | A17 | 동일 유저가 60초 이내에 같은 `content` 를 다시 보내면 새 행을 만들지 않고 최초 편지를 반환한다 | 중복 전달 방지 | 편지 작성 서비스 |
 
 ---
@@ -456,7 +456,7 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 | --- | --- | --- |
 | 1. 탈퇴 요청 | 즉시 | `status = 'WITHDRAWN'`, `deleted_at = now()`, `refresh_token`·`oauth_refresh_token = NULL`. 이후 모든 API 접근이 `AUTH_007` 로 차단된다 |
 | 2. 유예기간 | 30일 | 데이터는 보존한다. 사용자에게 노출되는 복구 수단은 없다 |
-| 3. 완전 삭제 | `deleted_at + 30일` 경과 | 배치가 `USERS` 행을 삭제하고, cascade 로 약관 이력·편지·피드백·교정 조각·팁까지 전량 제거한다 (§3.3) |
+| 3. 완전 삭제 | `deleted_at + 30일` 경과 | 배치가 `USERS` 행을 삭제하고, cascade 로 약관 이력·편지·피드백·교정 조각·팁까지 전량 제거한다 |
 
 - **탈퇴한 계정으로 다시 로그인하면 항상 신규 가입으로 처리한다.** 이전 편지는 복원되지 않는다.
 - 유예기간 중인 계정은 `(oauth_provider, oauth_id)` UNIQUE 를 점유하므로, 재로그인 시점에 기존 행의 `oauth_id` 를 `{oauth_id}#withdrawn#{deleted_at 에폭밀리}` 형태로 치환해 UNIQUE 를 비우고 새 행을 만든다. 치환 후에도 삭제 배치는 `deleted_at` 으로 대상을 식별하므로 영향이 없다.
@@ -466,12 +466,12 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 
 ### 6.3 약관 동의 이력
 
-`TERMS_AGREEMENTS` 는 UPDATE 하지 않고 INSERT 만 하는 이력 테이블이다 (§2.2, A16).
+`TERMS_AGREEMENTS` 는 UPDATE 하지 않고 INSERT 만 하는 이력 테이블이다 (불변식 A16).
 
 - 온보딩에서 약관에 동의하면 `SERVICE` · `PRIVACY` · `MARKETING` 3행이 한 번에 쌓인다.
 - 설정에서 마케팅 동의를 철회하면 `type = 'MARKETING'`, `agreed = false` 행이 하나 더 쌓인다. 이전 행은 그대로 남는다.
 - 현재 동의 상태를 알고 싶으면 `(user_id, type)` 별 `agreed_at` 최신 행을 본다.
-- 유저 행이 삭제되면 동의 이력도 cascade 로 함께 삭제된다 (§3.3). 탈퇴 이력은 개인정보를 제외한 최소 정보만 애플리케이션 로그로 별도 보관한다.
+- 유저 행이 삭제되면 동의 이력도 cascade 로 함께 삭제된다. 탈퇴 이력은 개인정보를 제외한 최소 정보만 애플리케이션 로그로 별도 보관한다.
 
 ---
 
@@ -570,16 +570,4 @@ CREATE TABLE feedback_tips (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 ```
 
-### 초기 데이터
-
-```sql
-INSERT INTO stamps (name, image_key) VALUES
-    ('장미',      'stamps/flower_stamp.png'),
-    ('호박',      'stamps/pumpkin_stamp.png'),
-    ('네잎클로버', 'stamps/clover_stamp.png'),
-    ('초승달',    'stamps/moon_stamp.png');
-```
-
-> 파일 키만 넣는다. 호스트·버킷은 응답 시점에 붙으므로 초기 데이터가 환경에 종속되지 않는다.
-
-우표를 추가할 때는 이 테이블에 행을 넣는 것으로 끝난다. 프롬프트 후보 목록과 앱 응답에 자동으로 반영된다.
+우표는 마이그레이션이 아니라 운영 중 행을 넣어 등록한다. 넣는 즉시 프롬프트 후보 목록과 앱 응답에 반영된다.

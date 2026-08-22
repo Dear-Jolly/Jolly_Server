@@ -9,8 +9,6 @@ import org.springframework.web.client.RestClient;
 
 @Configuration
 public class RestClientConfig {
-
-    /** LLM 이 아닌 소셜 로그인 호출용이라 짧게 잡는다. */
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
     private static final Duration READ_TIMEOUT = Duration.ofSeconds(10);
 

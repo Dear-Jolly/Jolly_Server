@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
 class VersionApiTest extends ApiTestSupport {
-
     @DisplayName("GET /api/v1/version : 인증 없이 공통 버전과 정책 URL 을 반환한다")
     @Test
     void getVersion() {
@@ -32,7 +31,6 @@ class VersionApiTest extends ApiTestSupport {
                 .when().get("/api/v1/version")
                 .then()
                 .statusCode(HttpStatus.OK.value())
-                // latest 는 재정의가 비어 있어 공통 값, minSupported 만 IOS 값이다
                 .body("latestVersion", equalTo("1.2.0"))
                 .body("minSupportedVersion", equalTo("1.1.0"));
     }

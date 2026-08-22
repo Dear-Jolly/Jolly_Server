@@ -19,16 +19,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
-/**
- * 카카오 로그인 (authorization code 플로우).
- *
- * <p>로그인 페이지 → 코드 발급 → 토큰 교환 → 유저 정보 조회를 전부 서버가 수행한다.
- * 참고: <a href="https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api">카카오 로그인 REST API</a>
- */
 @Slf4j
 @Component
 public class KakaoOauthClient implements OauthClient {
-
     private static final String AUTHORIZE_URI = "https://kauth.kakao.com/oauth/authorize";
     private static final String TOKEN_URI = "https://kauth.kakao.com/oauth/token";
     private static final String USER_INFO_URI = "https://kapi.kakao.com/v2/user/me";
@@ -64,10 +57,6 @@ public class KakaoOauthClient implements OauthClient {
         return new OauthUserInfo(KAKAO, String.valueOf(user.id()), user.email(), token.refreshToken());
     }
 
-    /**
-     * 연결 해제 실패는 로그만 남긴다. 사용자가 탈퇴하지 못하는 상태에 갇히지 않게 하기 위함이다
-     * (기능명세 §3.1.3).
-     */
     @Override
     public void unlink(String oauthId, String oauthRefreshToken) {
         if (properties.adminKey() == null || properties.adminKey().isBlank()) {

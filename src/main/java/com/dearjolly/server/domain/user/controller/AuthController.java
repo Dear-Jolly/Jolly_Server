@@ -28,17 +28,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
-/**
- * 소셜 로그인의 authorization code 플로우를 백엔드가 전부 담당한다.
- * 앱은 {@code GET /api/v1/auth/{provider}} 로 이동하기만 하면 되고,
- * 마지막에 딥링크로 JWT 를 돌려받는다.
- */
 @Tag(name = "인증", description = "소셜 로그인, 토큰 재발급, 로그아웃 API")
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
-
     private final AuthService authService;
     private final OauthProperties oauthProperties;
 
@@ -64,10 +58,6 @@ public class AuthController {
         return redirectToApp(authService.handleCallback(OauthProvider.KAKAO, code, null));
     }
 
-    /**
-     * Apple 은 {@code response_mode=form_post} 로 콜백하므로 POST 로 받는다.
-     * {@code id_token} 이 함께 실려 오며 회원 식별자(sub)와 이메일은 여기서 꺼낸다.
-     */
     @Operation(summary = "애플 로그인 콜백 - 코드 교환 후 앱 딥링크로 리다이렉트")
     @PostMapping("/apple/callback")
     public ResponseEntity<Void> appleCallback(
