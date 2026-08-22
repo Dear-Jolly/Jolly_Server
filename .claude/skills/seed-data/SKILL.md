@@ -1,6 +1,6 @@
 ---
 name: seed-data
-description: 시드 데이터(우표·목 사용자)를 만들거나 고칠 때 사용. 시드 클래스를 어디에 두는지, 멱등성·기동 차단 금지·활성화 플래그·실행 순서 규칙, 목 사용자 시드와 로컬 토큰 발급 스크립트 사용법을 다룬다. "시드 추가", "테스트 데이터 넣어줘", "목 유저", "토큰 발급 스크립트" 요청에 해당.
+description: 시드 데이터(우표·앱 최소 지원 버전·관리자 시드 User)를 만들거나 고칠 때 사용. 시드 클래스를 어디에 두는지, Seeder/Writer 분리 이유, 멱등성·기동 차단 금지·활성화 플래그·실행 순서 규칙, 시드 원본을 어디에 둘지를 다룬다. "시드 추가", "초기 데이터", "기본값 채우기" 요청에 해당.
 ---
 
 # 시드 데이터 규칙
@@ -12,15 +12,21 @@ description: 시드 데이터(우표·목 사용자)를 만들거나 고칠 때 
 
 ```
 src/main/java/com/dearjolly/server/global/seed/
-├── SeedOrder.java              # 시더 실행 순서 상수
-├── {대상}Seed*.java            # 시드 한 건을 나타내는 record
+├── {대상}Seed*.java            # 시드 한 건을 나타내는 record (필요할 때만)
 ├── {대상}SeedData.java         # 코드에 박아 두는 시드 원본 (필요할 때만)
 ├── {대상}SeedProperties.java   # dearjolly.seed.{대상} 설정
 ├── {대상}SeedWriter.java       # @Transactional DB 반영
 └── {대상}Seeder.java           # ApplicationRunner. 켜짐 여부 판단 + 로깅
 src/main/resources/seed/        # 코드에 담을 수 없는 원본 (우표 이미지 등)
-infra/scripts-local/seed/       # 로컬에서만 돌리는 시드 보조 스크립트
 ```
+
+현재 시더는 셋이다.
+
+| 시더 | 채우는 것 | 자연키 |
+|---|---|---|
+| `StampSeeder` | `STAMPS` 행 + MinIO 우표 이미지 | `STAMPS.name` |
+| `AppVersionSeeder` | `APP_VERSIONS` 행 (플랫폼별 최소 지원 버전) | `APP_VERSIONS.platform` |
+| `UserSeeder` | 관리자 권한의 시드 User + 약관 동의 + 편지 | `(oauth_provider, oauth_id)`, `LETTERS.content` |
 
 - 시드는 도메인이 아니라 `global/seed` 에 모은다. 여러 도메인의 엔티티를 가로질러 만들기 때문이다.
 - **Seeder 와 Writer 를 반드시 나눈다.** `ApplicationRunner` 는 트랜잭션 밖에서 돌기 때문에,
@@ -34,8 +40,9 @@ infra/scripts-local/seed/       # 로컬에서만 돌리는 시드 보조 스크
 
 - 행마다 **자연키**를 정하고, 그 키로 먼저 찾은 뒤 없을 때만 만든다.
   - 우표: `STAMPS.name`
-  - 목 사용자: `(oauth_provider, oauth_id)`
-  - 목 사용자의 편지: `LETTERS.content`
+  - 앱 버전: `APP_VERSIONS.platform`
+  - 시드 User: `(oauth_provider, oauth_id)`
+  - 시드 User 의 편지: `LETTERS.content`
 - 이미 있는 행은 **필요한 필드만 갱신**한다 (예: 우표 이미지 키가 바뀌었을 때).
 - 자연키를 바꾸면 예전 행이 남고 새 행이 하나 더 생긴다. 시드 원본을 고칠 때 이 점을 명시한다.
 
@@ -58,15 +65,17 @@ try {
 
 `dearjolly.seed.{대상}.enabled` 를 `{대상}SeedProperties` 에 두고, 시더 첫 줄에서 확인한다.
 
-- **운영에 있어도 되는 시드**(우표처럼 서비스 데이터)만 기본값 `true`.
-- **테스트 편의용 시드**(목 사용자처럼 진짜 계정처럼 보이는 데이터)는 기본값 `false` 로 두고,
-  `infra/env/.env.local.example` 에서만 켠다. `.env.prod.example` 에는 키를 넣지 않는다.
-- 테스트가 시드에 영향받지 않도록 `src/test/resources/application.yaml` 에서 명시적으로 끈다.
+- **운영에 있어도 되는 시드**(우표·앱 버전처럼 서비스가 돌아가는 데 필요한 데이터)만 기본값 `true`.
+- **진짜 계정처럼 보이는 행을 만드는 시드**(관리자 시드 User)는 기본값을 `false` 로 두고 켤 환경에서만 켠다.
+- 통합 테스트는 각자 필요한 데이터만 만든다. `src/test/resources/application.yaml` 에서 전부 끈다.
 
-### 4. 순서는 `SeedOrder` 로 고정한다
+### 4. 시더끼리 의존하면 순서를 못 박는다
 
-`ApplicationRunner` 는 여러 개면 순서가 정해져 있지 않다. 시더끼리 의존이 있으면
-`@Order(SeedOrder.XXX)` 로 못 박고, 상수 옆에 왜 그 순서인지 적는다.
+`ApplicationRunner` 가 여러 개면 실행 순서가 정해져 있지 않다. 한 시더가 다른 시더의 결과를 읽어야 하면
+`@Order` 로 고정하고 **왜 그 순서인지 주석으로 남긴다.** 의존이 없으면 붙이지 않는다.
+
+`UserSeeder` 는 완료된 편지에 붙일 우표를 `STAMPS` 에서 찾으므로 `StampSeeder` 뒤에 돌아야 한다.
+그래서 이 둘만 `SeedOrder` 로 순서를 고정한다. `AppVersionSeeder` 는 누구와도 얽히지 않아 지정하지 않는다.
 
 ## 시드 원본을 어디에 둘지
 
@@ -76,35 +85,37 @@ try {
 | 텍스트 (편지 본문 등) | `{대상}SeedData.java` 의 `List` 상수 | 컴파일 시점에 깨지고, 어차피 재기동해야 반영된다 |
 | 환경마다 달라지는 값 | `{대상}SeedProperties` | `.env` 로 덮어쓸 수 있어야 한다 |
 
-## 목 사용자 시드
+## 값의 주인이 따로 있는 시드
 
-`MockUserSeeder` 가 소셜 로그인 없이 인증 API 를 두드릴 수 있는 계정 하나를 만든다.
-약관 동의·닉네임 등록까지 끝난 상태라 온보딩 인터셉터를 그대로 통과한다.
+`APP_VERSIONS` 처럼 **런타임에 API 로 바뀌는 값**은 시드가 "빈 자리만 채우는" 역할이어야 한다.
 
-- 편지는 `MockUserSeedData.LETTERS` 에 있다. 피드백이 붙은 편지는 우표·교정 조각·학습 팁까지
-  완성된 상태로 들어가고, `correctedContent` 가 없는 편지는 `SUBMITTED` 로 남는다.
-- 편지를 늘리거나 고칠 때는 `MockUserSeedDataTest` 가 편지 작성 API 의 제약
-  (500자·영문·우표 존재·팁 3개)을 대신 검증한다. 새 제약이 생기면 이 테스트에 추가한다.
-- 우표를 STAMPS 에서 찾아 붙이므로 `StampSeeder` 뒤에 돌아야 한다 (`SeedOrder.MOCK_USER`).
+- 행이 없을 때만 만들고, **이미 있는 행은 절대 덮어쓰지 않는다.**
+- 덮어쓰면 관리자가 올려 둔 값이 재기동·블루그린 배포마다 기본값으로 되돌아간다.
+- 기본값은 코드 상수(`VersionValidationConstants.DEFAULT_MIN_SUPPORTED_VERSION`)로 두고 설정에서 읽지 않는다.
+  설정에서 읽으면 "설정값과 실제 값 중 무엇이 정본인가"가 흐려진다.
 
-### 토큰 발급
-
-```bash
-./infra/scripts-local/seed/mock-token.sh            # 사람이 읽는 형식
-eval $(./infra/scripts-local/seed/mock-token.sh --export)
-./infra/scripts-local/seed/mock-token.sh --json     # jq 로 파싱
-./infra/scripts-local/seed/mock-token.sh --user-id 3
+```java
+if (appVersionRepository.existsById(platform)) {
+    continue;
+}
+appVersionRepository.save(AppVersions.create(platform, DEFAULT_MIN_SUPPORTED_VERSION));
 ```
 
-`.env.local` 의 `JWT_SECRET` 으로 서버 `JwtProvider` 와 같은 HS256 토큰을 로컬에서 직접 서명하고,
-Refresh Token 은 `USERS.refresh_token` 에도 기록해 `/api/v1/auth/reissue` 가 동작하게 한다.
+## 관리자 계정은 시드가 만든다
 
-**서버에 토큰 발급용 엔드포인트를 만들지 않는다.** 테스트 편의로 뚫은 구멍은 운영까지 따라간다.
-같은 이유로 이 스크립트는 `infra/scripts-local/` 아래에 두고 컨테이너 이미지에 넣지 않는다.
+관리자는 **별도 테이블이 아니라 `USERS` 행 하나**다. 일반 사용자와 같은 행이고 `role` 만 `ROLE_ADMIN` 이다.
+
+- 소셜 회원가입을 거치지 않으므로 시드가 만든다. `Users.createAdmin(…)` 을 쓴다.
+- **관리자 로그인 API 는 회원가입을 하지 않는다.** 아이디·비밀번호를 설정값과 대조한 뒤,
+  시드가 만들어 둔 계정을 찾아 토큰만 발급한다. 계정이 없으면 로그인도 실패한다.
+- 발급되는 토큰은 소셜 로그인 토큰과 형식·수명이 같다. 그래서 편지·홈 API 까지 같은 토큰으로 호출된다.
+- 온보딩 가드를 통과해야 쓸모가 있으므로, 약관 동의와 닉네임까지 채운 상태로 만든다.
 
 ## 하지 말 것
 
 - 마이그레이션 SQL 에 `INSERT` 를 넣는 것 — 체크섬이 굳어 고칠 수 없게 된다.
 - 시드에서 `deleteAll()` 후 다시 넣는 것 — 사용자가 만든 데이터를 지운다.
-- 목 사용자 시드를 운영 환경 설정에 넣는 것.
+- API 로 바꿀 수 있는 값을 시드가 매 기동마다 덮어쓰는 것.
 - 실제 발급된 토큰·키·비밀번호를 시드 데이터나 예제 `.env` 에 적는 것.
+- 테스트 편의를 위해 서버에 **인증을 우회하는** 엔드포인트를 만드는 것 — 그 구멍은 운영까지 따라간다.
+  아이디·비밀번호로 **인증을 거치는** 관리자 로그인은 이에 해당하지 않는다.

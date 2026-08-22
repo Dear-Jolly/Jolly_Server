@@ -12,10 +12,14 @@ import com.dearjolly.server.domain.letter.repository.StampRepository;
 import com.dearjolly.server.domain.user.entity.TermsAgreements;
 import com.dearjolly.server.domain.user.entity.Users;
 import com.dearjolly.server.domain.user.enums.OauthProvider;
+import com.dearjolly.server.domain.user.enums.Role;
 import com.dearjolly.server.domain.user.enums.TermsType;
 import com.dearjolly.server.domain.user.repository.TermsAgreementRepository;
 import com.dearjolly.server.domain.user.repository.UserRepository;
 import com.dearjolly.server.global.auth.jwt.JwtProvider;
+import com.dearjolly.server.global.version.entity.AppVersions;
+import com.dearjolly.server.global.version.enums.Platform;
+import com.dearjolly.server.global.version.repository.AppVersionRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import io.restassured.RestAssured;
@@ -48,6 +52,9 @@ public abstract class ApiTestSupport {
 
     @Autowired
     protected StampRepository stampRepository;
+
+    @Autowired
+    protected AppVersionRepository appVersionRepository;
 
     @Autowired
     protected TransactionTemplate transactionTemplate;
@@ -119,7 +126,23 @@ public abstract class ApiTestSupport {
         return letterRepository.save(letter);
     }
 
+    protected AppVersions 최소지원버전을_저장한다(Platform platform, String minSupportedVersion) {
+        return appVersionRepository.save(AppVersions.create(platform, minSupportedVersion));
+    }
+
     protected String 액세스토큰(Users user) {
         return "Bearer " + jwtProvider.createAccessToken(user.getId(), user.getRole());
+    }
+
+    // 관리자도 평범한 사용자 행이다. role 만 ROLE_ADMIN 이다.
+    protected Users 관리자_유저를_저장한다(String oauthId, String nickname) {
+        Users user = userRepository.save(Users.createAdmin(OauthProvider.KAKAO, oauthId, "admin@example.com"));
+        user.updateNickname(nickname);
+        필수약관에_동의한다(user);
+        return userRepository.save(user);
+    }
+
+    protected String 관리자_액세스토큰() {
+        return 액세스토큰(관리자_유저를_저장한다("admin-oauth-id", "admin"));
     }
 }

@@ -52,15 +52,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        Long userId;
+        JwtPayload payload;
         try {
-            userId = jwtProvider.getUserId(token.get());
+            payload = jwtProvider.payloadOf(token.get());
         } catch (JwtException | IllegalArgumentException e) {
             writeError(response, ErrorCode.ACCESS_TOKEN_INVALID);
             return;
         }
 
-        Optional<Users> found = userRepository.findById(userId);
+        Optional<Users> found = userRepository.findById(payload.userId());
         if (found.isEmpty()) {
             writeError(response, ErrorCode.ACCESS_TOKEN_INVALID);
             return;
@@ -72,15 +72,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        AuthUser authUser = new AuthUser(user.getId(), user.getRole());
+        authenticate(new AuthUser(user.getId(), user.getRole()));
+        filterChain.doFilter(request, response);
+    }
+
+    private void authenticate(AuthUser authUser) {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(
                         authUser,
                         null,
-                        List.of(new SimpleGrantedAuthority(user.getRole().name()))
+                        List.of(new SimpleGrantedAuthority(authUser.role().name()))
                 )
         );
-        filterChain.doFilter(request, response);
     }
 
     private Optional<String> resolveToken(HttpServletRequest request) {

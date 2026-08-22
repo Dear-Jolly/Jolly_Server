@@ -18,12 +18,13 @@ minio:
   bucket: dear-jolly-stamps
 
 dearjolly:
-  # 테스트는 MinIO 에 붙지 않는다.
+  # 통합 테스트는 각자 필요한 데이터만 만든다. 시드가 끼면 개수 검증이 어긋난다.
   seed:
     stamp:
       enabled: false
-    # 통합 테스트는 각자 필요한 데이터만 만든다. 시드가 끼면 개수 검증이 어긋난다.
-    mock-user:
+    app-version:
+      enabled: false
+    user:
       enabled: false
 
   jwt:
@@ -34,17 +35,13 @@ dearjolly:
     current-version: 1.0.0
   withdrawal:
     retention-days: 30
-  version:
-    latest: 1.2.0
-    min-supported: 1.0.0
-    force-update: false
+  policy:
     privacy-policy-url: https://dearjolly.com/privacy
     terms-of-service-url: https://dearjolly.com/terms
     notice-url: https://dearjolly.com/notice
-    platforms:
-      IOS:
-        min-supported: 1.1.0
-        force-update: true
+  admin:
+    username: test-admin
+    password: test-admin-password
   oauth:
     app-redirect-uri: dearjolly://auth/callback
     kakao:

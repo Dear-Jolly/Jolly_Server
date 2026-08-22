@@ -54,8 +54,13 @@ public class JwtProvider {
         return Long.valueOf(parse(token).getSubject());
     }
 
-    public Role getRole(String token) {
-        return Role.valueOf(parse(token).get(ROLE_CLAIM, String.class));
+    // 인증 필터는 요청마다 사용자와 권한을 함께 본다. 두 번 파싱하지 않도록 한 번에 꺼낸다.
+    public JwtPayload payloadOf(String token) {
+        Claims claims = parse(token);
+        return new JwtPayload(
+                Long.valueOf(claims.getSubject()),
+                Role.valueOf(claims.get(ROLE_CLAIM, String.class))
+        );
     }
 
     private String createToken(Long userId, Role role, long expireMillis) {

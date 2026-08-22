@@ -5,7 +5,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 최종 갱신 | 2026-08-22 |
+| 최종 갱신 | 2026-08-23 |
 | DBMS | MySQL 8.x / `utf8mb4` · `utf8mb4_0900_ai_ci` |
 | 스키마 관리 | **Flyway** 로 형상 관리. 스키마의 소유자는 마이그레이션이며 JPA 가 아니다 |
 | ID 전략 | 전 테이블 `GenerationType.IDENTITY` (`BIGINT AUTO_INCREMENT`) |
@@ -105,8 +105,16 @@ erDiagram
         INT sort_order UK "표시 순서 (1부터 연속)"
         VARCHAR_500 content "한국어 학습 팁 문장"
     }
+
+    APP_VERSIONS {
+        VARCHAR_10 platform PK "플랫폼 (Platform)"
+        VARCHAR_20 min_supported_version "이 버전 미만이면 강제 업데이트 (x.y.z)"
+        DATETIME updated_at "마지막 변경 시각"
+    }
 ```
 
+> `APP_VERSIONS` 는 다른 테이블과 관계가 없는 독립 설정 테이블이라 관계선이 없다.
+>
 > 각 컬럼의 맨 우측 열은 **한글 설명**이다. 제약(NOT NULL · DEFAULT · UNIQUE 등)과 컬럼별 상세는 [2. 테이블 정의](#2-테이블-정의) 의 `제약` 열을 참고한다.
 
 ### 카디널리티
@@ -233,13 +241,6 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 | 재실행 | 같은 키에 같은 크기로 올라가 있으면 업로드를 건너뛰고, 같은 `name` 행이 있으면 `image_key` 가 다를 때만 갱신한다 |
 
 `soon` 은 편지 등록 시점에 붙는 "준비 중" 우표다. `stamp_id = 1` 에 고정되고 LLM 우표 선택 후보에서는 빠진다 (A9-1).
-
-#### API 테스트용 목 사용자 시드 (로컬 전용)
-
-`global/seed/MockUserSeeder` 가 약관 동의·닉네임까지 끝난 계정 하나와 편지 몇 통을 넣는다.
-`USERS` · `TERMS_AGREEMENTS` · `LETTERS` · `FEEDBACKS` · `CORRECTION_SEGMENTS` · `FEEDBACK_TIPS` 를 가로질러 만들며,
-`(oauth_provider, oauth_id)` 와 `LETTERS.content` 를 자연키로 삼아 재기동해도 행이 불어나지 않는다.
-기본값은 꺼짐이고 `.env.local` 에서만 켠다. 실행 방법은 [infra/RUN.md](../infra/RUN.md) 를 본다.
 편지가 실제로 받는 우표는 피드백이 완료되는 시점에 정해진다.
 
 파일명이 곧 `name` 이자 파일 키라서 **파일을 넣는 것 외에 채울 값이 없다.** 우표를 추가하려면 이미지를 이 폴더에 두고 배포하면 된다.
@@ -300,6 +301,35 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 - UNIQUE `(feedback_id, sort_order)` — `CORRECTION_SEGMENTS` 와 동일한 순서 보장 규칙을 적용한다.
 - 한 피드백당 0~3행이다. 디자인의 팁없음 / 팁단일 / 팁여러개 세 가지 상태에 대응한다.
 - 조회 시 `ORDER BY sort_order ASC` 로 정렬하고, API 응답에서는 `feedback.tips` 문자열 배열로 평탄화한다.
+
+### 2.8 `APP_VERSIONS` — 플랫폼별 최소 지원 버전
+
+강제 업데이트 판정의 기준값이다. 설정이 아니라 테이블에 두는 이유는, 운영 중에 값을 바꿔야 하는데
+설정값은 재배포 전까지 바뀌지 않고 블루그린으로 두 인스턴스가 떠 있을 때 서로 다른 값을 들 수 있기 때문이다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+| --- | --- | --- | --- |
+| `platform` | VARCHAR(10) | PK | `Platform` Enum (`IOS`, `AOS`) |
+| `min_supported_version` | VARCHAR(20) | NOT NULL | `x.y.z` 형식. 이 버전 미만이면 강제 업데이트 대상 |
+| `updated_at` | DATETIME(6) | NOT NULL | 마지막 변경 시각 |
+
+- **대리키를 두지 않는다.** 플랫폼마다 행이 정확히 하나이고, 플랫폼 자체가 식별자다.
+- 값을 바꾸는 주체는 관리자 API(`PATCH /api/v1/version`) 하나뿐이다. 앱은 읽기만 한다.
+- 버전 비교(`x` → `y` → `z`)는 서버가 한다. 문자열 정렬로 비교하지 않는다.
+
+#### 초기 데이터 시드
+
+행을 손으로 넣지 않는다. 기동할 때 `global/seed/AppVersionSeeder` 가 **행이 없는 플랫폼만** 기본값 `1.0.0` 으로 채운다.
+이미 있는 행은 덮어쓰지 않으므로, 관리자가 올려 둔 값이 재기동이나 블루그린 배포로 되돌아가지 않는다.
+
+### 2.9 관리자 권한의 시드 User
+
+관리자는 **별도 테이블이 아니라 `USERS` 행 하나**다. 일반 사용자와 같은 행이고 `role` 만 `ROLE_ADMIN` 이다.
+
+- 소셜 회원가입을 거치지 않으므로 **`global/seed/UserSeeder` 가 만든다.** 관리자 로그인은 이 계정에 로그인만 한다.
+- 약관 동의(`TERMS_AGREEMENTS`)와 닉네임까지 채워 온보딩을 마친 상태로 넣고, 편지 몇 통도 함께 넣는다.
+- `(oauth_provider, oauth_id)` 와 `LETTERS.content` 를 자연키로 삼아 재기동해도 행이 불어나지 않는다.
+- 실제 계정처럼 보이는 행이 생기므로 기본값은 꺼짐이고, 켜는 환경에서만 만들어진다.
 
 ---
 
@@ -372,7 +402,10 @@ API 요청/응답의 `provider` 필드가 이 enum 이다. 문서 전체에서 �
 | `ROLE_USER` | 일반 사용자. `Users.create(…)` 의 기본값 |
 | `ROLE_ADMIN` | 관리자. `Users.createAdmin(…)` 로만 생성 |
 
-MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 재처리 같은 후속 경로를 위해 스키마에만 존재한다.
+`ROLE_ADMIN` 은 소셜 회원가입으로 만들어지지 않는다. [2.9 관리자 권한의 시드 User](#29-관리자-권한의-시드-user) 의 시더가 만든 계정에만 붙으며,
+아이디·비밀번호 로그인(`POST /api/v1/admin/login`)과 관리자 전용 API(`PATCH /api/v1/version`)의 대상이 된다.
+
+---
 
 ### 4.3 `UserStatus` — `USERS.status`
 
@@ -414,6 +447,15 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 | `MODIFIED` | 교정됨 | 원문에 빨간 취소선 + 뒤에 교정문 초록 하이라이트 |
 
 문법·어휘·철자 등 세부 교정 카테고리는 두지 않는다. API 응답에서의 필드명은 `type` 이다.
+
+---
+
+### 4.7 `Platform` — `APP_VERSIONS.platform`
+
+| 값 | 설명 |
+| --- | --- |
+| `IOS` | iOS |
+| `AOS` | Android |
 
 ---
 
@@ -502,7 +544,7 @@ MVP 에는 관리자 전용 API 가 없다. `ROLE_ADMIN` 은 운영자 수동 �
 
 ## 7. 부록: DDL
 
-Flyway 마이그레이션 `V1__init.sql` 의 내용이다. 이 문서와 마이그레이션 스크립트가 어긋나면 **이 문서를 기준으로 스크립트를 고친다.**
+Flyway 마이그레이션(`V1__init.sql` · `V2__app_versions.sql`)의 내용이다. 이 문서와 마이그레이션 스크립트가 어긋나면 **이 문서를 기준으로 스크립트를 고친다.**
 
 ```sql
 CREATE TABLE users (
@@ -592,6 +634,13 @@ CREATE TABLE feedback_tips (
     PRIMARY KEY (feedback_tip_id),
     UNIQUE KEY uk_tips_order (feedback_id, sort_order),
     CONSTRAINT fk_tips_feedback FOREIGN KEY (feedback_id) REFERENCES feedbacks (feedback_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE app_versions (
+    platform              VARCHAR(10) NOT NULL,
+    min_supported_version VARCHAR(20) NOT NULL,
+    updated_at            DATETIME(6) NOT NULL,
+    PRIMARY KEY (platform)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 ```
 

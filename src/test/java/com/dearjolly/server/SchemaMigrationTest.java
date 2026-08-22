@@ -39,7 +39,7 @@ class SchemaMigrationTest {
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
     }
 
-    @DisplayName("V1 마이그레이션으로 만든 스키마가 엔티티 매핑을 그대로 통과한다")
+    @DisplayName("마이그레이션으로 만든 스키마가 엔티티 매핑을 그대로 통과한다")
     @Test
     void migrationMatchesEntities() {
         List<?> tables = entityManager.createNativeQuery(
@@ -48,13 +48,20 @@ class SchemaMigrationTest {
 
         assertThat(tables.stream().map(String::valueOf).map(String::toLowerCase))
                 .contains("users", "terms_agreements", "stamps", "letters",
-                        "feedbacks", "correction_segments", "feedback_tips");
+                        "feedbacks", "correction_segments", "feedback_tips", "app_versions");
     }
 
     @DisplayName("우표 마스터 테이블은 빈 상태로 생성된다")
     @Test
     void createsEmptyStampTable() {
         Object count = entityManager.createNativeQuery("SELECT COUNT(*) FROM stamps").getSingleResult();
+        assertThat(((Number) count).intValue()).isZero();
+    }
+
+    @DisplayName("최소 지원 버전 테이블은 빈 상태로 생성된다. 행은 시더가 채운다")
+    @Test
+    void createsEmptyAppVersionTable() {
+        Object count = entityManager.createNativeQuery("SELECT COUNT(*) FROM app_versions").getSingleResult();
         assertThat(((Number) count).intValue()).isZero();
     }
 
