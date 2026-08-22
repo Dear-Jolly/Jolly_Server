@@ -13,12 +13,7 @@ spring:
 
   jpa:
     hibernate:
-      # 스키마는 Flyway 가 소유한다. 기본값은 validate 로 고정한다.
-      # 기본값을 절대 바꾸지 않는다 — 키가 빠진 환경에서 스키마가 조용히 뒤집힌다.
-      #
-      # 출시 전 개발 단계에 한해 .env 에서만 update 로 내려 쓴다. 그때는 FLYWAY_ENABLED=false
-      # 를 반드시 함께 내려 스키마 소유자를 하나로 유지한다. update 는 컬럼을 추가할 뿐
-      # 삭제하거나 타입을 줄이지 않으므로, 컬럼을 지웠다면 ./run.sh reset-db 로 한 번 비운다.
+      # 스키마는 Flyway 가 소유하고 Hibernate 는 대조만 한다. 전 환경 validate 로 고정한다.
       ddl-auto: ${JPA_DDL_AUTO:validate}
     show-sql: ${JPA_SHOW_SQL:true}
     # 응답 DTO 는 서비스 트랜잭션 안에서 조립하므로 뷰 렌더링 시점에 쿼리가 나갈 일이 없다.
@@ -28,8 +23,7 @@ spring:
       hibernate:
         format_sql: true
 
-  # 마이그레이션이 소유한 스키마와 Hibernate 가 만든 스키마는 동시에 존재할 수 없다.
-  # ddl-auto=create 로 개발하는 동안에는 false 로 내린다.
+  # 스키마 소유자는 Flyway 하나다.
   flyway:
     enabled: ${FLYWAY_ENABLED:true}
     baseline-on-migrate: true

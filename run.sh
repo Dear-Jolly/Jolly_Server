@@ -61,11 +61,8 @@ case "${1:-up}" in
     $COMPOSE down
     ;;
   reset-db)
-    # 스키마를 통째로 비우고 다시 만든다. 쓰는 상황이 두 가지다.
-    #   1) ddl-auto=update 로 개발 중 엔티티에서 컬럼을 지웠을 때. update 는 컬럼을
-    #      추가만 하고 지우지 않아, 비우지 않으면 DB 에 죽은 컬럼이 계속 남는다.
-    #   2) Flyway 를 켠 상태에서 V1__init.sql 을 고쳤을 때. checksum 불일치로 기동이 거부된다.
-    # 비운 뒤 스키마를 다시 만드는 주체는 설정에 따라 Flyway 이거나 Hibernate 다.
+    # 스키마를 통째로 비우고 Flyway 로 다시 만든다. V1__init.sql 을 고쳤을 때 쓴다.
+    # checksum 이 달라지면 Flyway 가 기동을 거부한다.
     #
     # DROP DATABASE 가 아니라 테이블만 지우는 이유는, 스키마를 지우면 그 스키마에
     # 걸린 사용자 권한까지 함께 사라져 앱이 접속하지 못하기 때문이다.
