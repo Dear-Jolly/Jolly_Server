@@ -38,6 +38,7 @@ out/
 
 ## application.yml ##
 *.yml
+!.github/workflows/*.yml
 
 ## QClass ##
 **/generated/
@@ -54,5 +55,6 @@ out/
 .DS_Store
 
 ## Docker 환경변수 ##
-.env
-!.env.example
+.env*
+!.env.local.example
+!.env.prod.example
