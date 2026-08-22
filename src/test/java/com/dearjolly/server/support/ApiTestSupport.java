@@ -1,5 +1,8 @@
 package com.dearjolly.server.support;
 
+import com.dearjolly.server.domain.feedback.entity.CorrectionSegments;
+import com.dearjolly.server.domain.feedback.entity.FeedbackTips;
+import com.dearjolly.server.domain.feedback.entity.Feedbacks;
 import com.dearjolly.server.domain.letter.entity.Letters;
 import com.dearjolly.server.domain.letter.entity.Stamps;
 import com.dearjolly.server.domain.letter.repository.LetterRepository;
@@ -15,6 +18,7 @@ import jakarta.persistence.PersistenceContext;
 import io.restassured.RestAssured;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -82,6 +86,24 @@ public abstract class ApiTestSupport {
             entityManager.persist(letter);
             return letter;
         });
+    }
+
+    protected Letters 피드백을_붙여_저장한다(
+            Letters letter,
+            String correctedContent,
+            List<String[]> segments,
+            List<String> tips
+    ) {
+        Feedbacks feedback = Feedbacks.create(letter, correctedContent, "claude-test");
+        int sequence = 1;
+        for (String[] segment : segments) {
+            CorrectionSegments.create(feedback, sequence++, segment[0], segment[1]);
+        }
+        int sortOrder = 1;
+        for (String tip : tips) {
+            FeedbackTips.create(feedback, tip, sortOrder++);
+        }
+        return letterRepository.save(letter);
     }
 
     protected String 액세스토큰(Users user) {

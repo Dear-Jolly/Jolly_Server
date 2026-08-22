@@ -6,6 +6,7 @@ import static org.springframework.http.HttpStatus.OK;
 import com.dearjolly.server.domain.letter.dto.request.LetterCreateRequest;
 import com.dearjolly.server.domain.letter.dto.response.LetterCreateResponse;
 import com.dearjolly.server.domain.letter.dto.response.LetterCreateResult;
+import com.dearjolly.server.domain.letter.dto.response.LetterGetResponse;
 import com.dearjolly.server.domain.letter.dto.response.LetterListResponse;
 import com.dearjolly.server.domain.letter.enums.LetterSort;
 import com.dearjolly.server.domain.letter.service.LetterService;
@@ -19,6 +20,7 @@ import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,6 +45,18 @@ public class LetterController {
         return ResponseEntity
                 .status(result.created() ? CREATED : OK)
                 .body(result.response());
+    }
+
+    @Operation(summary = "편지 상세 · 피드백 조회 (피드백이 완료된 편지는 조회 시 읽음 처리)")
+    @GetMapping("/{letterId}")
+    public ResponseEntity<LetterGetResponse> getLetter(
+            @LoginUser Long userId,
+            @Parameter(description = "조회할 편지의 ID", required = true)
+            @PathVariable Long letterId
+    ) {
+        return ResponseEntity
+                .status(OK)
+                .body(letterService.getLetter(userId, letterId));
     }
 
     @Operation(summary = "전체 편지 목록 조회")

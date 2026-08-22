@@ -11,6 +11,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface LetterRepository extends JpaRepository<Letters, Long> {
     Optional<Letters> findFirstByUserIdOrderByIdDesc(Long userId);
 
+    @EntityGraph(attributePaths = {"stamp", "feedback"})
+    Optional<Letters> findByIdAndUserId(Long id, Long userId);
+
     @EntityGraph(attributePaths = "stamp")
     Slice<Letters> findAllByUserId(Long userId, Pageable pageable);
 
