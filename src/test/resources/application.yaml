@@ -34,12 +34,14 @@ dearjolly:
   version:
     latest: 1.2.0
     min-supported: 1.0.0
+    force-update: false
     privacy-policy-url: https://dearjolly.com/privacy
     terms-of-service-url: https://dearjolly.com/terms
     notice-url: https://dearjolly.com/notice
     platforms:
       IOS:
         min-supported: 1.1.0
+        force-update: true
   oauth:
     app-redirect-uri: dearjolly://auth/callback
     kakao:

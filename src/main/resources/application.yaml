@@ -80,9 +80,11 @@ dearjolly:
 
   # 앱 최소 지원 버전과 정책 페이지 URL.
   # platforms 아래 값을 채우면 그 플랫폼만 공통 값을 덮어쓴다.
+  # force-update 는 강제 업데이트 캠페인을 켜는 운영 스위치다. 서버는 앱 버전을 모르므로 두 버전 값에서 유추하지 않는다.
   version:
     latest: ${APP_LATEST_VERSION:1.0.0}
     min-supported: ${APP_MIN_SUPPORTED_VERSION:1.0.0}
+    force-update: ${APP_FORCE_UPDATE:false}
     privacy-policy-url: ${POLICY_PRIVACY_URL:https://dearjolly.com/privacy}
     terms-of-service-url: ${POLICY_TERMS_URL:https://dearjolly.com/terms}
     notice-url: ${POLICY_NOTICE_URL:https://dearjolly.com/notice}

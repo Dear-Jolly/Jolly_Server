@@ -909,7 +909,8 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 
 - 앱 최소 지원 버전과 정책 페이지 URL 을 조회한다. **로그인 전에도 호출할 수 있다.**
 - 앱 버전이 `minSupportedVersion` 미만이면 강제 업데이트를 유도한다. **판정은 앱이 한다.** 서버는 앱 버전을 받지 않는다.
-- `forceUpdate` 는 참고용 보조 신호다. 앱은 자기 버전과 `minSupportedVersion` 을 직접 비교한다.
+- `forceUpdate` 는 **서버가 켜고 끄는 보조 신호**이며 `latestVersion` · `minSupportedVersion` 에서 계산한 값이 아니다. 두 값이 같아도 자동으로 `true` 가 되지 않는다.
+- 앱은 `forceUpdate` 를 믿고 판정하지 않는다. 자기 버전과 `minSupportedVersion` 을 직접 비교한다.
 - **공지사항 · 개인정보처리방침 · 이용약관은 별도 API 가 없다.** 이 응답의 링크를 웹뷰로 연다.
 - 설정 화면 하단의 `현재 버전` 표기는 앱 로컬 값이며 이 응답과 무관하다.
 - `platform` 이 `IOS` · `AOS` 가 아니면 `COMMON_001` 이다.
