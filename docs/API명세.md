@@ -14,22 +14,22 @@
 
 ## 1. 엔드포인트 목록
 
-| 바로가기 | # | 패키지 | Method | 엔드포인트 | 설명 | 인증 | 온보딩 | 구현 |
-| :---: | --- | --- | --- | --- | --- | :---: | :---: | :---: |
-| [↓](#1-get-apiv1authprovider) | 1 | user | `GET` | `/api/v1/auth/{provider}` | 소셜 로그인 시작 (provider 로그인 페이지로 리다이렉트) | — | — | ✅ |
-| [↓](#2-get-apiv1authkakaocallback) | 2 | user | `GET` | `/api/v1/auth/kakao/callback` | 카카오 콜백 (앱 딥링크로 리다이렉트) | — | — | ✅ |
-| [↓](#3-post-apiv1authapplecallback) | 3 | user | `POST` | `/api/v1/auth/apple/callback` | 애플 콜백 (`form_post`, 앱 딥링크로 리다이렉트) | — | — | ✅ |
-| [↓](#4-post-apiv1authreissue) | 4 | user | `POST` | `/api/v1/auth/reissue` | 토큰 재발급 | — | — | ✅ |
-| [↓](#5-post-apiv1authlogout) | 5 | user | `POST` | `/api/v1/auth/logout` | 로그아웃 | ✔ | — | ✅ |
-| [↓](#6-post-apiv1usersterms) | 6 | user | `POST` | `/api/v1/users/terms` | 약관 동의 · 마케팅 동의 철회 | ✔ | — | ✅ |
-| [↓](#7-get-apiv1users) | 7 | user | `GET` | `/api/v1/users` | 계정 정보 조회 | ✔ | — | ✅ |
-| [↓](#8-delete-apiv1users) | 8 | user | `DELETE` | `/api/v1/users` | 회원 탈퇴 | ✔ | — | ✅ |
-| [↓](#9-patch-apiv1usersnickname) | 9 | user | `PATCH` | `/api/v1/users/nickname` | 닉네임 설정 | ✔ | — | ✅ |
-| [↓](#10-post-apiv1letters) | 10 | letter | `POST` | `/api/v1/letters` | 편지 작성 + 피드백 요청 | ✔ | ✔ | ❌ |
-| [↓](#11-get-apiv1lettersletterid) | 11 | letter | `GET` | `/api/v1/letters/{letterId}` | 편지 및 피드백 상세 조회 | ✔ | ✔ | ❌ |
-| [↓](#12-get-apiv1letters) | 12 | letter | `GET` | `/api/v1/letters` | 전체 편지 리스트 조회 | ✔ | ✔ | ❌ |
-| [↓](#13-get-apiv1home) | 13 | letter | `GET` | `/api/v1/home` | 닉네임, 모은 우표 수 조회 | ✔ | ✔ | ❌ |
-| [↓](#14-get-apiv1version) | 14 | global | `GET` | `/api/v1/version` | 최소 지원 버전 조회 | — | — | ✅ |
+| # | 패키지 | Method | 엔드포인트 | 설명 | 인증 | 온보딩 | 구현 |
+| :---: | --- | --- | --- | --- | :---: | :---: | :---: |
+| [1](#1-get-apiv1authprovider) | user | `GET` | `/api/v1/auth/{provider}` | 소셜 로그인 시작 (provider 로그인 페이지로 리다이렉트) | — | — | ✅ |
+| [2](#2-get-apiv1authkakaocallback) | user | `GET` | `/api/v1/auth/kakao/callback` | 카카오 콜백 (앱 딥링크로 리다이렉트) | — | — | ✅ |
+| [3](#3-post-apiv1authapplecallback) | user | `POST` | `/api/v1/auth/apple/callback` | 애플 콜백 (`form_post`, 앱 딥링크로 리다이렉트) | — | — | ✅ |
+| [4](#4-post-apiv1authreissue) | user | `POST` | `/api/v1/auth/reissue` | 토큰 재발급 | — | — | ✅ |
+| [5](#5-post-apiv1authlogout) | user | `POST` | `/api/v1/auth/logout` | 로그아웃 | ✔ | — | ✅ |
+| [6](#6-post-apiv1usersterms) | user | `POST` | `/api/v1/users/terms` | 약관 동의 · 마케팅 동의 철회 | ✔ | — | ✅ |
+| [7](#7-get-apiv1users) | user | `GET` | `/api/v1/users` | 계정 정보 조회 | ✔ | — | ✅ |
+| [8](#8-delete-apiv1users) | user | `DELETE` | `/api/v1/users` | 회원 탈퇴 | ✔ | — | ✅ |
+| [9](#9-patch-apiv1usersnickname) | user | `PATCH` | `/api/v1/users/nickname` | 닉네임 설정 | ✔ | — | ✅ |
+| [10](#10-post-apiv1letters) | letter | `POST` | `/api/v1/letters` | 편지 작성 + 피드백 요청 | ✔ | ✔ | ❌ |
+| [11](#11-get-apiv1lettersletterid) | letter | `GET` | `/api/v1/letters/{letterId}` | 편지 및 피드백 상세 조회 | ✔ | ✔ | ❌ |
+| [12](#12-get-apiv1letters) | letter | `GET` | `/api/v1/letters` | 전체 편지 리스트 조회 | ✔ | ✔ | ❌ |
+| [13](#13-get-apiv1home) | letter | `GET` | `/api/v1/home` | 닉네임, 모은 우표 수 조회 | ✔ | ✔ | ❌ |
+| [14](#14-get-apiv1version) | global | `GET` | `/api/v1/version` | 최소 지원 버전 조회 | — | — | ✅ |
 
 - **패키지** 열은 서버 구현 위치다. `version` 은 도메인이 아니라 `global` 하위이며, `/api/v1/home` 은 편지 집계가 본질이므로 `letter` 도메인에 둔다.
 - **온보딩** 열이 ✔ 인 API 는 온보딩 미완료 시 `USER_005` 로 차단된다.
@@ -39,13 +39,21 @@
 ---
 
 ## 2. API 명세
+
 ### 1) GET /api/v1/auth/{provider}
 
 > 구현 완료 ✅
 
-| 설명 | 카카오 / 애플 소셜 로그인을 시작한다. 앱은 이 주소로 이동하기만 하면 되고, 응답으로 받은 provider 로그인 페이지를 외부 브라우저 또는 웹뷰로 연다.<br><br>**인증 책임을 전부 백엔드가 진다.** 로그인 페이지 요청 → 코드 발급 → 토큰 교환 → 유저 정보 조회 → JWT 발급까지 서버가 처리한다. 앱 SDK 로 받은 소셜 토큰을 서버에 전달하는 방식은 지원하지 않는다.<br><br>· 유저는 `(provider, provider 회원 식별자)` 조합으로 식별한다. 같은 이메일이라도 카카오와 애플은 별개 계정이다.<br>· `state` 파라미터를 authorize URL 에 실어 보내지만 **MVP 는 콜백에서 이 값을 검증하지 않는다.** |
-| :--- | :--- |
-| **스펙** | **Endpoint** · `GET /api/v1/auth/{provider}`<br><br>**Path Variable** · [필수] `provider` (String): 로그인 수단 (`KAKAO`, `APPLE`). 대문자만 허용한다<br><br>**인증** · 불필요 |
+#### [설명]
+
+카카오 / 애플 소셜 로그인을 시작한다. 앱은 이 주소로 이동하기만 하면 되고, 응답으로 받은 provider 로그인 페이지를 외부 브라우저 또는 웹뷰로 연다.
+
+**인증 책임을 전부 백엔드가 진다.** 로그인 페이지 요청 → 코드 발급 → 토큰 교환 → 유저 정보 조회 → JWT 발급까지 서버가 처리한다. 앱 SDK 로 받은 소셜 토큰을 서버에 전달하는 방식은 지원하지 않는다.
+
+- 유저는 `(provider, provider 회원 식별자)` 조합으로 식별한다. 같은 이메일이라도 카카오와 애플은 별개 계정이다.
+- `state` 파라미터를 authorize URL 에 실어 보내지만 **MVP 는 콜백에서 이 값을 검증하지 않는다.**
+
+전체 흐름은 다음과 같다.
 
 ```mermaid
 sequenceDiagram
@@ -65,7 +73,21 @@ sequenceDiagram
     API-->>App: 10. 302 → 앱 딥링크 (JWT 포함)
 ```
 
-#### 성공 Response 302
+#### [스펙]
+
+**Endpoint**
+
+```
+GET /api/v1/auth/{provider}
+```
+
+**Path Variable**
+
+- [필수] `provider` (String): 로그인 수단 (`KAKAO`, `APPLE`). 대문자만 허용한다
+
+**Authorization 헤더**: 불필요
+
+#### [성공 Response 302]
 
 provider 의 로그인 페이지로 리다이렉트한다.
 
@@ -74,7 +96,7 @@ HTTP/1.1 302 Found
 Location: https://kauth.kakao.com/oauth/authorize?client_id=...&redirect_uri=...&response_type=code&state=...
 ```
 
-#### 실패 Error Response
+#### [실패 Error Response]
 
 | code | status | 상황 |
 | --- | --- | --- |
@@ -88,11 +110,33 @@ Location: https://kauth.kakao.com/oauth/authorize?client_id=...&redirect_uri=...
 
 > 구현 완료 ✅
 
-| 설명 | 카카오가 호출하는 주소다. **앱이 직접 호출하지 않는다.** 카카오는 쿼리 파라미터로 인가 코드를 돌려주므로 `GET` 으로 받는다.<br><br>서버는 인가 코드를 토큰으로 교환하고 회원 정보를 조회한 뒤, 회원을 찾거나 새로 만들고 JWT 를 발급해 앱 딥링크로 리다이렉트한다.<br><br>· 가입 직후에는 약관 동의 이력이 없고 닉네임이 `null` 이다. 앱은 딥링크로 받은 온보딩 상태로 진입 화면을 결정한다.<br>· Refresh Token 은 **유저당 1개만 유지**한다(단일 세션). 새로 로그인하면 이전 토큰은 무효가 된다.<br>· **탈퇴한 계정으로 다시 로그인하면 항상 신규 가입**이다(`isNewUser=true`). 이전 편지는 복원되지 않는다.<br>· 서버는 provider 가 준 refresh token 을 함께 저장한다. 탈퇴 시 연결 해제에 필요하기 때문이다. |
-| :--- | :--- |
-| **스펙** | **Endpoint** · `GET /api/v1/auth/kakao/callback`<br><br>**인증** · 불필요<br><br>**Request Parameter** · [필수] `code` (String): 카카오가 발급한 인가 코드<br>· [선택] `state` (String): 로그인 시작 때 서버가 붙여 보낸 값이 그대로 돌아온다. MVP 는 검증하지 않는다 |
+#### [설명]
 
-#### 성공 Response 302
+카카오가 호출하는 주소다. **앱이 직접 호출하지 않는다.** 카카오는 쿼리 파라미터로 인가 코드를 돌려주므로 `GET` 으로 받는다.
+
+서버는 인가 코드를 토큰으로 교환하고 회원 정보를 조회한 뒤, 회원을 찾거나 새로 만들고 JWT 를 발급해 앱 딥링크로 리다이렉트한다.
+
+- 가입 직후에는 약관 동의 이력이 없고 닉네임이 `null` 이다. 앱은 딥링크로 받은 온보딩 상태로 진입 화면을 결정한다.
+- Refresh Token 은 **유저당 1개만 유지**한다(단일 세션). 새로 로그인하면 이전 토큰은 무효가 된다.
+- **탈퇴한 계정으로 다시 로그인하면 항상 신규 가입**이다(`isNewUser=true`). 이전 편지는 복원되지 않는다.
+- 서버는 provider 가 준 refresh token 을 함께 저장한다. 탈퇴 시 연결 해제에 필요하기 때문이다.
+
+#### [스펙]
+
+**Endpoint**
+
+```
+GET /api/v1/auth/kakao/callback
+```
+
+**Authorization 헤더**: 불필요
+
+**Request Parameter**
+
+- [필수] `code` (String): 카카오가 발급한 인가 코드
+- [선택] `state` (String): 로그인 시작 때 서버가 붙여 보낸 값이 그대로 돌아온다. MVP 는 검증하지 않는다
+
+#### [성공 Response 302]
 
 발급한 JWT 와 온보딩 상태를 쿼리 파라미터에 실어 앱 딥링크로 리다이렉트한다.
 
@@ -127,7 +171,7 @@ Location: dearjolly://auth/callback
 > **주의**: 토큰이 URL 쿼리 파라미터에 실린다. 앱은 딥링크를 받은 즉시 토큰을 보안 저장소
 > (iOS Keychain / Android EncryptedSharedPreferences)로 옮기고, 웹뷰를 쓴다면 히스토리를 비운다.
 
-#### 실패 Error Response
+#### [실패 Error Response]
 
 콜백 단계의 실패는 딥링크가 아니라 **JSON 에러 응답**으로 나간다.
 
@@ -142,15 +186,36 @@ Location: dearjolly://auth/callback
 
 > 구현 완료 ✅
 
-| 설명 | 애플이 호출하는 주소다. **앱이 직접 호출하지 않는다.** `scope` 를 요청하면 Apple 이 `response_mode=form_post` 를 강제하므로 `POST` 로 받으며, `code` 와 `id_token` 이 form 으로 온다.<br><br>회원 식별자(`sub`)와 이메일은 `id_token` 에서 꺼낸다. 서버는 Apple 공개키(JWK)로 서명을 검증하고 `iss` · `aud` · `exp` 를 확인한다.<br><br>· Apple 은 private relay 를 거부하면 이메일을 주지 않는다. 이때 `email` 은 `null` 로 저장하며 **서버가 대체 주소를 지어내지 않는다.**<br>· 나머지 회원 식별·토큰 정책은 카카오 콜백과 같다. |
-| :--- | :--- |
-| **스펙** | **Endpoint** · `POST /api/v1/auth/apple/callback`<br><br>**인증** · 불필요<br><br>**Request Parameter** · (`application/x-www-form-urlencoded`)<br><br>· [필수] `code` (String): 애플이 발급한 인가 코드<br>· [필수] `id_token` (String): 회원 식별자(`sub`)와 이메일을 여기서 꺼낸다<br>· [선택] `state` (String): 로그인 시작 때 서버가 붙여 보낸 값이 그대로 돌아온다. MVP 는 검증하지 않는다 |
+#### [설명]
 
-#### 성공 Response 302
+애플이 호출하는 주소다. **앱이 직접 호출하지 않는다.** `scope` 를 요청하면 Apple 이 `response_mode=form_post` 를 강제하므로 `POST` 로 받으며, `code` 와 `id_token` 이 form 으로 온다.
+
+회원 식별자(`sub`)와 이메일은 `id_token` 에서 꺼낸다. 서버는 Apple 공개키(JWK)로 서명을 검증하고 `iss` · `aud` · `exp` 를 확인한다.
+
+- Apple 은 private relay 를 거부하면 이메일을 주지 않는다. 이때 `email` 은 `null` 로 저장하며 **서버가 대체 주소를 지어내지 않는다.**
+- 나머지 회원 식별·토큰 정책은 카카오 콜백과 같다.
+
+#### [스펙]
+
+**Endpoint**
+
+```
+POST /api/v1/auth/apple/callback
+```
+
+**Authorization 헤더**: 불필요
+
+**Request Parameter** (`application/x-www-form-urlencoded`)
+
+- [필수] `code` (String): 애플이 발급한 인가 코드
+- [필수] `id_token` (String): 회원 식별자(`sub`)와 이메일을 여기서 꺼낸다
+- [선택] `state` (String): 로그인 시작 때 서버가 붙여 보낸 값이 그대로 돌아온다. MVP 는 검증하지 않는다
+
+#### [성공 Response 302]
 
 카카오 콜백과 동일한 형태로 앱 딥링크에 리다이렉트한다. 파라미터 구성과 앱 분기 규칙은 [2) GET /api/v1/auth/kakao/callback](#2-get-apiv1authkakaocallback) 을 따른다.
 
-#### 실패 Error Response
+#### [실패 Error Response]
 
 | code | status | 상황 |
 | --- | --- | --- |
@@ -163,9 +228,24 @@ Location: dearjolly://auth/callback
 
 > 구현 완료 ✅
 
-| 설명 | Refresh Token 으로 Access Token 을 재발급한다. Refresh Token 도 함께 재발급(회전)되며 이전 토큰은 즉시 무효화된다.<br><br>· Access Token 만료는 30분, Refresh Token 만료는 14일이다.<br>· 전달받은 Refresh Token 이 **서버에 저장된 값과 문자열까지 일치**해야 한다. 불일치하면 탈취된 이전 토큰의 재사용으로 보고 거절한다.<br>· **만료된 Access Token 으로도 호출할 수 있도록 인증 필터에서 제외한다.** `Authorization` 헤더가 실려 와도 서버는 읽지 않는다. 앱의 토큰 인터셉터가 모든 요청에 헤더를 붙여도 재발급은 정상 동작한다.<br>· 탈퇴 처리된 계정의 Refresh Token 은 탈퇴 시점에 `null` 이 되므로 `AUTH_004` 로 거절된다. |
-| :--- | :--- |
-| **스펙** | **Endpoint** · `POST /api/v1/auth/reissue`<br><br>**인증** · 불필요. 만료된 토큰이 실려 있어도 서버가 무시하므로 앱이 헤더를 떼어낼 필요가 없다. |
+#### [설명]
+
+Refresh Token 으로 Access Token 을 재발급한다. Refresh Token 도 함께 재발급(회전)되며 이전 토큰은 즉시 무효화된다.
+
+- Access Token 만료는 30분, Refresh Token 만료는 14일이다.
+- 전달받은 Refresh Token 이 **서버에 저장된 값과 문자열까지 일치**해야 한다. 불일치하면 탈취된 이전 토큰의 재사용으로 보고 거절한다.
+- **만료된 Access Token 으로도 호출할 수 있도록 인증 필터에서 제외한다.** `Authorization` 헤더가 실려 와도 서버는 읽지 않는다. 앱의 토큰 인터셉터가 모든 요청에 헤더를 붙여도 재발급은 정상 동작한다.
+- 탈퇴 처리된 계정의 Refresh Token 은 탈퇴 시점에 `null` 이 되므로 `AUTH_004` 로 거절된다.
+
+#### [스펙]
+
+**Endpoint**
+
+```
+POST /api/v1/auth/reissue
+```
+
+**Authorization 헤더**: 불필요. 만료된 토큰이 실려 있어도 서버가 무시하므로 앱이 헤더를 떼어낼 필요가 없다.
 
 **Body**
 
@@ -177,7 +257,7 @@ Location: dearjolly://auth/callback
 
 - [필수] `refreshToken` (String): 로그인 시 발급받은 리프레시 토큰
 
-#### 성공 Response 200
+#### [성공 Response 200]
 
 ```json
 {
@@ -189,7 +269,7 @@ Location: dearjolly://auth/callback
 - [필수] `accessToken` (String): 새 액세스 토큰
 - [필수] `refreshToken` (String): 새 리프레시 토큰 (앱은 기존 값을 이 값으로 교체 저장)
 
-#### 실패 Error Response
+#### [실패 Error Response]
 
 ```json
 {
@@ -211,17 +291,37 @@ Location: dearjolly://auth/callback
 
 > 구현 완료 ✅
 
-| 설명 | 서버에 저장된 Refresh Token 을 무효화한다. 카카오 세션 종료 등 소셜 로그아웃은 앱 SDK 에서 처리한다.<br><br>· 로그아웃은 **세션만 끊는다.** 편지·계정 데이터는 그대로 보존된다 (디자인 문구: *"편지는 잘 보관해 둘게요. 언제든 다시 와요!"*).<br>· 계정과 데이터를 지우는 것은 회원 탈퇴뿐이다.<br>· 온보딩 미완료 상태에서도 호출할 수 있다. |
-| :--- | :--- |
-| **스펙** | **Endpoint** · `POST /api/v1/auth/logout`<br><br>**인증** · `Authorization: Bearer {accessToken}` 필요<br><br>**Body** · 없음 |
+#### [설명]
 
-#### 성공 Response 204
+서버에 저장된 Refresh Token 을 무효화한다. 카카오 세션 종료 등 소셜 로그아웃은 앱 SDK 에서 처리한다.
+
+- 로그아웃은 **세션만 끊는다.** 편지·계정 데이터는 그대로 보존된다 (디자인 문구: *"편지는 잘 보관해 둘게요. 언제든 다시 와요!"*).
+- 계정과 데이터를 지우는 것은 회원 탈퇴뿐이다.
+- 온보딩 미완료 상태에서도 호출할 수 있다.
+
+#### [스펙]
+
+**Endpoint**
+
+```
+POST /api/v1/auth/logout
+```
+
+**Authorization 헤더**
+
+```
+Bearer eyJhbGciOiJIUzI1NiJ9...
+```
+
+**Body**: 없음
+
+#### [성공 Response 204]
 
 ```
 (No Content)
 ```
 
-#### 실패 Error Response
+#### [실패 Error Response]
 
 공통 인증 실패 코드(`AUTH_005` · `AUTH_007`)만 발생한다.
 
@@ -231,9 +331,31 @@ Location: dearjolly://auth/callback
 
 > 구현 완료 ✅
 
-| 설명 | 온보딩 약관 동의 내역을 저장한다. 설정 화면에서 마케팅 동의를 철회할 때도 같은 API 를 쓴다. 필수 약관(`SERVICE`, `PRIVACY`)에 모두 동의해야 통과한다.<br><br>· `MARKETING` 은 선택 항목이며 동의하지 않아도 서비스 이용에 제한이 없다.<br>· 동의 내역은 **덮어쓰지 않고 이력으로 누적**한다. 요청에 담긴 항목마다 새 행이 쌓이며, 현재 상태는 항목별 최신 행이다.<br>· 동의 시각은 **서버 시각(KST)** 으로 기록한다. 동의 시점의 약관 버전도 함께 기록한다.<br>· **약관이 개정돼도 재동의를 요구하지 않는다.** 버전은 사후 입증용 기록이며 `termsAgreed` 판별에 쓰지 않는다.<br>· 요청 바디에 포함하지 않은 항목은 건드리지 않는다. 마케팅만 철회하려면 `MARKETING` 한 건만 보내면 된다.<br>· **`USER_002` 로 실패하면 그 요청의 INSERT 는 전부 롤백된다.** 필수 약관이 채워지지 않은 채 동의 이력만 절반 쌓이는 상태를 만들지 않기 위해서다. 앱은 필수 2건을 항상 함께 보낸다.<br>· 약관 본문은 서버가 제공하지 않는다. 웹뷰 링크로 처리한다. |
-| :--- | :--- |
-| **스펙** | **Endpoint** · `POST /api/v1/users/terms`<br><br>**인증** · `Authorization: Bearer {accessToken}` 필요 |
+#### [설명]
+
+온보딩 약관 동의 내역을 저장한다. 설정 화면에서 마케팅 동의를 철회할 때도 같은 API 를 쓴다. 필수 약관(`SERVICE`, `PRIVACY`)에 모두 동의해야 통과한다.
+
+- `MARKETING` 은 선택 항목이며 동의하지 않아도 서비스 이용에 제한이 없다.
+- 동의 내역은 **덮어쓰지 않고 이력으로 누적**한다. 요청에 담긴 항목마다 새 행이 쌓이며, 현재 상태는 항목별 최신 행이다.
+- 동의 시각은 **서버 시각(KST)** 으로 기록한다. 동의 시점의 약관 버전도 함께 기록한다.
+- **약관이 개정돼도 재동의를 요구하지 않는다.** 버전은 사후 입증용 기록이며 `termsAgreed` 판별에 쓰지 않는다.
+- 요청 바디에 포함하지 않은 항목은 건드리지 않는다. 마케팅만 철회하려면 `MARKETING` 한 건만 보내면 된다.
+- **`USER_002` 로 실패하면 그 요청의 INSERT 는 전부 롤백된다.** 필수 약관이 채워지지 않은 채 동의 이력만 절반 쌓이는 상태를 만들지 않기 위해서다. 앱은 필수 2건을 항상 함께 보낸다.
+- 약관 본문은 서버가 제공하지 않는다. 웹뷰 링크로 처리한다.
+
+#### [스펙]
+
+**Endpoint**
+
+```
+POST /api/v1/users/terms
+```
+
+**Authorization 헤더**
+
+```
+Bearer eyJhbGciOiJIUzI1NiJ9...
+```
 
 **Body**
 
@@ -261,7 +383,7 @@ Location: dearjolly://auth/callback
 }
 ```
 
-#### 성공 Response 200
+#### [성공 Response 200]
 
 ```json
 {
@@ -271,7 +393,7 @@ Location: dearjolly://auth/callback
 
 - [필수] `termsAgreed` (Boolean): 이 요청 반영 후의 필수 약관 동의 완료 여부
 
-#### 실패 Error Response
+#### [실패 Error Response]
 
 ```json
 {
@@ -294,11 +416,29 @@ Location: dearjolly://auth/callback
 
 > 구현 완료 ✅
 
-| 설명 | 설정 화면에 표시할 계정 정보를 조회한다.<br><br>· 이메일은 Apple private relay 거부 등으로 제공되지 않을 수 있다. 이 경우 `null` 이며 앱은 provider 명만 표시한다. **서버가 대체 주소를 지어내지 않는다.**<br>· 온보딩을 마치지 않은 유저는 `nickname` 이 `null` 이다. 이 API 는 온보딩 가드 대상이 아니므로 그 상태로도 호출된다.<br>· `marketingAgreed` 는 `MARKETING` 의 **최신 동의 이력**의 값이다. 이력이 없으면 `false` 다. |
-| :--- | :--- |
-| **스펙** | **Endpoint** · `GET /api/v1/users`<br><br>**인증** · `Authorization: Bearer {accessToken}` 필요 |
+#### [설명]
 
-#### 성공 Response 200
+설정 화면에 표시할 계정 정보를 조회한다.
+
+- 이메일은 Apple private relay 거부 등으로 제공되지 않을 수 있다. 이 경우 `null` 이며 앱은 provider 명만 표시한다. **서버가 대체 주소를 지어내지 않는다.**
+- 온보딩을 마치지 않은 유저는 `nickname` 이 `null` 이다. 이 API 는 온보딩 가드 대상이 아니므로 그 상태로도 호출된다.
+- `marketingAgreed` 는 `MARKETING` 의 **최신 동의 이력**의 값이다. 이력이 없으면 `false` 다.
+
+#### [스펙]
+
+**Endpoint**
+
+```
+GET /api/v1/users
+```
+
+**Authorization 헤더**
+
+```
+Bearer eyJhbGciOiJIUzI1NiJ9...
+```
+
+#### [성공 Response 200]
 
 ```json
 {
@@ -314,7 +454,7 @@ Location: dearjolly://auth/callback
 - [선택] `email` (String): 소셜 계정 이메일 (provider 미제공 시 `null`)
 - [필수] `marketingAgreed` (Boolean): 마케팅 수신 동의 여부
 
-#### 실패 Error Response
+#### [실패 Error Response]
 
 ```json
 {
@@ -336,17 +476,49 @@ Location: dearjolly://auth/callback
 
 > 구현 완료 ✅
 
-| 설명 | 회원 탈퇴를 처리한다. 모든 편지와 계정 정보가 삭제되며 복구할 수 없다.<br><br>· **사용자 관점에서 삭제는 되돌릴 수 없다.** 편지·피드백·교정 내역이 모두 사라진다 (디자인 문구: *"탈퇴하면 모든 편지와 계정 정보가 함께 삭제되며 다시 복구할 수 없어요."*).<br>· **서버는 즉시 접근을 차단한 뒤 30일간 데이터를 보존하고, 유예기간이 지나면 완전 삭제한다.** 오삭제 복구와 분쟁 대응을 위한 내부 보존이며, 사용자에게 노출되는 복구 수단은 없다. 이 사실은 개인정보처리방침의 보유기간 항목에 명시한다.<br>· 탈퇴 즉시 Refresh Token 이 무효화되고, 남아 있는 Access Token 도 `AUTH_007`(401) 로 거절된다.<br>· 탈퇴 후 같은 소셜 계정으로 다시 로그인하면 **신규 가입**으로 처리된다.<br>· Apple 유저는 **토큰 revoke 가 필수**다(App Store 심사 요건). 서버가 로그인 때 저장해 둔 refresh token 으로 수행하므로 앱이 인가 코드를 따로 보낼 필요가 없다.<br>· 소셜 연결 해제(unlink / revoke)에 실패해도 **탈퇴 처리는 계속 진행**한다. 사용자가 탈퇴하지 못하는 상태에 갇히지 않게 하기 위함이다.<br>· 온보딩 미완료 상태에서도 탈퇴할 수 있다.<br><br>**처리 순서**<br><br>1. 소셜 연결 해제 (Kakao `unlink` / Apple `revoke`, 저장해 둔 provider refresh token 사용) — **트랜잭션 밖에서** 수행하며, 실패해도 로그만 남기고 탈퇴는 계속 진행 2. 계정을 탈퇴 상태로 전환하고 Refresh Token 을 무효화 (단일 트랜잭션) 3. 유예기간(30일) 경과 후 배치가 유저 행을 삭제하면 약관 이력·편지·피드백·교정 조각·팁이 cascade 로 함께 제거된다<br><br>> 삭제 순서를 서버 코드가 지정하지 않는다. 유저 엔티티 하나를 삭제하면 JPA cascade 가 전 구간을 연쇄 삭제한다. |
-| :--- | :--- |
-| **스펙** | **Endpoint** · `DELETE /api/v1/users`<br><br>**인증** · `Authorization: Bearer {accessToken}` 필요<br><br>**Body** · 없음 |
+#### [설명]
 
-#### 성공 Response 204
+회원 탈퇴를 처리한다. 모든 편지와 계정 정보가 삭제되며 복구할 수 없다.
+
+- **사용자 관점에서 삭제는 되돌릴 수 없다.** 편지·피드백·교정 내역이 모두 사라진다 (디자인 문구: *"탈퇴하면 모든 편지와 계정 정보가 함께 삭제되며 다시 복구할 수 없어요."*).
+- **서버는 즉시 접근을 차단한 뒤 30일간 데이터를 보존하고, 유예기간이 지나면 완전 삭제한다.** 오삭제 복구와 분쟁 대응을 위한 내부 보존이며, 사용자에게 노출되는 복구 수단은 없다. 이 사실은 개인정보처리방침의 보유기간 항목에 명시한다.
+- 탈퇴 즉시 Refresh Token 이 무효화되고, 남아 있는 Access Token 도 `AUTH_007`(401) 로 거절된다.
+- 탈퇴 후 같은 소셜 계정으로 다시 로그인하면 **신규 가입**으로 처리된다.
+- Apple 유저는 **토큰 revoke 가 필수**다(App Store 심사 요건). 서버가 로그인 때 저장해 둔 refresh token 으로 수행하므로 앱이 인가 코드를 따로 보낼 필요가 없다.
+- 소셜 연결 해제(unlink / revoke)에 실패해도 **탈퇴 처리는 계속 진행**한다. 사용자가 탈퇴하지 못하는 상태에 갇히지 않게 하기 위함이다.
+- 온보딩 미완료 상태에서도 탈퇴할 수 있다.
+
+**처리 순서**
+
+1. 소셜 연결 해제 (Kakao `unlink` / Apple `revoke`, 저장해 둔 provider refresh token 사용) — **트랜잭션 밖에서** 수행하며, 실패해도 로그만 남기고 탈퇴는 계속 진행
+2. 계정을 탈퇴 상태로 전환하고 Refresh Token 을 무효화 (단일 트랜잭션)
+3. 유예기간(30일) 경과 후 배치가 유저 행을 삭제하면 약관 이력·편지·피드백·교정 조각·팁이 cascade 로 함께 제거된다
+
+> 삭제 순서를 서버 코드가 지정하지 않는다. 유저 엔티티 하나를 삭제하면 JPA cascade 가 전 구간을 연쇄 삭제한다.
+
+#### [스펙]
+
+**Endpoint**
+
+```
+DELETE /api/v1/users
+```
+
+**Authorization 헤더**
+
+```
+Bearer eyJhbGciOiJIUzI1NiJ9...
+```
+
+**Body**: 없음
+
+#### [성공 Response 204]
 
 ```
 (No Content)
 ```
 
-#### 실패 Error Response
+#### [실패 Error Response]
 
 ```json
 {
@@ -366,9 +538,30 @@ Location: dearjolly://auth/callback
 
 > 구현 완료 ✅
 
-| 설명 | 닉네임을 등록하거나 변경한다. 온보딩(이름 입력)과 설정(이름 변경)이 동일한 API 를 쓴다.<br><br>· 닉네임은 Jolly 에게 보여줄 **표시용 이름**이므로 **중복을 허용**한다. 유니크 제약이 없어 중복 에러도 없다.<br>· 영문·숫자 1~20자만 허용한다. 길이는 **문자 수** 기준으로 세며 앱의 `10/20` 카운터와 일치한다.<br>· **검증은 길이 → 문자 순서로 수행한다.** 두 조건을 동시에 어겨도 먼저 걸린 사유 하나만 반환한다. 앱이 사유별로 다른 문구를 보여줘야 하기 때문이다.<br>· 검증은 **전 구간을 서비스가 맡는다.** 요청 DTO 에 Bean Validation 어노테이션을 두지 않는다 — 어노테이션이 먼저 걸리면 `null` · 빈 값 · 공백이 모두 `COMMON_001` 이 되어 사유를 구분할 수 없다.<br>· 변경 횟수에 제한이 없고, 이전 닉네임은 보관하지 않는다.<br>· 앱은 사유별 문구(`공백을 포함할 수 없어요` / `특수 기호를 포함할 수 없어요` / `한글을 포함할 수 없어요`)를 클라이언트에서 판별해 표시한다. 서버는 최종 방어선이다. |
-| :--- | :--- |
-| **스펙** | **Endpoint** · `PATCH /api/v1/users/nickname`<br><br>**인증** · `Authorization: Bearer {accessToken}` 필요 |
+#### [설명]
+
+닉네임을 등록하거나 변경한다. 온보딩(이름 입력)과 설정(이름 변경)이 동일한 API 를 쓴다.
+
+- 닉네임은 Jolly 에게 보여줄 **표시용 이름**이므로 **중복을 허용**한다. 유니크 제약이 없어 중복 에러도 없다.
+- 영문·숫자 1~20자만 허용한다. 길이는 **문자 수** 기준으로 세며 앱의 `10/20` 카운터와 일치한다.
+- **검증은 길이 → 문자 순서로 수행한다.** 두 조건을 동시에 어겨도 먼저 걸린 사유 하나만 반환한다. 앱이 사유별로 다른 문구를 보여줘야 하기 때문이다.
+- 검증은 **전 구간을 서비스가 맡는다.** 요청 DTO 에 Bean Validation 어노테이션을 두지 않는다 — 어노테이션이 먼저 걸리면 `null` · 빈 값 · 공백이 모두 `COMMON_001` 이 되어 사유를 구분할 수 없다.
+- 변경 횟수에 제한이 없고, 이전 닉네임은 보관하지 않는다.
+- 앱은 사유별 문구(`공백을 포함할 수 없어요` / `특수 기호를 포함할 수 없어요` / `한글을 포함할 수 없어요`)를 클라이언트에서 판별해 표시한다. 서버는 최종 방어선이다.
+
+#### [스펙]
+
+**Endpoint**
+
+```
+PATCH /api/v1/users/nickname
+```
+
+**Authorization 헤더**
+
+```
+Bearer eyJhbGciOiJIUzI1NiJ9...
+```
 
 **Body**
 
@@ -393,7 +586,7 @@ Location: dearjolly://auth/callback
 - 21자 영문은 `USER_004`, 5자 한글은 `USER_003`, 21자 한글은 `USER_004` 다.
 - `null` 과 `""` 는 0자이므로 `USER_004`, **공백만 있는 `"   "` 는 길이(3자)를 통과해 문자 검증에서 `USER_003`** 이다.
 
-#### 성공 Response 200
+#### [성공 Response 200]
 
 ```json
 {
@@ -403,7 +596,7 @@ Location: dearjolly://auth/callback
 
 - [필수] `nickname` (String): 변경된 닉네임
 
-#### 실패 Error Response
+#### [실패 Error Response]
 
 ```json
 {
@@ -425,9 +618,30 @@ Location: dearjolly://auth/callback
 
 > 미구현 ❌
 
-| 설명 | 새로운 편지를 작성한다. 편지가 저장되면 AI 피드백 프로세스가 트리거되며, 피드백은 비동기로 처리되므로 이 API 는 결과를 기다리지 않고 즉시 반환한다.<br><br>· 편지는 **전달 후 수정·삭제할 수 없다.** 수정·삭제 API 자체를 제공하지 않는다 (디자인 문구: *"전달된 편지는 다시 고칠 수 없어요."*).<br>· 본문은 **영어 전용, 1~500자**다. 한글이 섞이면 거부한다. 숫자·구두점·이모지는 허용한다.<br>· 편지 날짜는 **클라이언트가 보낸 작성 시각**의 날짜 부분이다. 작성 화면의 `DATE:` 는 변경할 수 없는 UI 이므로 화면 표시와 항상 일치하며, 서버는 임의 날짜 조작만 차단한다.<br>· **하루 작성 개수 제한이 없다.** 같은 날짜에 여러 통을 쓰면 목록에 같은 날짜 카드가 여러 개 쌓인다.<br>· 생성 직후 상태는 항상 `SUBMITTED` 이고, 우표는 **아직 부여되지 않는다.** 피드백이 완료돼야 우표가 도착한다.<br>· **중복 전달은 서버가 막는다.** 동일 유저가 60초 이내에 같은 본문을 다시 보내면 새 편지를 만들지 않고 최초 편지를 `200 OK` 로 반환한다. 앱이 별도 헤더를 보낼 필요가 없다. |
-| :--- | :--- |
-| **스펙** | **Endpoint** · `POST /api/v1/letters`<br><br>**인증** · `Authorization: Bearer {accessToken}` 필요 |
+#### [설명]
+
+새로운 편지를 작성한다. 편지가 저장되면 AI 피드백 프로세스가 트리거되며, 피드백은 비동기로 처리되므로 이 API 는 결과를 기다리지 않고 즉시 반환한다.
+
+- 편지는 **전달 후 수정·삭제할 수 없다.** 수정·삭제 API 자체를 제공하지 않는다 (디자인 문구: *"전달된 편지는 다시 고칠 수 없어요."*).
+- 본문은 **영어 전용, 1~500자**다. 한글이 섞이면 거부한다. 숫자·구두점·이모지는 허용한다.
+- 편지 날짜는 **클라이언트가 보낸 작성 시각**의 날짜 부분이다. 작성 화면의 `DATE:` 는 변경할 수 없는 UI 이므로 화면 표시와 항상 일치하며, 서버는 임의 날짜 조작만 차단한다.
+- **하루 작성 개수 제한이 없다.** 같은 날짜에 여러 통을 쓰면 목록에 같은 날짜 카드가 여러 개 쌓인다.
+- 생성 직후 상태는 항상 `SUBMITTED` 이고, 우표는 **아직 부여되지 않는다.** 피드백이 완료돼야 우표가 도착한다.
+- **중복 전달은 서버가 막는다.** 동일 유저가 60초 이내에 같은 본문을 다시 보내면 새 편지를 만들지 않고 최초 편지를 `200 OK` 로 반환한다. 앱이 별도 헤더를 보낼 필요가 없다.
+
+#### [스펙]
+
+**Endpoint**
+
+```
+POST /api/v1/letters
+```
+
+**Authorization 헤더**
+
+```
+Bearer eyJhbGciOiJIUzI1NiJ9...
+```
 
 **Body**
 
@@ -456,7 +670,7 @@ Location: dearjolly://auth/callback
 - 0자·공백은 `LETTER_001` 이 담당하므로 `LETTER_003` 은 **상한만** 판정한다. 두 코드의 담당 구간이 겹치지 않는다.
 - 편지 날짜(`date`)는 `writtenAt` 의 날짜 부분이다. `writtenAt` 이 이미 기기 로컬 시각이므로 별도 환산이 없다. `timeZone` 은 ±24시간 검증과 `createdAt` 변환에 쓴다.
 
-#### 성공 Response 201
+#### [성공 Response 201]
 
 ```json
 {
@@ -470,7 +684,7 @@ Location: dearjolly://auth/callback
 - [필수] `date` (LocalDate): 편지 날짜 (`writtenAt` 의 날짜 부분)
 - [필수] `createdAt` (LocalDateTime): 저장 시각 (요청의 `timeZone` 기준으로 변환)
 
-#### 성공 Response 200 — 중복 전달
+#### [성공 Response 200 — 중복 전달]
 
 동일 유저가 60초 이내에 같은 `content` 를 다시 보낸 경우다. 응답 본문은 **최초 편지의 생성 결과와 동일**하다.
 
@@ -485,7 +699,7 @@ Location: dearjolly://auth/callback
 - 앱은 201 과 200 을 구분할 필요 없이 동일하게 완료 화면으로 이동한다.
 - 새 편지가 만들어지지 않으므로 피드백도 중복 요청되지 않는다.
 
-#### 실패 Error Response
+#### [실패 Error Response]
 
 ```json
 {
@@ -509,11 +723,45 @@ Location: dearjolly://auth/callback
 
 > 미구현 ❌
 
-| 설명 | 특정 편지의 상세 내용과 도착한 피드백(교정문, 팁 등)을 조회한다. 조회에 성공하면 해당 편지는 읽음 처리된다.<br><br>· **본인 편지만** 조회할 수 있다. 타인의 편지는 존재 여부를 숨기기 위해 403 이 아닌 404 로 응답한다.<br>· 피드백 완료 전에도 응답은 성공하지만 `feedback` 이 `null` 이다. 앱은 완료 전 카드의 진입 자체를 막는다.<br>· 읽음 처리는 이 API 의 **부수 효과**다. 별도의 읽음 처리 API 는 없으며, 한 번 읽으면 다시 미열람으로 되돌아가지 않는다.<br>· 교정 결과는 원문 전체를 순서대로 자른 조각(`correctionSegments`)으로 내려간다. 조각을 이어붙이면 원문·교정문이 그대로 복원되는 것을 서버가 보장한다.<br>· 팁은 편지마다 0~3개다. 없을 수도 있다 (잘 쓴 편지).<br>· 우표는 **AI 가 편지 내용에 어울리는 것으로 고른다.** 우표 종류는 DB(`stamps` 테이블)가 관리하므로 운영 중 추가·교체될 수 있다. 앱은 `stampImage` URL 을 그대로 표시하고 **우표 종류를 코드로 분기하지 않는다.** 서버가 우표에 대해 가진 정보도 이름과 이미지뿐이라 응답에 실을 설명 문구가 없다.<br><br>**렌더링 계약**<br><br>· `correctionSegments` 를 `sequence` 순서대로 이어붙이면 **`originalText` 는 `originalContent` 전체**, **`correctedText` 는 `correctedContent` 전체**와 정확히 일치한다. 앱은 인덱스 계산 없이 순차 렌더링만 하면 된다.<br>· `type == "UNCHANGED"` → 검은 글씨 그대로 출력<br>· `type == "MODIFIED"` → `originalText` 를 빨간 취소선, 바로 뒤에 `correctedText` 를 초록 하이라이트로 출력<br>· 공백은 세그먼트 문자열에 포함해 내려준다 (앱에서 공백을 임의로 추가하지 않음).<br>· 삭제 제안은 `type == "MODIFIED"` + `correctedText == ""` 로 표현한다.<br>· `tips` 가 `[]` 면 팁 영역을 표시하지 않는다. |
-| :--- | :--- |
-| **스펙** | **Endpoint** · `GET /api/v1/letters/{letterId}`<br><br>**인증** · `Authorization: Bearer {accessToken}` 필요<br><br>**Path Variable** · [필수] `letterId` (Long): 조회할 편지의 ID |
+#### [설명]
 
-#### 성공 Response 200
+특정 편지의 상세 내용과 도착한 피드백(교정문, 팁 등)을 조회한다. 조회에 성공하면 해당 편지는 읽음 처리된다.
+
+- **본인 편지만** 조회할 수 있다. 타인의 편지는 존재 여부를 숨기기 위해 403 이 아닌 404 로 응답한다.
+- 피드백 완료 전에도 응답은 성공하지만 `feedback` 이 `null` 이다. 앱은 완료 전 카드의 진입 자체를 막는다.
+- 읽음 처리는 이 API 의 **부수 효과**다. 별도의 읽음 처리 API 는 없으며, 한 번 읽으면 다시 미열람으로 되돌아가지 않는다.
+- 교정 결과는 원문 전체를 순서대로 자른 조각(`correctionSegments`)으로 내려간다. 조각을 이어붙이면 원문·교정문이 그대로 복원되는 것을 서버가 보장한다.
+- 팁은 편지마다 0~3개다. 없을 수도 있다 (잘 쓴 편지).
+- 우표는 **AI 가 편지 내용에 어울리는 것으로 고른다.** 우표 종류는 DB(`stamps` 테이블)가 관리하므로 운영 중 추가·교체될 수 있다. 앱은 `stampImage` URL 을 그대로 표시하고 **우표 종류를 코드로 분기하지 않는다.** 서버가 우표에 대해 가진 정보도 이름과 이미지뿐이라 응답에 실을 설명 문구가 없다.
+
+**렌더링 계약**
+
+- `correctionSegments` 를 `sequence` 순서대로 이어붙이면 **`originalText` 는 `originalContent` 전체**, **`correctedText` 는 `correctedContent` 전체**와 정확히 일치한다. 앱은 인덱스 계산 없이 순차 렌더링만 하면 된다.
+- `type == "UNCHANGED"` → 검은 글씨 그대로 출력
+- `type == "MODIFIED"` → `originalText` 를 빨간 취소선, 바로 뒤에 `correctedText` 를 초록 하이라이트로 출력
+- 공백은 세그먼트 문자열에 포함해 내려준다 (앱에서 공백을 임의로 추가하지 않음).
+- 삭제 제안은 `type == "MODIFIED"` + `correctedText == ""` 로 표현한다.
+- `tips` 가 `[]` 면 팁 영역을 표시하지 않는다.
+
+#### [스펙]
+
+**Endpoint**
+
+```
+GET /api/v1/letters/{letterId}
+```
+
+**Authorization 헤더**
+
+```
+Bearer eyJhbGciOiJIUzI1NiJ9...
+```
+
+**Path Variable**
+
+- [필수] `letterId` (Long): 조회할 편지의 ID
+
+#### [성공 Response 200]
 
 ```json
 {
@@ -568,7 +816,7 @@ Location: dearjolly://auth/callback
         - [필수] `correctedText` (String): 교정된 텍스트 조각
         - [필수] `type` (String): 수정 여부 (`UNCHANGED`, `MODIFIED`) — DB 컬럼명은 `correction_type` 이지만 **응답 필드명은 `type`** 이다
 
-#### 실패 Error Response
+#### [실패 Error Response]
 
 ```json
 {
@@ -589,9 +837,17 @@ Location: dearjolly://auth/callback
 
 > 미구현 ❌
 
-| 설명 | 홈 화면에 진입했을 때 보여질 편지 리스트를 조회한다. 헤더 영역에 필요한 닉네임 · 우표 수를 함께 반환하므로, 홈 진입 시 이 API 호출 한 번이면 된다.<br><br>· **본인 편지만** 조회된다. 유저는 서버 인증 컨텍스트에서 가져오며 파라미터로 받지 않는다.<br>· `totalStampCount` 는 **피드백이 완료된 편지 수**다. 작성한 편지 수와 다르다.<br>· 편지를 빼먹은 날이 눈에 띄지 않도록 **캘린더가 아니라 기록이 쌓이는 목록** 구조다. 비어 있는 날짜는 응답에 나타나지 않는다.<br>· 피드백 완료 전 카드는 우표가 없고(`stampImage: null`) 상세로 들어갈 수 없다.<br>· 정렬은 **서버가 처리**한다. 페이징된 일부만 앱에서 뒤집으면 전체 정렬이 깨지기 때문이다.<br>· DB 에는 파일 키(`stamps.image_key`)만 저장되고, 서버가 응답 시점에 `MINIO_PUBLIC_ENDPOINT` + 버킷 + 파일 키로 **완성된 URL 을 조립해 내려준다.** 앱은 키를 조합할 필요 없이 URL 을 그대로 렌더링한다.<br>· 온보딩 가드를 통과한 유저만 호출할 수 있으므로 `nickname` 은 **항상 non-null** 이다.<br><br>· 미열람 표시는 **피드백이 완료된 편지에만** 적용한다. 완료 전 편지도 `isRead` 는 `false` 지만 빨간 점을 표시하지 않는다.<br>· `totalStampCount` 는 **작성한 편지 수가 아니라** 피드백이 완료되어 우표가 도착한 편지 수다. (편지 3건 작성 + 1건 피드백 대기 → `totalStampCount = 2`)<br>· 정렬은 `date` 기준이며, 같은 날짜 안에서는 `letterId` 로 정렬한다 (`LATEST` → 내림차순, `OLDEST` → 오름차순).<br>· 헤더 필드(`nickname`, `totalStampCount`)는 `page > 0` 요청에서도 동일하게 내려간다. 앱은 첫 페이지 값만 사용하면 된다.<br>· `FEEDBACK_COMPLETED` 가 아닌 항목이 있으면 앱이 화면 재진입 · 새로고침 시 재조회해 상태 변화를 확인한다. 앱은 `SUBMITTED` 와 `FEEDBACK_IN_PROGRESS` 를 동일하게 처리하면 된다. |
-| :--- | :--- |
-| **스펙** | **Endpoint** · `GET /api/v1/letters`<br><br>**인증** · `Authorization: Bearer {accessToken}` 필요<br><br>**Query Parameter** · [선택] `page` (Integer): 페이지 번호 (기본값 0, 0 이상)<br>· [선택] `size` (Integer): 페이지 크기 (기본값 10, 1~50)<br>· [선택] `sort` (String): 정렬 기준 (기본값 `LATEST`)<br>· `LATEST`: 최신순<br>· `OLDEST`: 오래된 순 |
+#### [설명]
+
+홈 화면에 진입했을 때 보여질 편지 리스트를 조회한다. 헤더 영역에 필요한 닉네임 · 우표 수를 함께 반환하므로, 홈 진입 시 이 API 호출 한 번이면 된다.
+
+- **본인 편지만** 조회된다. 유저는 서버 인증 컨텍스트에서 가져오며 파라미터로 받지 않는다.
+- `totalStampCount` 는 **피드백이 완료된 편지 수**다. 작성한 편지 수와 다르다.
+- 편지를 빼먹은 날이 눈에 띄지 않도록 **캘린더가 아니라 기록이 쌓이는 목록** 구조다. 비어 있는 날짜는 응답에 나타나지 않는다.
+- 피드백 완료 전 카드는 우표가 없고(`stampImage: null`) 상세로 들어갈 수 없다.
+- 정렬은 **서버가 처리**한다. 페이징된 일부만 앱에서 뒤집으면 전체 정렬이 깨지기 때문이다.
+- DB 에는 파일 키(`stamps.image_key`)만 저장되고, 서버가 응답 시점에 `MINIO_PUBLIC_ENDPOINT` + 버킷 + 파일 키로 **완성된 URL 을 조립해 내려준다.** 앱은 키를 조합할 필요 없이 URL 을 그대로 렌더링한다.
+- 온보딩 가드를 통과한 유저만 호출할 수 있으므로 `nickname` 은 **항상 non-null** 이다.
 
 **클라이언트 렌더링 규칙**
 
@@ -601,7 +857,35 @@ Location: dearjolly://auth/callback
 | `status == "FEEDBACK_COMPLETED"` | `stampImage` 표시, `ic_more_sm` 노출, **카드 전체 영역** 터치 시 상세 이동 |
 | `status == "FEEDBACK_COMPLETED" && isRead == false` | **날짜 앞 빨간 점** |
 
-#### 성공 Response 200
+- 미열람 표시는 **피드백이 완료된 편지에만** 적용한다. 완료 전 편지도 `isRead` 는 `false` 지만 빨간 점을 표시하지 않는다.
+- `totalStampCount` 는 **작성한 편지 수가 아니라** 피드백이 완료되어 우표가 도착한 편지 수다. (편지 3건 작성 + 1건 피드백 대기 → `totalStampCount = 2`)
+- 정렬은 `date` 기준이며, 같은 날짜 안에서는 `letterId` 로 정렬한다 (`LATEST` → 내림차순, `OLDEST` → 오름차순).
+- 헤더 필드(`nickname`, `totalStampCount`)는 `page > 0` 요청에서도 동일하게 내려간다. 앱은 첫 페이지 값만 사용하면 된다.
+- `FEEDBACK_COMPLETED` 가 아닌 항목이 있으면 앱이 화면 재진입 · 새로고침 시 재조회해 상태 변화를 확인한다. 앱은 `SUBMITTED` 와 `FEEDBACK_IN_PROGRESS` 를 동일하게 처리하면 된다.
+
+#### [스펙]
+
+**Endpoint**
+
+```
+GET /api/v1/letters
+```
+
+**Authorization 헤더**
+
+```
+Bearer eyJhbGciOiJIUzI1NiJ9...
+```
+
+**Query Parameter**
+
+- [선택] `page` (Integer): 페이지 번호 (기본값 0, 0 이상)
+- [선택] `size` (Integer): 페이지 크기 (기본값 10, 1~50)
+- [선택] `sort` (String): 정렬 기준 (기본값 `LATEST`)
+    - `LATEST`: 최신순
+    - `OLDEST`: 오래된 순
+
+#### [성공 Response 200]
 
 ```json
 {
@@ -648,7 +932,7 @@ Location: dearjolly://auth/callback
     - [선택] `stampImage` (String): 우표 이미지 URL (피드백 완료 전에는 `null`)
 - [필수] `hasNext` (Boolean): 다음 페이지 존재 여부
 
-#### 실패 Error Response
+#### [실패 Error Response]
 
 ```json
 {
@@ -670,11 +954,31 @@ Location: dearjolly://auth/callback
 
 > 미구현 ❌
 
-| 설명 | 홈 화면 헤더에 보여질 유저 정보(닉네임, 모은 우표 수)를 조회한다. 편지 목록 없이 헤더 정보만 갱신할 때 쓰며, 홈 진입 시에는 [12) GET /api/v1/letters](#12-get-apiv1letters) 한 번이면 된다.<br><br>· `totalStampCount` 는 **피드백이 완료되어 우표가 도착한 편지 수**다. 편지를 써도 검토가 끝나기 전에는 늘지 않는다.<br>· 편지 목록 API 의 동일 필드와 항상 같은 값을 반환한다. 두 API 는 같은 서비스 메서드를 호출한다.<br>· 온보딩 가드를 통과한 유저만 호출할 수 있으므로 `nickname` 은 **항상 non-null** 이다. |
-| :--- | :--- |
-| **스펙** | **Endpoint** · `GET /api/v1/home`<br><br>**인증** · `Authorization: Bearer {accessToken}` 필요<br><br>**Query Parameter** · 없음 |
+#### [설명]
 
-#### 성공 Response 200
+홈 화면 헤더에 보여질 유저 정보(닉네임, 모은 우표 수)를 조회한다. 편지 목록 없이 헤더 정보만 갱신할 때 쓰며, 홈 진입 시에는 [12) GET /api/v1/letters](#12-get-apiv1letters) 한 번이면 된다.
+
+- `totalStampCount` 는 **피드백이 완료되어 우표가 도착한 편지 수**다. 편지를 써도 검토가 끝나기 전에는 늘지 않는다.
+- 편지 목록 API 의 동일 필드와 항상 같은 값을 반환한다. 두 API 는 같은 서비스 메서드를 호출한다.
+- 온보딩 가드를 통과한 유저만 호출할 수 있으므로 `nickname` 은 **항상 non-null** 이다.
+
+#### [스펙]
+
+**Endpoint**
+
+```
+GET /api/v1/home
+```
+
+**Authorization 헤더**
+
+```
+Bearer eyJhbGciOiJIUzI1NiJ9...
+```
+
+**Query Parameter**: 없음
+
+#### [성공 Response 200]
 
 ```json
 {
@@ -686,7 +990,7 @@ Location: dearjolly://auth/callback
 - [필수] `nickname` (String): 유저 닉네임
 - [필수] `totalStampCount` (Integer): 모은 우표 총 개수 (피드백 완료된 편지 수)
 
-#### 실패 Error Response
+#### [실패 Error Response]
 
 ```json
 {
@@ -707,11 +1011,32 @@ Location: dearjolly://auth/callback
 
 > 구현 완료 ✅
 
-| 설명 | 앱 최소 지원 버전과 정책 페이지 URL 을 조회한다. 인증도 온보딩도 필요 없다 — 로그인 전에 호출할 수 있어야 하기 때문이다.<br><br>· 앱 버전이 `minSupportedVersion` 미만이면 앱이 강제 업데이트를 유도한다. **판정 주체는 앱**이다. 서버는 클라이언트 버전을 받지 않으므로 개별 요청이 업데이트 대상인지 알 수 없다.<br>· `forceUpdate` 는 서버가 계산해 내려주는 **보조 신호**다. `latestVersion == minSupportedVersion` 이면 `true` 다 — 최신 버전 아래를 더 받아주지 않겠다는 뜻이기 때문이다. 앱은 자기 버전과 `minSupportedVersion` 을 직접 비교하고 이 값을 참고만 한다.<br>· 응답 값은 전부 **서버 설정**에서 온다(`dearjolly.version.*`). DB 가 아니라 설정으로 두는 이유는 버전 상향이 배포와 같은 리듬으로 일어나고, 관리 화면이 없는 MVP 에서 DB 행을 고치려면 결국 콘솔에 붙어야 하기 때문이다.<br>· **공지사항 · 개인정보처리방침 · 이용약관은 서버 API 로 제공하지 않는다.** 이 응답의 웹뷰 링크로 처리한다.<br>· 설정 화면 하단의 `현재 버전` 표기는 앱 로컬 값이며 이 응답과 무관하다.<br>· 약관 버전은 이 응답에 포함하지 않는다. MVP 는 재동의를 유도하지 않기 때문이다. |
-| :--- | :--- |
-| **스펙** | **Endpoint** · `GET /api/v1/version`<br><br>**인증** · 불필요<br><br>**Query Parameter** · [선택] `platform` (String): 플랫폼 (`IOS`, `AOS`). 생략하면 공통 값을 반환한다. 값을 주면 **그 플랫폼에 설정된 재정의만** 공통 값을 덮어쓴다 — 한쪽만 심사에 걸려 버전이 벌어지는 상황을 위한 것이다 |
+#### [설명]
 
-#### 성공 Response 200
+앱 최소 지원 버전과 정책 페이지 URL 을 조회한다. 인증도 온보딩도 필요 없다 — 로그인 전에 호출할 수 있어야 하기 때문이다.
+
+- 앱 버전이 `minSupportedVersion` 미만이면 앱이 강제 업데이트를 유도한다. **판정 주체는 앱**이다. 서버는 클라이언트 버전을 받지 않으므로 개별 요청이 업데이트 대상인지 알 수 없다.
+- `forceUpdate` 는 서버가 계산해 내려주는 **보조 신호**다. `latestVersion == minSupportedVersion` 이면 `true` 다 — 최신 버전 아래를 더 받아주지 않겠다는 뜻이기 때문이다. 앱은 자기 버전과 `minSupportedVersion` 을 직접 비교하고 이 값을 참고만 한다.
+- 응답 값은 전부 **서버 설정**에서 온다(`dearjolly.version.*`). DB 가 아니라 설정으로 두는 이유는 버전 상향이 배포와 같은 리듬으로 일어나고, 관리 화면이 없는 MVP 에서 DB 행을 고치려면 결국 콘솔에 붙어야 하기 때문이다.
+- **공지사항 · 개인정보처리방침 · 이용약관은 서버 API 로 제공하지 않는다.** 이 응답의 웹뷰 링크로 처리한다.
+- 설정 화면 하단의 `현재 버전` 표기는 앱 로컬 값이며 이 응답과 무관하다.
+- 약관 버전은 이 응답에 포함하지 않는다. MVP 는 재동의를 유도하지 않기 때문이다.
+
+#### [스펙]
+
+**Endpoint**
+
+```
+GET /api/v1/version
+```
+
+**Authorization 헤더**: 불필요
+
+**Query Parameter**
+
+- [선택] `platform` (String): 플랫폼 (`IOS`, `AOS`). 생략하면 공통 값을 반환한다. 값을 주면 **그 플랫폼에 설정된 재정의만** 공통 값을 덮어쓴다 — 한쪽만 심사에 걸려 버전이 벌어지는 상황을 위한 것이다
+
+#### [성공 Response 200]
 
 ```json
 {
@@ -731,7 +1056,7 @@ Location: dearjolly://auth/callback
 - [선택] `termsOfServiceUrl` (String): 서비스 이용약관 URL
 - [선택] `noticeUrl` (String): 공지사항 URL
 
-#### 실패 Error Response
+#### [실패 Error Response]
 
 | code | status | 상황 |
 | --- | --- | --- |
