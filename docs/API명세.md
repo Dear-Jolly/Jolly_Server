@@ -779,7 +779,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
     "date": "2025-11-01",
     "originalContent": "I got flowers from a friend today...",
     "status": "FEEDBACK_COMPLETED",
-    "stampImage": "https://cdn.dearjolly.com/stamps/flower_stamp.png",
+    "stampImage": "http://localhost:9000/dear-jolly-stamps/stamps/flower_stamp.png",
     "feedback": {
         "feedbackId": 101,
         "correctedContent": "I received flowers from a friend today...",
@@ -903,7 +903,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
             "summary": "I got flowers from a friend today. It really touc",
             "status": "FEEDBACK_COMPLETED",
             "isRead": false,
-            "stampImage": "https://cdn.dearjolly.com/stamps/flower_stamp.png"
+            "stampImage": "http://localhost:9000/dear-jolly-stamps/stamps/flower_stamp.png"
         },
         {
             "letterId": 12,
@@ -911,7 +911,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
             "summary": "Hi! Jolly. I made a new friend at a Halloween part",
             "status": "FEEDBACK_COMPLETED",
             "isRead": true,
-            "stampImage": "https://cdn.dearjolly.com/stamps/pumpkin_stamp.png"
+            "stampImage": "http://localhost:9000/dear-jolly-stamps/stamps/pumpkin_stamp.png"
         },
         {
             "letterId": 11,
