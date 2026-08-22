@@ -13,7 +13,7 @@ spring:
 
   jpa:
     hibernate:
-      # 명세가 정한 값은 validate 다. 스키마는 Flyway 가 소유하고 ERD 가 그 정본이다 (기능명세 §4.3).
+      # 스키마는 Flyway 가 소유한다. 기본값은 validate 로 고정한다.
       # 기본값을 절대 바꾸지 않는다 — 키가 빠진 환경에서 스키마가 조용히 뒤집힌다.
       #
       # 출시 전 개발 단계에 한해 .env 에서만 update 로 내려 쓴다. 그때는 FLYWAY_ENABLED=false
@@ -29,11 +29,11 @@ spring:
         format_sql: true
 
   # 마이그레이션이 소유한 스키마와 Hibernate 가 만든 스키마는 동시에 존재할 수 없다.
-  # ddl-auto=create 로 개발하는 동안에는 false 로 내린다 (기능명세 §4.3).
+  # ddl-auto=create 로 개발하는 동안에는 false 로 내린다.
   flyway:
     enabled: ${FLYWAY_ENABLED:true}
     baseline-on-migrate: true
-    # 초기 데이터에는 파일 키만 들어가므로 환경 의존 placeholder 가 필요 없다 (ERD §2.4).
+    # 초기 데이터에는 파일 키만 들어가므로 환경 의존 placeholder 가 필요 없다.
 
   servlet:
     multipart:
@@ -70,7 +70,7 @@ dearjolly:
   withdrawal:
     retention-days: ${WITHDRAWAL_RETENTION_DAYS:30}
 
-  # 앱 최소 지원 버전과 정책 페이지 URL (API명세 §5.1).
+  # 앱 최소 지원 버전과 정책 페이지 URL.
   # platforms 아래 값을 채우면 그 플랫폼만 공통 값을 덮어쓴다.
   version:
     latest: ${APP_LATEST_VERSION:1.0.0}
