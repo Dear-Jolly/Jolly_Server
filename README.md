@@ -91,6 +91,7 @@ Write to Jolly, feel jolly
 | `images` · `files` · `restart` | ECR 이미지 목록 / 배포 파일 재전송 / 현재 이미지로 재배포 |
 | `status` · `outputs` · `logs` · `ssh` | 상태·출력값 확인, 로그 확인, 서버 접속 |
 | `sync` · `drift` · `sg` | `.env.prod` 기준 스택 재적용(보안그룹 포함) / 콘솔 변경 탐지 / 현재 규칙 확인 |
+| `swap` · `amis` | 스왑 크기 적용 / 타입 변경 전 백업 AMI 목록 |
 | `backup` · `backups` | 백업 즉시 실행 / 보관 목록 확인 |
 | `update-ecr` · `update-ec2` · `down-ec2` · `down-ecr` | 스택 갱신 / 삭제 |
 

@@ -81,6 +81,7 @@ aws cloudformation deploy \
     "KeyPairName=${KEY_PAIR_NAME}" \
     "InstanceType=${INSTANCE_TYPE}" \
     "VolumeSize=${VOLUME_SIZE}" \
+    "SwapSizeGb=${SWAP_SIZE}" \
     "AllowedSshCidr=${ALLOWED_SSH_CIDR}" \
     "AppPort=${APP_PORT}" \
     "MinioApiPort=${MINIO_API_PORT}" \

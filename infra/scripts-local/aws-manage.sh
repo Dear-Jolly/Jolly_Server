@@ -20,6 +20,8 @@
 #   files        docker/compose.prod.yaml · scripts-ec2/deploy.sh · Caddyfile.template 재전송
 #   restart      서버의 현재 이미지로 블루그린 재배포
 #   sync         infra/env/.env.prod 기준으로 두 스택 재적용 (보안그룹·포트·SSH 대역 반영)
+#   swap         EC2_SWAP_SIZE 값을 실행 중인 인스턴스에 적용 (재생성 없이)
+#   amis         인스턴스 타입 변경 전에 만들어 둔 백업 AMI 목록
 #   drift        콘솔에서 손댄 리소스가 있는지 CloudFormation 드리프트 탐지
 #   sg           현재 적용된 보안그룹 인바운드 규칙 확인
 #   backup       서버에서 백업 즉시 1회 실행
@@ -52,6 +54,8 @@ usage() {
   files        docker/compose.prod.yaml · scripts-ec2/deploy.sh · Caddyfile.template 재전송
   restart      서버의 현재 이미지로 블루그린 재배포
   sync         infra/env/.env.prod 기준으로 두 스택 재적용 (보안그룹·포트·SSH 대역 반영)
+  swap         EC2_SWAP_SIZE 값을 실행 중인 인스턴스에 적용 (재생성 없이)
+  amis         인스턴스 타입 변경 전에 만들어 둔 백업 AMI 목록
   drift        콘솔에서 손댄 리소스가 있는지 CloudFormation 드리프트 탐지
   sg           현재 적용된 보안그룹 인바운드 규칙 확인
   backup       서버에서 백업 즉시 1회 실행
@@ -159,7 +163,49 @@ update_ecr_stack() {
     --no-fail-on-empty-changeset
 }
 
+# 인스턴스 타입을 바꾸면 CloudFormation 이 인스턴스를 정지·교체하므로,
+# 그 전에 반드시 AMI 스냅샷을 남긴다. 데이터 유실 시 이 AMI 로 되돌릴 수 있다.
+backup_ami_if_type_changes() {
+  local current_type desired_type instance_id ami_id
+  current_type=$(aws cloudformation describe-stacks --stack-name "$STACK_EC2" \
+    --query "Stacks[0].Parameters[?ParameterKey=='InstanceType'].ParameterValue" --output text 2>/dev/null)
+  desired_type="$INSTANCE_TYPE"
+
+  [ -n "$current_type" ] && [ "$current_type" != "None" ] || return 0   # 스택이 없으면 백업할 것도 없다
+  [ "$current_type" != "$desired_type" ] || return 0                    # 타입이 그대로면 통과
+
+  log "인스턴스 타입 변경 감지: ${current_type} → ${desired_type}"
+  instance_id=$(aws cloudformation describe-stacks --stack-name "$STACK_EC2" \
+    --query "Stacks[0].Outputs[?OutputKey=='InstanceId'].OutputValue" --output text)
+  [ -n "$instance_id" ] && [ "$instance_id" != "None" ] || return 0
+
+  # 1) 애플리케이션 데이터 백업 (컨테이너가 떠 있을 때만)
+  if ssh_run "test -x '${DEPLOY_PATH}/backup.sh' && docker ps -q | grep -q ." 2>/dev/null; then
+    log "타입 변경 전 데이터 백업 실행"
+    ssh_run "cd '${DEPLOY_PATH}' && ./backup.sh" || die "백업이 실패했습니다. 타입 변경을 중단합니다."
+  else
+    log "실행 중인 컨테이너가 없어 데이터 백업은 건너뛴다"
+  fi
+
+  # 2) 인스턴스 전체 AMI 스냅샷
+  log "AMI 스냅샷 생성 중 (${instance_id})"
+  ami_id=$(aws ec2 create-image --instance-id "$instance_id" \
+    --name "dear-jolly-pre-resize-$(aws ec2 describe-instances --instance-ids "$instance_id" --query 'Reservations[0].Instances[0].LaunchTime' --output text | tr -d ':-' | cut -c1-15)-${current_type}" \
+    --description "Backup before instance type change ${current_type} to ${desired_type}" \
+    --no-reboot --tag-specifications 'ResourceType=image,Tags=[{Key=Project,Value=dear-jolly},{Key=Purpose,Value=pre-resize-backup}]' \
+    --query ImageId --output text) || die "AMI 생성에 실패했습니다. 타입 변경을 중단합니다."
+  log "AMI 생성 요청 완료: ${ami_id} (백그라운드에서 완성된다)"
+
+  # available 까지 잠깐 기다린다 (최대 5분). 실패해도 요청 자체는 남는다
+  for _ in $(seq 1 30); do
+    [ "$(aws ec2 describe-images --image-ids "$ami_id" --query 'Images[0].State' --output text 2>/dev/null)" = "available" ] && {
+      log "AMI 사용 가능: ${ami_id}"; break; }
+    sleep 10
+  done
+}
+
 update_ec2_stack() {
+  backup_ami_if_type_changes
   aws cloudformation deploy --stack-name "$STACK_EC2" \
     --template-file "${TEMPLATE_DIR}/ec2.yaml" \
     --capabilities CAPABILITY_IAM \
@@ -167,6 +213,7 @@ update_ec2_stack() {
       "KeyPairName=${KEY_PAIR_NAME}" \
       "InstanceType=${INSTANCE_TYPE}" \
       "VolumeSize=${VOLUME_SIZE}" \
+      "SwapSizeGb=${SWAP_SIZE}" \
       "AllowedSshCidr=${ALLOWED_SSH_CIDR}" \
       "AppPort=${APP_PORT}" \
       "MinioApiPort=${MINIO_API_PORT}" \
@@ -213,6 +260,35 @@ cmd_drift() {
   log "MODIFIED/DELETED 가 보이면 'aws-manage.sh sync' 로 템플릿 기준으로 되돌린다."
 }
 
+# user-data 는 최초 부팅에만 돌기 때문에, 이미 떠 있는 인스턴스의 스왑은 여기서 맞춘다
+cmd_swap() {
+  require_remote
+  log "스왑 ${SWAP_SIZE}GB 적용"
+  ssh_run "SWAP_GB='${SWAP_SIZE}' bash -s" <<'REMOTE'
+set -euo pipefail
+CURRENT=$(free -g | awk '/Swap:/{print $2}')
+if [ "$CURRENT" = "$SWAP_GB" ]; then
+  echo "  이미 ${SWAP_GB}GB 입니다"
+  exit 0
+fi
+sudo swapoff /swapfile 2>/dev/null || true
+sudo rm -f /swapfile
+sudo fallocate -l "${SWAP_GB}G" /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile >/dev/null
+sudo swapon /swapfile
+grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+sudo sysctl -w vm.swappiness=20 >/dev/null
+free -h | awk '/Swap:/{print "  적용 결과: " $2}'
+REMOTE
+}
+
+cmd_amis() {
+  aws ec2 describe-images --owners self \
+    --filters "Name=tag:Purpose,Values=pre-resize-backup" \
+    --query 'sort_by(Images,&CreationDate)[*].[ImageId,Name,State,CreationDate]' --output table
+}
+
 cmd_backup() {
   require_remote
   log "서버에서 백업 실행"
@@ -253,6 +329,8 @@ case "${1:-}" in
   files)      cmd_files ;;
   restart)    cmd_restart ;;
   sync)       cmd_sync ;;
+  swap)       cmd_swap ;;
+  amis)       cmd_amis ;;
   drift)      cmd_drift ;;
   sg)         cmd_sg ;;
   backup)     cmd_backup ;;
