@@ -59,6 +59,14 @@ minio:
   bucket: ${MINIO_BUCKET:dear-jolly-stamps}
 
 dearjolly:
+  # 우표 시드. 기동할 때마다 seed/stamps 이미지를 MinIO 에 올리고 STAMPS 행을 맞춘다.
+  # 오브젝트·행이 이미 있으면 건너뛰므로 재기동·블루그린 배포에서 반복 실행돼도 안전하다.
+  seed:
+    stamp:
+      enabled: ${STAMP_SEED_ENABLED:true}
+      location: classpath*:seed/stamps/*.png
+      key-prefix: stamp/
+
   jwt:
     secret: ${JWT_SECRET}
     access-expire-millis: ${JWT_ACCESS_EXPIRE:1800000}      # 30분

@@ -33,6 +33,17 @@ class FileUrlProviderTest {
         assertThat(url).isEqualTo("http://3.35.1.2:9000/dear-jolly-stamps/stamps/rose.png");
     }
 
+    @DisplayName("한글·공백이 든 파일 키는 퍼센트 인코딩하고 구분자 슬래시는 남긴다.")
+    @Test
+    void toPublicUrlWithNonAsciiFileKey() {
+        String fileKey = "stamp/가방_쇼핑.png";
+
+        String url = fileUrlProvider.toPublicUrl(fileKey);
+
+        assertThat(url).isEqualTo(
+                "http://3.35.1.2:9000/dear-jolly-stamps/stamp/%EA%B0%80%EB%B0%A9_%EC%87%BC%ED%95%91.png");
+    }
+
     @DisplayName("파일 키가 없으면 URL 도 없으므로 null 을 반환한다.")
     @Test
     void toPublicUrlWithoutFileKey() {

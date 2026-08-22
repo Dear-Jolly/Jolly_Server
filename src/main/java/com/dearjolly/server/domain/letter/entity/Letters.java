@@ -98,8 +98,10 @@ public class Letters {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public static Letters create(Users user, String content, LocalDate letterDate, ZoneId timeZone) {
-        Letters letter = new Letters(user, content, letterDate, timeZone);
+    public static Letters create(
+            Users user, String content, LocalDate letterDate, ZoneId timeZone, Stamps defaultStamp
+    ) {
+        Letters letter = new Letters(user, content, letterDate, timeZone, defaultStamp);
         user.addLetter(letter);
         return letter;
     }
@@ -158,7 +160,7 @@ public class Letters {
         return this.status == FEEDBACK_FAILED ? SUBMITTED : this.status;
     }
 
-    private Letters(Users user, String content, LocalDate letterDate, ZoneId timeZone) {
+    private Letters(Users user, String content, LocalDate letterDate, ZoneId timeZone, Stamps defaultStamp) {
         validateContent(content);
         validateLetterDate(letterDate);
         validateTimeZone(timeZone);
@@ -166,6 +168,8 @@ public class Letters {
         this.content = content;
         this.letterDate = letterDate;
         this.timeZone = timeZone.getId();
+        // 피드백 완료 전까지는 "준비 중" 우표가 붙어 있다가 completeFeedback 에서 교체된다.
+        this.stamp = defaultStamp;
         this.status = SUBMITTED;
         this.isRead = false;
         this.retryCount = 0;
