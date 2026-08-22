@@ -1,5 +1,8 @@
 package com.dearjolly.server.support;
 
+import com.dearjolly.server.domain.letter.entity.Letters;
+import com.dearjolly.server.domain.letter.entity.Stamps;
+import com.dearjolly.server.domain.letter.repository.LetterRepository;
 import com.dearjolly.server.domain.user.entity.TermsAgreements;
 import com.dearjolly.server.domain.user.entity.Users;
 import com.dearjolly.server.domain.user.enums.OauthProvider;
@@ -7,7 +10,11 @@ import com.dearjolly.server.domain.user.enums.TermsType;
 import com.dearjolly.server.domain.user.repository.TermsAgreementRepository;
 import com.dearjolly.server.domain.user.repository.UserRepository;
 import com.dearjolly.server.global.auth.jwt.JwtProvider;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import io.restassured.RestAssured;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -15,6 +22,7 @@ import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.annotation.DirtiesContext.ClassMode;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @DirtiesContext(classMode = ClassMode.AFTER_EACH_TEST_METHOD)
@@ -27,6 +35,15 @@ public abstract class ApiTestSupport {
 
     @Autowired
     protected TermsAgreementRepository termsAgreementRepository;
+
+    @Autowired
+    protected LetterRepository letterRepository;
+
+    @Autowired
+    protected TransactionTemplate transactionTemplate;
+
+    @PersistenceContext
+    protected EntityManager entityManager;
 
     @Autowired
     protected JwtProvider jwtProvider;
@@ -50,6 +67,21 @@ public abstract class ApiTestSupport {
     protected void 필수약관에_동의한다(Users user) {
         termsAgreementRepository.save(TermsAgreements.create(user, TermsType.SERVICE, true, "1.0.0"));
         termsAgreementRepository.save(TermsAgreements.create(user, TermsType.PRIVACY, true, "1.0.0"));
+    }
+
+    protected Letters 편지를_저장한다(Users user, String content, LocalDate letterDate) {
+        return letterRepository.save(Letters.create(user, content, letterDate, ZoneId.of("Asia/Seoul")));
+    }
+
+    protected Letters 피드백완료_편지를_저장한다(Users user, String content, LocalDate letterDate, String stampName) {
+        return transactionTemplate.execute(status -> {
+            Stamps stamp = Stamps.create(stampName, "stamps/" + stampName + ".png");
+            entityManager.persist(stamp);
+            Letters letter = Letters.create(user, content, letterDate, ZoneId.of("Asia/Seoul"));
+            letter.completeFeedback(stamp);
+            entityManager.persist(letter);
+            return letter;
+        });
     }
 
     protected String 액세스토큰(Users user) {

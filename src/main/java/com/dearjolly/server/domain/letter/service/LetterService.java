@@ -7,20 +7,30 @@ import static com.dearjolly.server.domain.letter.constants.LetterValidationConst
 
 import com.dearjolly.server.domain.feedback.service.FeedbackRequester;
 import com.dearjolly.server.domain.letter.dto.request.LetterCreateRequest;
+import com.dearjolly.server.domain.letter.dto.response.HomeGetResponse;
 import com.dearjolly.server.domain.letter.dto.response.LetterCreateResult;
+import com.dearjolly.server.domain.letter.dto.response.LetterListResponse;
+import com.dearjolly.server.domain.letter.dto.response.LetterSummaryResponse;
 import com.dearjolly.server.domain.letter.entity.Letters;
+import com.dearjolly.server.domain.letter.entity.Stamps;
+import com.dearjolly.server.domain.letter.enums.LetterSort;
+import com.dearjolly.server.domain.letter.enums.Status;
 import com.dearjolly.server.domain.letter.repository.LetterRepository;
 import com.dearjolly.server.domain.user.entity.Users;
 import com.dearjolly.server.domain.user.repository.UserRepository;
 import com.dearjolly.server.global.exception.exception.BusinessException;
 import com.dearjolly.server.global.exception.response.ErrorCode;
+import com.dearjolly.server.global.storage.FileUrlProvider;
 import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +43,7 @@ public class LetterService {
     private final LetterRepository letterRepository;
     private final UserRepository userRepository;
     private final FeedbackRequester feedbackRequester;
+    private final FileUrlProvider fileUrlProvider;
 
     @Transactional
     public LetterCreateResult createLetter(Long userId, LetterCreateRequest request) {
@@ -55,6 +66,32 @@ public class LetterService {
 
         feedbackRequester.requestFeedback(letter.getId());
         return LetterCreateResult.created(letter);
+    }
+
+    public LetterListResponse getLetters(Long userId, int page, int size, LetterSort sort) {
+        Slice<Letters> letters = letterRepository.findAllByUserId(
+                userId, PageRequest.of(page, size, sort.toSort())
+        );
+        List<LetterSummaryResponse> summaries = letters.getContent().stream()
+                .map(letter -> LetterSummaryResponse.of(letter, stampImageOf(letter)))
+                .toList();
+
+        return LetterListResponse.of(summaries, letters.hasNext());
+    }
+
+    public HomeGetResponse getHome(Long userId) {
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return HomeGetResponse.of(user.getNickname(), countStamps(userId));
+    }
+
+    private long countStamps(Long userId) {
+        return letterRepository.countByUserIdAndStatus(userId, Status.FEEDBACK_COMPLETED);
+    }
+
+    private String stampImageOf(Letters letter) {
+        Stamps stamp = letter.getStamp();
+        return stamp == null ? null : fileUrlProvider.toPublicUrl(stamp.getImageKey());
     }
 
     private void validateContent(String content) {
