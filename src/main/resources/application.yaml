@@ -50,6 +50,12 @@ management:
     health:
       show-details: never
 
+# Swagger UI 는 그룹 목록의 첫 문서를 먼저 띄운다. 지정하지 않으면 도메인 그룹 하나가 열려
+# 전체 API 를 보려면 매번 드롭다운을 만져야 한다.
+springdoc:
+  swagger-ui:
+    urls-primary-name: 전체
+
 # ===== MinIO (우표 이미지 저장소) =====
 minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}       # 서버 → MinIO 내부 호출용
