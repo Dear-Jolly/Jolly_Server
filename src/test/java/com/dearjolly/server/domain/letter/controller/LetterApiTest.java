@@ -222,6 +222,33 @@ class LetterApiTest extends ApiTestSupport {
                 .body("code", equalTo("AUTH_005"));
     }
 
+    @DisplayName("GET /api/v1/letters : 편지가 늘어도 쿼리 수가 늘지 않는다")
+    @Test
+    void getLettersDoesNotIssueQueryPerLetter() {
+        // given - 목록 응답은 피드백을 쓰지 않지만, 비소유 측 @OneToOne 은 프록시가 안 돼
+        //         함께 가져오지 않으면 편지마다 조회가 한 번씩 더 나간다.
+        Users user = 온보딩을_마친_유저를_저장한다("kakao-nplus1", "jolly");
+        피드백완료_편지를_저장한다(user, "The first letter.", LocalDate.of(2025, 11, 1), "n1-stamp-0");
+        long 편지_한통일_때 = 실행된_쿼리수(() -> 편지목록을_조회한다(user));
+
+        for (int i = 1; i <= 5; i++) {
+            피드백완료_편지를_저장한다(user, "Letter number " + i + ".", LocalDate.of(2025, 10, i), "n1-stamp-" + i);
+        }
+
+        // when
+        long 편지_여섯통일_때 = 실행된_쿼리수(() -> 편지목록을_조회한다(user));
+
+        // then
+        assertThat(편지_여섯통일_때).isEqualTo(편지_한통일_때);
+    }
+
+    private void 편지목록을_조회한다(Users user) {
+        given().header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                .when().get("/api/v1/letters")
+                .then()
+                .statusCode(HttpStatus.OK.value());
+    }
+
     @DisplayName("GET /api/v1/letters : 편지 목록 조회 API")
     @Test
     void getLetters() {
