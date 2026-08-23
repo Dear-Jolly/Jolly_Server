@@ -6,12 +6,14 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import lombok.RequiredArgsConstructor;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@RequiredArgsConstructor
 public class OpenApiConfig {
     public static final String BEARER_SCHEME = "bearerAuth";
 
@@ -45,6 +47,10 @@ public class OpenApiConfig {
         // springdoc 이 평범한 Long 파라미터로 보고 userId 를 쿼리 파라미터로 문서에 노출한다.
         SpringDocUtils.getConfig().addAnnotationsToIgnore(LoginUser.class);
     }
+
+    // Swagger UI 는 그룹 문서를 띄운다. 그룹에는 전역 OperationCustomizer 가 적용되지 않으므로
+    // 여기서 직접 붙여야 실패 응답 예시가 그룹 문서에도 실린다.
+    private final ErrorExampleCustomizer errorExampleCustomizer;
 
     @Bean
     public OpenAPI openAPI() {
@@ -92,6 +98,7 @@ public class OpenApiConfig {
                 .group(name)
                 .displayName(displayName)
                 .pathsToMatch(paths)
+                .addOperationCustomizer(errorExampleCustomizer)
                 .build();
     }
 

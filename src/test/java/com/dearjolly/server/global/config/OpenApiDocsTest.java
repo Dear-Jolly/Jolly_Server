@@ -3,6 +3,7 @@ package com.dearjolly.server.global.config;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
@@ -52,6 +53,32 @@ class OpenApiDocsTest extends ApiTestSupport {
                 .then()
                 .statusCode(HttpStatus.OK.value())
                 .body("paths", notNullValue());
+    }
+
+    @DisplayName("GET /v3/api-docs : 실패 응답 예시가 그 응답의 실제 에러 코드로 채워진다")
+    @Test
+    void errorExamplesMatchTheirErrorCode() {
+        given()
+                .when().get("/v3/api-docs")
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("paths.'/api/v1/version'.get.responses.'404'.content.'*/*'.example.code",
+                        equalTo("VERSION_002"))
+                .body("paths.'/api/v1/version'.get.responses.'404'.content.'*/*'.example.status",
+                        equalTo(404))
+                .body("paths.'/api/v1/version'.get.responses.'400'.content.'*/*'.examples",
+                        allOf(hasKey("COMMON_001"), hasKey("VERSION_001")));
+    }
+
+    @DisplayName("GET /v3/api-docs/{group} : 그룹 문서에도 실패 응답 예시가 실린다")
+    @Test
+    void errorExamplesAreAppliedToGroupedDocs() {
+        given()
+                .when().get("/v3/api-docs/version")
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("paths.'/api/v1/version'.get.responses.'404'.content.'*/*'.example.code",
+                        equalTo("VERSION_002"));
     }
 
     @DisplayName("GET /v3/api-docs : @LoginUser 는 쿼리 파라미터로 노출되지 않는다")
