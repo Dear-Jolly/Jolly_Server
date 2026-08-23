@@ -282,9 +282,8 @@ JVM 힙은 `compose.prod.yaml` 의 `JAVA_OPTS` 가 `MaxRAMPercentage=35` 로 묶
 | `TERMS_CURRENT_VERSION` | `1.0.0` | 현재 약관 버전. 동의 시점에 기록된다 |
 | `WITHDRAWAL_RETENTION_DAYS` | `30` | 탈퇴 후 완전 삭제까지의 유예 |
 | `ADMIN_USERNAME` · `ADMIN_PASSWORD` | **필수** | 관리자 로그인 자격 증명. 시드가 만든 `ROLE_ADMIN` 계정에 이 값으로 로그인한다 |
-| `POLICY_PRIVACY_URL` · `POLICY_TERMS_URL` · `POLICY_NOTICE_URL` | dearjolly.com 경로 | 앱이 웹뷰로 여는 정책 페이지. 버전 조회 응답에 실린다 |
 
-앱 최소 지원 버전은 환경변수가 아니다. `APP_VERSIONS` 테이블에 있고 `PATCH /api/v1/version` 으로만 바꾼다.
+앱 최소 지원 버전은 환경변수가 아니다. `APP_VERSIONS` 테이블에 있고 `PATCH /api/v1/admin/version` 으로만 바꾼다.
 재배포 없이 즉시 반영되며, 호출하려면 관리자 토큰이 필요하다.
 
 ### 소셜 로그인 — 비어 있어도 기동된다
@@ -342,7 +341,7 @@ Flyway 가 스키마를 소유하고 Hibernate 는 대조만 하며, 엔티티�
 | 우표를 추가하고 싶다 | 이미지를 `seed/stamps/` 에 넣고 배포한다. 채울 값은 없다 |
 | 시드를 아예 끄고 싶다 | `.env` 에 `STAMP_SEED_ENABLED=false` |
 | 관리자 계정을 만들고 싶다 | `.env` 에 `USER_SEED_ENABLED=true`. 관리자는 회원가입 경로가 없어 이 시드가 유일한 생성 지점이다 |
-| 최소 지원 버전을 올리고 싶다 | `PATCH /api/v1/version` 을 호출한다. 배포도 재기동도 필요 없다 |
+| 최소 지원 버전을 올리고 싶다 | `PATCH /api/v1/admin/version` 을 호출한다. 배포도 재기동도 필요 없다 |
 | 이미지를 교체하고 싶다 | `seed/stamps/` 의 파일을 바꾸고 배포한다. 크기가 달라지면 자동으로 덮어쓴다 |
 | MinIO 가 죽어 시드가 실패했다 | 기동은 막지 않는다. 로그에 `우표 시드에 실패했다` 가 남고, 다음 기동에서 다시 시도한다 |
 

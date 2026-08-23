@@ -1,7 +1,7 @@
 # Dear Jolly — ERD (데이터 모델)
 
 > 이 문서는 Dear Jolly 서버 데이터 모델의 **정본**이다. 스키마에 관한 모든 판단은 이 문서를 따른다.
-> 도메인 규칙 배경은 [기능명세.md](./기능명세.md), 요청/응답 계약은 [API명세.md](./API명세.md) 참고.
+> 요청/응답 계약은 [API명세.md](./API명세.md) 참고.
 
 | 항목 | 내용 |
 | --- | --- |
@@ -314,7 +314,7 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 | `updated_at` | DATETIME(6) | NOT NULL | 마지막 변경 시각 |
 
 - **대리키를 두지 않는다.** 플랫폼마다 행이 정확히 하나이고, 플랫폼 자체가 식별자다.
-- 값을 바꾸는 주체는 관리자 API(`PATCH /api/v1/version`) 하나뿐이다. 앱은 읽기만 한다.
+- 값을 바꾸는 주체는 관리자 API(`PATCH /api/v1/admin/version`) 하나뿐이다. 앱은 읽기만 한다.
 - 버전 비교(`x` → `y` → `z`)는 서버가 한다. 문자열 정렬로 비교하지 않는다.
 
 #### 초기 데이터 시드
@@ -403,7 +403,7 @@ API 요청/응답의 `provider` 필드가 이 enum 이다. 문서 전체에서 �
 | `ROLE_ADMIN` | 관리자. `Users.createAdmin(…)` 로만 생성 |
 
 `ROLE_ADMIN` 은 소셜 회원가입으로 만들어지지 않는다. [2.9 관리자 권한의 시드 User](#29-관리자-권한의-시드-user) 의 시더가 만든 계정에만 붙으며,
-아이디·비밀번호 로그인(`POST /api/v1/admin/login`)과 관리자 전용 API(`PATCH /api/v1/version`)의 대상이 된다.
+아이디·비밀번호 로그인(`POST /api/v1/admin/login`)과 관리자 전용 API(`PATCH /api/v1/admin/version`)의 대상이 된다.
 
 ---
 
@@ -433,7 +433,7 @@ API 요청/응답의 `provider` 필드가 이 enum 이다. 문서 전체에서 �
 | `FEEDBACK_COMPLETED` | 피드백 완료 | 컬러 우표, 상세 진입 가능 |
 | `FEEDBACK_FAILED` | 피드백 실패 (내부 전용) | API 응답에서는 `SUBMITTED` 로 변환해 내려보낸다 |
 
-전이 규칙은 기능명세를 따른다. 임시저장 상태는 두지 않으며, 편지는 항상 `SUBMITTED` 로 생성된다.
+임시저장 상태는 두지 않으며, 편지는 항상 `SUBMITTED` 로 생성된다.
 
 - 컬럼 길이가 VARCHAR(30) 인 이유는 가장 긴 값 `FEEDBACK_IN_PROGRESS` 가 20자이기 때문이다. 여유를 포함해 30으로 잡는다.
 - `FEEDBACK_IN_PROGRESS` 는 워커 중복 실행 방지와 처리 유실 판별을 위한 상태다. 두 워커가 같은 편지를 집지 못하도록 진입을 조건부 UPDATE 로 막고, 이 상태로 15분 이상 머문 편지는 호출 도중 종료된 것으로 보고 `SUBMITTED` 로 되돌려 재큐잉한다.

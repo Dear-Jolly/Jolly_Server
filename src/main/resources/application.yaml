@@ -92,13 +92,6 @@ dearjolly:
   withdrawal:
     retention-days: ${WITHDRAWAL_RETENTION_DAYS:30}
 
-  # 최소 지원 버전은 DB(APP_VERSIONS)가 소유한다. 조회·변경은 /api/v1/version 이고,
-  # 여기에는 별도 API 없이 웹뷰로 여는 정책 페이지 URL 만 둔다.
-  policy:
-    privacy-policy-url: ${POLICY_PRIVACY_URL:https://dearjolly.com/privacy}
-    terms-of-service-url: ${POLICY_TERMS_URL:https://dearjolly.com/terms}
-    notice-url: ${POLICY_NOTICE_URL:https://dearjolly.com/notice}
-
   # 관리자 로그인 자격 증명. 시드가 만든 관리자 권한 계정에 이 값으로 로그인한다.
   admin:
     username: ${ADMIN_USERNAME}

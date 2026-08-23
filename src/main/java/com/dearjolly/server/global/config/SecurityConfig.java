@@ -28,6 +28,7 @@ public class SecurityConfig {
     private static final String[] PUBLIC_PATHS = {
             "/api/v1/auth/reissue",
             "/api/v1/admin/login",
+            "/api/v1/version",
             "/actuator/health",
             "/error",
             "/swagger-ui.html",
@@ -35,12 +36,11 @@ public class SecurityConfig {
             "/v3/api-docs/**"
     };
 
-    // /api/v1/version 은 여기 두지 않는다. GET 은 토큰 없이 열려 있지만 PATCH 는 관리자 토큰을
-    // 읽어야 하는데, 필터를 건너뛰면 SecurityContext 가 비어 관리자 판정을 할 수 없다.
     private static final List<String> JWT_FILTER_SKIP_PATHS = List.of(
             "/api/v1/auth/reissue",
             "/api/v1/auth/*/callback",
             "/api/v1/admin/login",
+            "/api/v1/version",
             "/actuator/**",
             "/error",
             "/swagger-ui.html",
@@ -63,8 +63,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/version").permitAll()
-                        .requestMatchers(HttpMethod.PATCH, "/api/v1/version").hasRole(ADMIN_ROLE)
+                        // 로그인은 위 공개 경로에서 이미 걸러진다. 나머지 관리자 경로는 전부 권한을 본다.
+                        .requestMatchers("/api/v1/admin/**").hasRole(ADMIN_ROLE)
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/*/callback").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/*/callback").permitAll()

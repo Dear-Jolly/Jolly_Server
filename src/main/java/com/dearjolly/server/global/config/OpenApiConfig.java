@@ -74,7 +74,7 @@ public class OpenApiConfig {
 
     @Bean
     public GroupedOpenApi letterApi() {
-        return group("letter", "편지 · 홈", "/api/v1/letters/**", "/api/v1/home");
+        return group("letter", "편지", "/api/v1/letters/**", "/api/v1/home");
     }
 
     @Bean

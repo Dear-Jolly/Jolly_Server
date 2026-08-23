@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "홈", description = "홈 헤더 정보 조회 API. **온보딩 가드 대상**이라 미완료 유저가 호출하면 `USER_005`(400) 다.")
+@Tag(name = "편지")
 @RestController
 @RequestMapping("/api/v1/home")
 @RequiredArgsConstructor

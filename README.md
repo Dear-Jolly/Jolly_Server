@@ -100,7 +100,6 @@ flowchart TB
 | 문서 | 내용 |
 | --- | --- |
 | [infra/RUN.md](infra/RUN.md) | **로컬·원격 실행 방법 · 테스트** |
-| [docs/기능명세.md](docs/기능명세.md) | 도메인 규칙 · 처리 흐름 |
 | [docs/API명세.md](docs/API명세.md) | 요청/응답 계약의 정본 |
 | [docs/ERD.md](docs/ERD.md) | 데이터 모델의 정본 |
 | [infra/README.md](infra/README.md) | 구축 · 배포 · 운영 |

@@ -53,7 +53,7 @@ class AdminApiTest extends ApiTestSupport {
                 .contentType(ContentType.JSON)
                 .queryParam("platform", "IOS")
                 .body(Map.of("minSupportedVersion", "1.5.0"))
-                .when().patch("/api/v1/version")
+                .when().patch("/api/v1/admin/version")
                 .then()
                 .statusCode(HttpStatus.OK.value())
                 .body("minSupportedVersion", equalTo("1.5.0"));

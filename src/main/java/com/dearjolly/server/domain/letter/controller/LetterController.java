@@ -34,7 +34,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "편지", description = """
-        편지 작성, 조회 API. **온보딩 가드 대상**이라 미완료 유저가 호출하면 `USER_005`(400) 다.
+        편지 작성 · 조회와 홈 헤더 조회 API. **온보딩 가드 대상**이라 미완료 유저가 호출하면 `USER_005`(400) 다.
 
         편지는 전달 후 수정 · 삭제할 수 없다. 상태는 `SUBMITTED` → `FEEDBACK_IN_PROGRESS` → `FEEDBACK_COMPLETED` 로 진행되며 앱은 앞의 둘을 동일하게 렌더링한다.""")
 @RestController
