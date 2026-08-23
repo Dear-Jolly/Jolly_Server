@@ -23,6 +23,7 @@ import com.dearjolly.server.domain.user.enums.Role;
 import com.dearjolly.server.domain.user.enums.TermsType;
 import com.dearjolly.server.domain.user.repository.TermsAgreementRepository;
 import com.dearjolly.server.domain.user.repository.UserRepository;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,6 +73,8 @@ class UserSeedWriterTest {
 
     private UserSeedWriter userSeedWriter;
 
+    private final List<String> 저장된_편지본문 = new ArrayList<>();
+
     @BeforeEach
     void setUp() {
         userSeedWriter = new UserSeedWriter(
@@ -79,7 +82,11 @@ class UserSeedWriterTest {
         );
         ReflectionTestUtils.setField(userSeedWriter, "currentTermsVersion", "1.0.0");
 
-        given(letterRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+        given(letterRepository.save(any())).willAnswer(invocation -> {
+            저장된_편지본문.add(((Letters) invocation.getArgument(0)).getContent());
+            return invocation.getArgument(0);
+        });
+        given(letterRepository.findAllContentByUserId(anyLong())).willReturn(저장된_편지본문);
         given(termsAgreementRepository.findAllByUserIdOrderByAgreedAtDesc(anyLong())).willReturn(List.of());
         given(stampRepository.findByName(anyString())).willReturn(Optional.of(stamp()));
     }

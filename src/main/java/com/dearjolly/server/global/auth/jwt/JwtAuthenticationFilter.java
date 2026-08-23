@@ -3,6 +3,7 @@ package com.dearjolly.server.global.auth.jwt;
 import com.dearjolly.server.domain.user.entity.Users;
 import com.dearjolly.server.domain.user.repository.UserRepository;
 import com.dearjolly.server.global.auth.principal.AuthUser;
+import com.dearjolly.server.global.auth.principal.AuthenticatedUserHolder;
 import com.dearjolly.server.global.exception.response.ErrorCode;
 import com.dearjolly.server.global.exception.response.ErrorResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,6 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
     private final UserRepository userRepository;
+    private final AuthenticatedUserHolder authenticatedUserHolder;
     private final ObjectMapper objectMapper;
     private final List<String> skipPathPatterns;
 
@@ -72,6 +74,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
+        authenticatedUserHolder.set(user);
         authenticate(new AuthUser(user.getId(), user.getRole()));
         filterChain.doFilter(request, response);
     }

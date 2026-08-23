@@ -24,7 +24,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -54,9 +53,7 @@ public class UserSeedWriter {
         Users user = findOrCreateUser(properties);
         agreeAllTerms(user);
 
-        Set<String> written = user.getLetters().stream()
-                .map(Letters::getContent)
-                .collect(Collectors.toCollection(HashSet::new));
+        Set<String> written = new HashSet<>(letterRepository.findAllContentByUserId(user.getId()));
         int created = 0;
         int completed = 0;
         for (LetterSeed seed : oldestFirst(letterSeeds)) {

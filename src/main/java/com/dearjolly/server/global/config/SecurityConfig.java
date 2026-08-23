@@ -3,6 +3,7 @@ package com.dearjolly.server.global.config;
 import com.dearjolly.server.domain.user.repository.UserRepository;
 import com.dearjolly.server.global.auth.jwt.JwtAuthenticationFilter;
 import com.dearjolly.server.global.auth.jwt.JwtProvider;
+import com.dearjolly.server.global.auth.principal.AuthenticatedUserHolder;
 import com.dearjolly.server.global.exception.response.ErrorCode;
 import com.dearjolly.server.global.exception.response.ErrorResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -53,6 +54,7 @@ public class SecurityConfig {
     private final JwtProvider jwtProvider;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final AuthenticatedUserHolder authenticatedUserHolder;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -71,7 +73,9 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtProvider, userRepository, objectMapper, JWT_FILTER_SKIP_PATHS),
+                        new JwtAuthenticationFilter(
+                                jwtProvider, userRepository, authenticatedUserHolder,
+                                objectMapper, JWT_FILTER_SKIP_PATHS),
                         UsernamePasswordAuthenticationFilter.class
                 )
                 .exceptionHandling(handling -> handling

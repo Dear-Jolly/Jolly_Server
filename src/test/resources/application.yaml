@@ -7,6 +7,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+    properties:
+      hibernate:
+        # 쿼리 수를 세어 N+1 을 잡아내는 테스트가 있다.
+        generate_statistics: true
   flyway:
     enabled: false
 

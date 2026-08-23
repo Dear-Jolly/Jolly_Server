@@ -21,11 +21,14 @@ import com.dearjolly.server.global.version.entity.AppVersions;
 import com.dearjolly.server.global.version.enums.Platform;
 import com.dearjolly.server.global.version.repository.AppVersionRepository;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.PersistenceContext;
 import io.restassured.RestAssured;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -64,6 +67,9 @@ public abstract class ApiTestSupport {
 
     @Autowired
     protected JwtProvider jwtProvider;
+
+    @Autowired
+    protected EntityManagerFactory entityManagerFactory;
 
     @BeforeEach
     void setUpPort() {
@@ -140,6 +146,13 @@ public abstract class ApiTestSupport {
         user.updateNickname(nickname);
         필수약관에_동의한다(user);
         return userRepository.save(user);
+    }
+
+    protected long 실행된_쿼리수(Runnable 호출) {
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.clear();
+        호출.run();
+        return statistics.getPrepareStatementCount();
     }
 
     protected String 관리자_액세스토큰() {
