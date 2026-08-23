@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class WithdrawnUserCleanupScheduler {
     private final UserRepository userRepository;
+    private final WithdrawnUserPurger withdrawnUserPurger;
 
     @Value("${dearjolly.withdrawal.retention-days}")
     private int retentionDays;
@@ -28,7 +29,7 @@ public class WithdrawnUserCleanupScheduler {
         if (expired.isEmpty()) {
             return;
         }
-        userRepository.deleteAll(expired);
+        withdrawnUserPurger.purge(expired.stream().map(Users::getId).toList());
         log.info("유예기간이 지난 탈퇴 계정 {}건을 삭제했다. threshold={}", expired.size(), threshold);
     }
 }

@@ -82,11 +82,9 @@ public class UserService implements OnboardingChecker {
     }
 
     @Override
-    public boolean isOnboardingCompleted(Long userId) {
-        Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    public boolean isOnboardingCompleted(Users user) {
         return user.isNicknameRegistered()
-                && TermsAgreementReader.isRequiredTermsAgreed(currentTermsState(userId));
+                && TermsAgreementReader.isRequiredTermsAgreed(currentTermsState(user.getId()));
     }
 
     private Users findActiveUser(Long userId) {

@@ -222,6 +222,19 @@ class LetterApiTest extends ApiTestSupport {
                 .body("code", equalTo("AUTH_005"));
     }
 
+    @DisplayName("온보딩 가드가 인증 필터가 조회한 사용자를 다시 조회하지 않는다")
+    @Test
+    void onboardingGuardReusesAuthenticatedUser() {
+        // given
+        Users user = 온보딩을_마친_유저를_저장한다("kakao-reuse", "jolly");
+
+        // when
+        long 쿼리수 = 실행된_쿼리수(() -> 편지목록을_조회한다(user));
+
+        // then - 사용자 1 + 약관 1 + 편지 1
+        assertThat(쿼리수).isEqualTo(3);
+    }
+
     @DisplayName("GET /api/v1/letters : 편지가 늘어도 쿼리 수가 늘지 않는다")
     @Test
     void getLettersDoesNotIssueQueryPerLetter() {
