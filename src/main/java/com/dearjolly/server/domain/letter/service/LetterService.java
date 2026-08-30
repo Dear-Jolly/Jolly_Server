@@ -94,8 +94,8 @@ public class LetterService {
             letter.markAsRead();
         }
         log.info(
-                "letter_detail_viewed userId={} letterId={} status={} markedAsRead={}",
-                userId, letterId, letter.getStatus(), markedAsRead
+                "letter_detail_viewed userId={} letterId={} status={} responseStatus={} retryCount={} markedAsRead={}",
+                userId, letterId, letter.getStatus(), letter.toResponseStatus(), letter.getRetryCount(), markedAsRead
         );
         return LetterGetResponse.of(letter, stampImageOf(letter));
     }
