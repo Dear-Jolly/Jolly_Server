@@ -8,5 +8,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface StampRepository extends JpaRepository<Stamps, Long> {
     Optional<Stamps> findByName(String name);
 
-    List<Stamps> findAllByNameNot(String name);
+    List<Stamps> findAllByNameNotIn(List<String> names);
 }

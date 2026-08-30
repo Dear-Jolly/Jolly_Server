@@ -2,14 +2,12 @@ package com.dearjolly.server.domain.feedback.service;
 
 import static com.dearjolly.server.global.logging.LogValueSanitizer.sanitize;
 
-import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
+import java.time.ZoneId;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
-import org.springframework.ai.retry.NonTransientAiException;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 
@@ -17,11 +15,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class FeedbackWorker {
-    private static final List<Duration> RETRY_DELAYS = List.of(
-            Duration.ofSeconds(30),
-            Duration.ofMinutes(2),
-            Duration.ofMinutes(5)
-    );
+    private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 
     private final FeedbackRequester feedbackRequester;
     private final FeedbackStateService feedbackStateService;
@@ -37,9 +31,9 @@ public class FeedbackWorker {
             return;
         }
         log.info(
-                "feedback_job_started userId={} nickname={} letterId={} attempt={} retryCount={} recoveryCount={}",
+                "feedback_job_started userId={} nickname={} letterId={} attempt={} retryCount={}",
                 context.userId(), sanitize(context.nickname()), letterId, context.retryCount() + 1,
-                context.retryCount(), context.recoveryCount()
+                context.retryCount()
         );
         try {
             feedbackRequester.requestFeedback(letterId);
@@ -49,57 +43,49 @@ public class FeedbackWorker {
     }
 
     private void handleFailure(Long letterId, FeedbackLogContext context, RuntimeException exception) {
-        boolean retryable = !(exception instanceof NonTransientAiException)
-                && !(exception instanceof NonRetryableFeedbackException);
-        FeedbackFailureResult result = feedbackStateService.handleFailure(letterId, retryable);
+        FeedbackFailureResult result = feedbackStateService.handleFailure(letterId);
         FeedbackLogContext current = contextOf(letterId);
         Throwable rootCause = rootCauseOf(exception);
-        if (!result.shouldRetry()) {
-            if (result.failed()) {
-                log.error(
-                        "feedback_job_failed userId={} nickname={} letterId={} status={} retryCount={} "
-                                + "recoveryCount={} retryable={} causeType={} causeMessage={} rootCauseType={} "
-                                + "rootCauseMessage={}",
-                        context.userId(), sanitize(context.nickname()), letterId, current.status(), result.retryCount(),
-                        current.recoveryCount(), retryable, exception.getClass().getSimpleName(),
-                        sanitize(exception.getMessage()), rootCause.getClass().getSimpleName(),
-                        sanitize(rootCause.getMessage()), exception
-                );
-            } else {
-                log.warn(
-                        "feedback_job_awaiting_recovery userId={} nickname={} letterId={} status={} retryCount={} "
-                                + "recoveryCount={} causeType={} causeMessage={} rootCauseType={} rootCauseMessage={}",
-                        context.userId(), sanitize(context.nickname()), letterId, current.status(), result.retryCount(),
-                        current.recoveryCount(), exception.getClass().getSimpleName(), sanitize(exception.getMessage()),
-                        rootCause.getClass().getSimpleName(), sanitize(rootCause.getMessage())
-                );
-            }
+        if (result.failed()) {
+            log.error(
+                    "feedback_job_failed userId={} nickname={} letterId={} status={} retryCount={} "
+                            + "causeType={} causeMessage={} rootCauseType={} rootCauseMessage={}",
+                    context.userId(), sanitize(context.nickname()), letterId, current.status(), result.retryCount(),
+                    exception.getClass().getSimpleName(), sanitize(exception.getMessage()),
+                    rootCause.getClass().getSimpleName(), sanitize(rootCause.getMessage()), exception
+            );
             return;
         }
-
-        Duration delay = RETRY_DELAYS.get(result.retryCount() - 1);
-        try {
-            Map<String, String> mdcContext = MDC.getCopyOfContextMap();
-            feedbackRetryScheduler.schedule(
-                    () -> runWithMdc(mdcContext, () -> process(letterId)),
-                    Instant.now().plus(delay)
-            );
+        if (result.retryScheduled()) {
+            scheduleRetry(letterId, result.nextRetryAt());
             log.warn(
-                    "feedback_retry_scheduled userId={} nickname={} letterId={} status={} retryCount={} "
-                            + "recoveryCount={} delaySeconds={} causeType={} causeMessage={} rootCauseType={} "
+                    "feedback_retry_registered userId={} nickname={} letterId={} status={} retryCount={} "
+                            + "nextRetryAt={} delaySeconds={} causeType={} causeMessage={} rootCauseType={} "
                             + "rootCauseMessage={}",
                     context.userId(), sanitize(context.nickname()), letterId, current.status(), result.retryCount(),
-                    current.recoveryCount(), delay.toSeconds(), exception.getClass().getSimpleName(),
-                    sanitize(exception.getMessage()), rootCause.getClass().getSimpleName(), sanitize(rootCause.getMessage())
+                    result.nextRetryAt(), result.delaySeconds(), exception.getClass().getSimpleName(),
+                    sanitize(exception.getMessage()), rootCause.getClass().getSimpleName(),
+                    sanitize(rootCause.getMessage())
             );
-        } catch (RuntimeException schedulingException) {
-            feedbackStateService.fail(letterId);
+            return;
+        }
+        log.info("feedback_failure_ignored letterId={} reason=state_changed", letterId);
+    }
+
+    private void scheduleRetry(Long letterId, java.time.LocalDateTime nextRetryAt) {
+        Map<String, String> mdcContext = MDC.getCopyOfContextMap();
+        Instant executionTime = nextRetryAt.atZone(SERVER_ZONE).toInstant();
+        try {
+            feedbackRetryScheduler.schedule(
+                    () -> runWithMdc(mdcContext, () -> process(letterId)),
+                    executionTime
+            );
+        } catch (RuntimeException exception) {
             log.error(
-                    "feedback_retry_scheduling_failed userId={} nickname={} letterId={} retryCount={} "
-                            + "causeType={} causeMessage={}",
-                    context.userId(), sanitize(context.nickname()), letterId, result.retryCount(),
-                    schedulingException.getClass().getSimpleName(), sanitize(schedulingException.getMessage()),
-                    schedulingException
+                    "feedback_in_memory_retry_lost letterId={} nextRetryAt={} causeType={} causeMessage={} "
+                            + "recovery=next_midnight",
+                    letterId, nextRetryAt, exception.getClass().getSimpleName(), sanitize(exception.getMessage()),
+                    exception
             );
         }
     }
@@ -127,4 +113,5 @@ public class FeedbackWorker {
             MDC.clear();
         }
     }
+
 }

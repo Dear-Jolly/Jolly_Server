@@ -1,6 +1,7 @@
 package com.dearjolly.server.domain.feedback.service;
 
 import static com.dearjolly.server.domain.letter.constants.StampConstants.DEFAULT_STAMP_NAME;
+import static com.dearjolly.server.domain.letter.constants.StampConstants.FAILED_STAMP_NAME;
 import static com.dearjolly.server.global.logging.LogValueSanitizer.sanitize;
 
 import com.dearjolly.server.domain.feedback.entity.CorrectionSegments;
@@ -36,7 +37,9 @@ public class FeedbackRequester {
         }
 
         // 기본 우표("준비 중")는 등록 시점에만 붙는 것이라 LLM 이 고를 수 있는 후보가 아니다.
-        List<String> stampNames = stampRepository.findAllByNameNot(DEFAULT_STAMP_NAME).stream()
+        List<String> stampNames = stampRepository.findAllByNameNotIn(
+                        List.of(DEFAULT_STAMP_NAME, FAILED_STAMP_NAME)
+                ).stream()
                 .map(Stamps::getName)
                 .toList();
         long startedAt = System.nanoTime();
@@ -69,7 +72,7 @@ public class FeedbackRequester {
     }
 
     private Optional<Stamps> findStamp(String stampName) {
-        if (stampName == null || DEFAULT_STAMP_NAME.equals(stampName)) {
+        if (stampName == null || DEFAULT_STAMP_NAME.equals(stampName) || FAILED_STAMP_NAME.equals(stampName)) {
             return Optional.empty();
         }
         return stampRepository.findByName(stampName);

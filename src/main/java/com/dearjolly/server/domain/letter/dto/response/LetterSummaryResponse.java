@@ -22,8 +22,9 @@ public record LetterSummaryResponse(
 
         @Schema(
                 description = """
-                        피드백 상태. SUBMITTED·FEEDBACK_IN_PROGRESS는 준비 중,
-                        FEEDBACK_COMPLETED는 완료, FEEDBACK_FAILED는 자동 처리가 끝난 최종 실패다
+                        피드백 상태. SUBMITTED·FEEDBACK_IN_PROGRESS는 아직 실패한 적 없는 준비 중,
+                        FEEDBACK_COMPLETED는 완료, FEEDBACK_FAILED는 한 번 이상 실패한 상태다.
+                        서버가 내부적으로 재시도를 이어가므로 FEEDBACK_FAILED가 FEEDBACK_COMPLETED로 바뀔 수 있다
                         """,
                 allowableValues = {"SUBMITTED", "FEEDBACK_IN_PROGRESS", "FEEDBACK_COMPLETED", "FEEDBACK_FAILED"},
                 requiredMode = Schema.RequiredMode.REQUIRED)
@@ -33,7 +34,11 @@ public record LetterSummaryResponse(
         boolean isRead,
 
         @Schema(
-                description = "우표 이미지 URL. 항상 값이 있으며, 피드백 완료 전에는 soon(준비 중) 우표다",
+                description = """
+                        우표 이미지 URL. 항상 값이 있다.
+                        SUBMITTED·FEEDBACK_IN_PROGRESS는 soon(준비 중), FEEDBACK_FAILED는 fail(실패),
+                        FEEDBACK_COMPLETED는 AI가 고른 우표다
+                        """,
                 example = "http://localhost:9000/dear-jolly-stamps/stamp/soon.png",
                 requiredMode = Schema.RequiredMode.REQUIRED)
         String stampImage

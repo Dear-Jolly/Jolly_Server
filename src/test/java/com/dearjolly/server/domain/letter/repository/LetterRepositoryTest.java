@@ -1,5 +1,6 @@
 package com.dearjolly.server.domain.letter.repository;
 
+import static com.dearjolly.server.domain.letter.enums.Status.FEEDBACK_IN_PROGRESS;
 import static com.dearjolly.server.domain.letter.enums.Status.SUBMITTED;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,73 +29,82 @@ class LetterRepositoryTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    @DisplayName("첫 복구는 30분, 두 번째 복구는 1시간이 지난 편지만 조회한다.")
+    @DisplayName("예약 시각이 지난 편지만 재시도 대상으로 조회한다.")
     @Test
-    void findLettersAtRecoveryThreshold() {
+    void findOnlyDueRetryReservations() {
         // given
         LocalDateTime now = LocalDateTime.now();
-        Letters firstReady = saveLetter("recovery-first-ready");
-        Letters firstWaiting = saveLetter("recovery-first-waiting");
-        Letters secondReady = saveLetter("recovery-second-ready");
-        Letters secondWaiting = saveLetter("recovery-second-waiting");
+        Letters due = saveLetter("retry-due");
+        Letters future = saveLetter("retry-future");
         entityManager.flush();
 
-        setRecoveryState(firstReady.getId(), 0, now.minusMinutes(31));
-        setRecoveryState(firstWaiting.getId(), 0, now.minusMinutes(29));
-        setRecoveryState(secondReady.getId(), 1, now.minusMinutes(61));
-        setRecoveryState(secondWaiting.getId(), 1, now.minusMinutes(59));
+        setNextRetryAt(due.getId(), now.minusSeconds(1));
+        setNextRetryAt(future.getId(), now.plusHours(1));
         entityManager.clear();
 
         // when
-        List<Long> targets = letterRepository.findIdsForFeedbackRecovery(
-                SUBMITTED, now.minusMinutes(30), now.minusHours(1)
-        );
+        List<Long> targets = letterRepository.findDueFeedbackIds(SUBMITTED, now);
 
         // then
-        assertThat(targets).containsExactlyInAnyOrder(firstReady.getId(), secondReady.getId());
+        assertThat(targets).contains(due.getId()).doesNotContain(future.getId());
     }
 
-    @DisplayName("복구 UPDATE도 recovery_count에 따라 30분과 1시간 기준을 적용한다.")
+    @DisplayName("기준 시각보다 오래 멈춘 FEEDBACK_IN_PROGRESS 편지만 복구 대상으로 조회한다.")
     @Test
-    void recoverLetterAtRecoveryThreshold() {
+    void findOnlyStalledInProgressLetters() {
         // given
         LocalDateTime now = LocalDateTime.now();
-        Letters firstWaiting = saveLetter("update-first-waiting");
-        Letters secondWaiting = saveLetter("update-second-waiting");
+        Letters stalled = saveLetter("stalled");
+        Letters running = saveLetter("running");
         entityManager.flush();
-        setRecoveryState(firstWaiting.getId(), 0, now.minusMinutes(29));
-        setRecoveryState(secondWaiting.getId(), 1, now.minusMinutes(59));
+
+        setInProgressUpdatedAt(stalled.getId(), now.minusMinutes(16));
+        setInProgressUpdatedAt(running.getId(), now.minusMinutes(1));
         entityManager.clear();
 
         // when
-        int firstUpdated = letterRepository.recoverFeedback(
-                firstWaiting.getId(), SUBMITTED, SUBMITTED,
-                now.minusMinutes(30), now.minusHours(1), now, 2
-        );
-        int secondUpdated = letterRepository.recoverFeedback(
-                secondWaiting.getId(), SUBMITTED, SUBMITTED,
-                now.minusMinutes(30), now.minusHours(1), now, 2
+        List<Long> targets = letterRepository.findStalledFeedbackIds(
+                FEEDBACK_IN_PROGRESS, now.minusMinutes(15)
         );
 
         // then
-        assertThat(firstUpdated).isZero();
-        assertThat(secondUpdated).isZero();
+        assertThat(targets).contains(stalled.getId()).doesNotContain(running.getId());
+    }
+
+    @DisplayName("예약 시각이 남은 편지는 워커가 선점하지 못한다.")
+    @Test
+    void doNotClaimLetterBeforeItsRetryTime() {
+        // given
+        LocalDateTime now = LocalDateTime.now();
+        Letters future = saveLetter("claim-too-early");
+        entityManager.flush();
+
+        setNextRetryAt(future.getId(), now.plusHours(1));
+        entityManager.clear();
+
+        // when
+        int claimed = letterRepository.startFeedback(future.getId(), SUBMITTED, FEEDBACK_IN_PROGRESS, now);
+
+        // then
+        assertThat(claimed).isZero();
     }
 
     private Letters saveLetter(String oauthId) {
         Users user = Users.create(OauthProvider.KAKAO, oauthId, oauthId + "@example.com");
         entityManager.persist(user);
-        Letters letter = Letters.create(
-                user, "I wrote a letter today.", LocalDate.now(), ZoneId.of("Asia/Seoul"), null
-        );
+        Letters letter = Letters.create(user, "letter", LocalDate.now(), ZoneId.of("Asia/Seoul"), null);
         entityManager.persist(letter);
         return letter;
     }
 
-    private void setRecoveryState(Long letterId, int recoveryCount, LocalDateTime updatedAt) {
+    private void setNextRetryAt(Long letterId, LocalDateTime nextRetryAt) {
+        jdbcTemplate.update("UPDATE LETTERS SET next_retry_at = ? WHERE letter_id = ?", nextRetryAt, letterId);
+    }
+
+    private void setInProgressUpdatedAt(Long letterId, LocalDateTime updatedAt) {
         jdbcTemplate.update(
-                "UPDATE LETTERS SET recovery_count = ?, updated_at = ? WHERE letter_id = ?",
-                recoveryCount, updatedAt, letterId
+                "UPDATE LETTERS SET status = ?, next_retry_at = NULL, updated_at = ? WHERE letter_id = ?",
+                FEEDBACK_IN_PROGRESS.name(), updatedAt, letterId
         );
     }
 }

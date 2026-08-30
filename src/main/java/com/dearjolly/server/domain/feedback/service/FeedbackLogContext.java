@@ -1,6 +1,7 @@
 package com.dearjolly.server.domain.feedback.service;
 
 import com.dearjolly.server.domain.letter.entity.Letters;
+import java.time.LocalDateTime;
 
 public record FeedbackLogContext(
         Long letterId,
@@ -8,7 +9,7 @@ public record FeedbackLogContext(
         String nickname,
         String status,
         int retryCount,
-        int recoveryCount
+        LocalDateTime nextRetryAt
 ) {
     public static FeedbackLogContext from(Letters letter) {
         return new FeedbackLogContext(
@@ -17,11 +18,11 @@ public record FeedbackLogContext(
                 letter.getUser().getNickname(),
                 letter.getStatus().name(),
                 letter.getRetryCount(),
-                letter.getRecoveryCount()
+                letter.getNextRetryAt()
         );
     }
 
     public static FeedbackLogContext unknown(Long letterId) {
-        return new FeedbackLogContext(letterId, null, "unknown", "unknown", 0, 0);
+        return new FeedbackLogContext(letterId, null, "unknown", "unknown", 0, null);
     }
 }

@@ -19,16 +19,23 @@ public interface LetterRepository extends JpaRepository<Letters, Long> {
     Optional<Letters> findFirstByUserIdOrderByIdDesc(Long userId);
 
     @Query("""
-            SELECT letter.id
-            FROM Letters letter
-            WHERE letter.status = :status
-              AND ((letter.recoveryCount = 0 AND letter.updatedAt < :firstRecoveryThreshold)
-                OR (letter.recoveryCount >= 1 AND letter.updatedAt < :secondRecoveryThreshold))
+            SELECT letter.id FROM Letters letter
+            WHERE letter.status = :status AND letter.nextRetryAt <= :now
+            ORDER BY letter.nextRetryAt, letter.id
             """)
-    List<Long> findIdsForFeedbackRecovery(
+    List<Long> findDueFeedbackIds(
             @Param("status") Status status,
-            @Param("firstRecoveryThreshold") LocalDateTime firstRecoveryThreshold,
-            @Param("secondRecoveryThreshold") LocalDateTime secondRecoveryThreshold
+            @Param("now") LocalDateTime now
+    );
+
+    @Query("""
+            SELECT letter.id FROM Letters letter
+            WHERE letter.status = :status AND letter.updatedAt < :threshold
+            ORDER BY letter.updatedAt, letter.id
+            """)
+    List<Long> findStalledFeedbackIds(
+            @Param("status") Status status,
+            @Param("threshold") LocalDateTime threshold
     );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -38,57 +45,19 @@ public interface LetterRepository extends JpaRepository<Letters, Long> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Letters letter
-            SET letter.status = :inProgress, letter.updatedAt = :now, letter.version = letter.version + 1
-            WHERE letter.id = :letterId AND letter.status = :submitted
+            SET letter.status = :inProgress,
+                letter.nextRetryAt = null,
+                letter.updatedAt = :now,
+                letter.version = letter.version + 1
+            WHERE letter.id = :letterId
+              AND letter.status = :submitted
+              AND (letter.nextRetryAt IS NULL OR letter.nextRetryAt <= :now)
             """)
     int startFeedback(
             @Param("letterId") Long letterId,
             @Param("submitted") Status submitted,
             @Param("inProgress") Status inProgress,
             @Param("now") LocalDateTime now
-    );
-
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("""
-            UPDATE Letters letter
-            SET letter.status = :submitted,
-                letter.recoveryCount = letter.recoveryCount + 1,
-                letter.updatedAt = :now,
-                letter.version = letter.version + 1
-            WHERE letter.id = :letterId
-              AND letter.status = :expectedStatus
-              AND ((letter.recoveryCount = 0 AND letter.updatedAt < :firstRecoveryThreshold)
-                OR (letter.recoveryCount >= 1 AND letter.updatedAt < :secondRecoveryThreshold))
-              AND letter.recoveryCount < :maxRecoveryCount
-            """)
-    int recoverFeedback(
-            @Param("letterId") Long letterId,
-            @Param("expectedStatus") Status expectedStatus,
-            @Param("submitted") Status submitted,
-            @Param("firstRecoveryThreshold") LocalDateTime firstRecoveryThreshold,
-            @Param("secondRecoveryThreshold") LocalDateTime secondRecoveryThreshold,
-            @Param("now") LocalDateTime now,
-            @Param("maxRecoveryCount") int maxRecoveryCount
-    );
-
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("""
-            UPDATE Letters letter
-            SET letter.status = :failed,
-                letter.updatedAt = :now,
-                letter.version = letter.version + 1
-            WHERE letter.id = :letterId
-              AND letter.status = :expectedStatus
-              AND letter.updatedAt < :secondRecoveryThreshold
-              AND letter.recoveryCount >= :maxRecoveryCount
-            """)
-    int failExhaustedRecovery(
-            @Param("letterId") Long letterId,
-            @Param("expectedStatus") Status expectedStatus,
-            @Param("failed") Status failed,
-            @Param("secondRecoveryThreshold") LocalDateTime secondRecoveryThreshold,
-            @Param("now") LocalDateTime now,
-            @Param("maxRecoveryCount") int maxRecoveryCount
     );
 
     @EntityGraph(attributePaths = {"stamp", "feedback"})
