@@ -1,0 +1,7 @@
+spring:
+  ai:
+    openai:
+      api-key: stub-api-key
+      chat:
+        options:
+          model: gpt-4o-mini

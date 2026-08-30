@@ -12,7 +12,11 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest
 @ActiveProfiles("live")
 class SpringAiLlmClientLiveTest {
-    private static final List<String> STAMP_NAMES = List.of("친구", "영화", "맥주");
+    // 운영 후보는 밑줄이 섞인 한글 이름 100여 개다. 짧고 단순한 목록으로만 검증하면
+    // 모델이 이름을 줄여 돌려주는 실패가 잡히지 않는다.
+    private static final List<String> STAMP_NAMES = List.of(
+            "친구_위로", "영화", "맥주", "꽃_장미", "달리기_런닝_운동", "무궁화_제헌절_개천절_한글날_국경일"
+    );
 
     @Autowired
     private LlmClient llmClient;
