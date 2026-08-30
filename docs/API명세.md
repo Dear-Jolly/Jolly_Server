@@ -1077,7 +1077,7 @@ POST /api/v1/admin/login
 ```json
 {
     "username": "admin",
-    "password": "admin1234"
+    "password": "<관리자 비밀번호>"
 }
 ```
 

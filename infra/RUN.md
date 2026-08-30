@@ -197,8 +197,8 @@ export TESTCONTAINERS_RYUK_DISABLED=true
 ```bash
 # infra/env/.env.local
 USER_SEED_ENABLED=true
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=admin1234
+ADMIN_USERNAME=<관리자 아이디>
+ADMIN_PASSWORD=<관리자 비밀번호>
 ```
 
 `./run.sh restart` 로 시드를 돌린 뒤 아이디·비밀번호로 로그인해 토큰을 받는다.
@@ -207,7 +207,7 @@ ADMIN_PASSWORD=admin1234
 ```bash
 TOKEN=$(curl -sk -X POST https://localhost:8080/api/v1/admin/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"admin1234"}' | jq -r .accessToken)
+  -d '{"username":"<관리자 아이디>","password":"<관리자 비밀번호>"}' | jq -r .accessToken)
 
 curl -sk -H "Authorization: Bearer $TOKEN" https://localhost:8080/api/v1/home
 curl -sk -H "Authorization: Bearer $TOKEN" https://localhost:8080/api/v1/letters
