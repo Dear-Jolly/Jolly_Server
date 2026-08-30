@@ -5,6 +5,7 @@ import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.examples.Example;
 import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.MediaType;
+import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -39,8 +40,18 @@ public class ErrorExampleCustomizer implements OperationCustomizer {
         if (operation.getResponses() == null) {
             return operation;
         }
+        operation.getResponses().computeIfAbsent("429", ignored -> tooManyRequestsResponse());
         operation.getResponses().forEach(this::applyExamples);
         return operation;
+    }
+
+    private ApiResponse tooManyRequestsResponse() {
+        MediaType mediaType = new MediaType()
+                .schema(new Schema<>().$ref("#/components/schemas/ErrorResponse"))
+                .example(bodyOf(ErrorCode.TOO_MANY_REQUESTS));
+        return new ApiResponse()
+                .description("`COMMON_004` 분당 요청 횟수 초과")
+                .content(new Content().addMediaType("application/json", mediaType));
     }
 
     private void applyExamples(String statusCode, ApiResponse response) {

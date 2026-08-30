@@ -74,6 +74,9 @@ minio:
   bucket: ${MINIO_BUCKET:dear-jolly-stamps}
 
 dearjolly:
+  rate-limit:
+    global-per-minute: ${RATE_LIMIT_GLOBAL_PER_MINUTE:120}
+    letter-per-user-per-minute: ${RATE_LIMIT_LETTER_PER_USER_PER_MINUTE:5}
   # 우표 시드. 기동할 때마다 seed/stamps 이미지를 MinIO 에 올리고 STAMPS 행을 맞춘다.
   # 오브젝트·행이 이미 있으면 건너뛰므로 재기동·블루그린 배포에서 반복 실행돼도 안전하다.
   seed:

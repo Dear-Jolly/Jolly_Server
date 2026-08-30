@@ -70,6 +70,21 @@ class OpenApiDocsTest extends ApiTestSupport {
                         allOf(hasKey("COMMON_001"), hasKey("VERSION_001")));
     }
 
+    @DisplayName("GET /v3/api-docs : 모든 API에 요청 제한 초과 429 응답이 문서화된다")
+    @Test
+    void rateLimitResponseIsDocumentedForEveryApi() {
+        given()
+                .when().get("/v3/api-docs")
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("paths.'/api/v1/letters'.post.responses.'429'.description",
+                        containsString("COMMON_004"))
+                .body("paths.'/api/v1/letters'.post.responses.'429'.content.'application/json'.example.code",
+                        equalTo("COMMON_004"))
+                .body("paths.'/api/v1/home'.get.responses.'429'.description",
+                        containsString("COMMON_004"));
+    }
+
     @DisplayName("GET /v3/api-docs/{group} : 그룹 문서에도 실패 응답 예시가 실린다")
     @Test
     void errorExamplesAreAppliedToGroupedDocs() {
