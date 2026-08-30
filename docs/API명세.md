@@ -31,12 +31,14 @@
 | [14](#14-get-apiv1version-) | `GET` | `/api/v1/version` | 최소 지원 버전 조회, 강제 업데이트 판정 | — | — | ✅ |
 | [15](#15-patch-apiv1adminversion-) | `PATCH` | `/api/v1/admin/version` | 최소 지원 버전 변경 (관리자) | ✔ | — | ✅ |
 | [16](#16-post-apiv1adminlogin-) | `POST` | `/api/v1/admin/login` | 관리자 로그인 (아이디 · 비밀번호) | — | — | ✅ |
+| [17](#17-get-apiv1adminlettersfailed-) | `GET` | `/api/v1/admin/letters/failed` | 피드백 실패 편지 조회 (관리자) | ✔ | — | ✅ |
+| [18](#18-post-apiv1adminlettersletteridfeedbackretry-) | `POST` | `/api/v1/admin/letters/{letterId}/feedback/retry` | 피드백 재시도 (관리자) | ✔ | — | ✅ |
 
 - **인증** ✔ — `Authorization` 헤더가 필요하다.
 - **온보딩** ✔ — 온보딩(필수 약관 동의 + 닉네임 등록) 전에 호출하면 `USER_005` 다.
 - **구현** — ✅ 호출 가능, ❌ 명세만 확정되고 아직 개발 전이다.
 - `{provider}` 는 `KAKAO` · `APPLE` 이며 **대소문자를 가리지 않는다**. (`kakao`, `Kakao` 모두 같다)
-- **관리자 API** — 15) 는 **관리자 권한 계정의 토큰**이 필요하다. 16) 으로 받는다.
+- **관리자 API** — 15) · 17) · 18) 은 **관리자 권한 계정의 토큰**이 필요하다. 16) 으로 받는다. 일반 사용자 토큰으로 호출하면 `AUTH_006`(403) 이다.
 
 ---
 
@@ -1120,6 +1122,161 @@ POST /api/v1/admin/login
 
 ---
 
+## 17) GET /api/v1/admin/letters/failed ✅
+
+### [설명]
+
+- **앱에 실패로 보이는 편지**를 모두 조회한다. 한 번이라도 피드백 생성에 실패하고 아직 완료되지 않은 편지다.
+- 최근에 실패한 편지가 먼저 온다.
+- `status` 는 **서버 내부 상태**다. 사용자에게는 이 값과 무관하게 `FEEDBACK_FAILED` 로 보인다.
+- `nextRetryAt` 에 값이 있으면 그 시각에 **서버가 알아서 다시 시도한다.** 아무것도 하지 않아도 된다.
+- `nextRetryAt` 이 `null` 이면 재시도 예산을 모두 쓴 편지다. 되살리려면 [18) POST /api/v1/admin/letters/{letterId}/feedback/retry](#18-post-apiv1adminlettersletteridfeedbackretry-) 를 호출한다.
+- **관리자 토큰이 필요하다.** [16) POST /api/v1/admin/login](#16-post-apiv1adminlogin-) 으로 받는다.
+
+### [스펙]
+
+**Endpoint**
+
+```
+GET /api/v1/admin/letters/failed?page=0&size=20
+```
+
+**Authorization 헤더**: 필요 (관리자)
+
+**Query Parameter**
+
+- [선택] `page` (Integer): 페이지 번호. 0 이상, 기본값 `0`
+- [선택] `size` (Integer): 페이지 크기. 1~50, 기본값 `20`
+
+### [성공 Response 200]
+
+```json
+{
+    "letters": [
+        {
+            "letterId": 16,
+            "userId": 6,
+            "nickname": "jolly",
+            "date": "2026-08-30",
+            "content": "I go to school yesterday.",
+            "status": "SUBMITTED",
+            "retryCount": 3,
+            "nextRetryAt": "2026-08-30T18:19:46",
+            "updatedAt": "2026-08-30T18:14:46"
+        }
+    ],
+    "hasNext": false
+}
+```
+
+- [필수] `letters` (Array): 실패한 편지 목록. 없으면 빈 배열이다
+    - [필수] `letterId` (Long): 편지 ID
+    - [필수] `userId` (Long): 작성자 ID
+    - [필수] `nickname` (String): 작성자 닉네임
+    - [필수] `date` (String): 편지 날짜 (`yyyy-MM-dd`)
+    - [필수] `content` (String): 편지 원문
+    - [필수] `status` (String): 서버 내부 상태 (`SUBMITTED`, `FEEDBACK_IN_PROGRESS`, `FEEDBACK_FAILED`)
+    - [필수] `retryCount` (Integer): 사용한 재시도 횟수 (0~5)
+    - [선택] `nextRetryAt` (String): 다음 재시도 예약 시각. 예산을 모두 쓴 편지는 `null`
+    - [필수] `updatedAt` (String): 마지막 상태 변경 시각
+- [필수] `hasNext` (Boolean): 다음 페이지 존재 여부
+
+### [실패 Response 400]
+
+```json
+{
+    "status": 400,
+    "code": "COMMON_001",
+    "message": "잘못된 요청입니다."
+}
+```
+
+### [실패 Response 403]
+
+```json
+{
+    "status": 403,
+    "code": "AUTH_006",
+    "message": "접근 권한이 없습니다."
+}
+```
+
+---
+
+## 18) POST /api/v1/admin/letters/{letterId}/feedback/retry ✅
+
+### [설명]
+
+- 실패한 편지의 AI 피드백을 **즉시 다시 시도한다.**
+- 재시도 횟수를 `0` 으로 되돌리므로 예산 5회를 새로 쓴다.
+- 우표가 준비 중(`soon`) 우표로 돌아가고, **사용자 앱에도 다시 준비 중으로 보인다.** 재시도가 성공하면 사용자는 실패 화면을 더 이상 보지 않는다.
+- 응답은 **요청 접수 결과**다. 피드백 생성을 기다리지 않는다. 결과는 17) 로 다시 확인한다.
+- 이미 완료된 편지는 `LETTER_006` 이다. 되돌릴 이유가 없다.
+- 다른 워커가 처리 중인 편지는 `LETTER_007` 이다. 같은 편지에 AI 호출이 두 번 나가기 때문이다. **15분 넘게 멈춰 있는 편지는 워커가 죽은 것으로 보고 재시도를 허용한다.**
+- **관리자 토큰이 필요하다.** [16) POST /api/v1/admin/login](#16-post-apiv1adminlogin-) 으로 받는다.
+
+### [스펙]
+
+**Endpoint**
+
+```
+POST /api/v1/admin/letters/{letterId}/feedback/retry
+```
+
+**Authorization 헤더**: 필요 (관리자)
+
+**Path Variable**
+
+- [필수] `letterId` (Long): 재시도할 편지 ID
+
+**Body**: 없음
+
+### [성공 Response 200]
+
+```json
+{
+    "letterId": 16,
+    "status": "SUBMITTED",
+    "retryCount": 0,
+    "nextRetryAt": "2026-08-30T18:30:00"
+}
+```
+
+- [필수] `letterId` (Long): 편지 ID
+- [필수] `status` (String): 재시도 요청 후 상태. 항상 `SUBMITTED`
+- [필수] `retryCount` (Integer): 초기화된 재시도 횟수. 항상 `0`
+- [필수] `nextRetryAt` (String): 재시도 예약 시각
+
+### [실패 Response 400]
+
+```json
+{
+    "status": 400,
+    "code": "LETTER_006",
+    "message": "이미 피드백이 완료된 편지입니다."
+}
+```
+
+```json
+{
+    "status": 400,
+    "code": "LETTER_007",
+    "message": "피드백을 처리 중인 편지입니다."
+}
+```
+
+### [실패 Response 404]
+
+```json
+{
+    "status": 404,
+    "code": "LETTER_002",
+    "message": "존재하지 않는 편지입니다."
+}
+```
+
+---
+
 # 3. Enum 정의
 
 | Enum | 값 | 설명 |
@@ -1168,6 +1325,8 @@ POST /api/v1/admin/login
 | `LETTER_003` | 400 | 편지 내용은 500자를 초과할 수 없습니다. | 편지 작성 |
 | `LETTER_004` | 400 | 편지는 영어로만 작성할 수 있습니다. | 편지 작성 |
 | `LETTER_005` | 400 | 편지 작성 시각 정보가 올바르지 않습니다. | 편지 작성 |
+| `LETTER_006` | 400 | 이미 피드백이 완료된 편지입니다. | 피드백 재시도 (관리자) |
+| `LETTER_007` | 400 | 피드백을 처리 중인 편지입니다. | 피드백 재시도 (관리자) |
 
 ## 4) VERSION
 
