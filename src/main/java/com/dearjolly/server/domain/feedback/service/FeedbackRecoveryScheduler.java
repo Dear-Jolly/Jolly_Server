@@ -24,12 +24,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class FeedbackRecoveryScheduler {
-    private static final int STALLED_MINUTES = 15;
     private static final String SCHEDULED_TRIGGER = "scheduled";
     private static final String STARTUP_TRIGGER = "startup";
     private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 
     private final LetterRepository letterRepository;
+    private final FeedbackRetryPolicy retryPolicy;
     private final FeedbackStateService feedbackStateService;
     private final FeedbackWorker feedbackWorker;
     private final ApplicationEventPublisher eventPublisher;
@@ -56,7 +56,7 @@ public class FeedbackRecoveryScheduler {
         );
         dueLetterIds.forEach(letterId -> eventPublisher.publishEvent(new LetterCreatedEvent(letterId)));
 
-        LocalDateTime stalledThreshold = now.minusMinutes(STALLED_MINUTES);
+        LocalDateTime stalledThreshold = now.minus(retryPolicy.stalledThreshold());
         List<Long> stalledLetterIds = letterRepository.findStalledFeedbackIds(
                 FEEDBACK_IN_PROGRESS, stalledThreshold
         );

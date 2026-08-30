@@ -41,7 +41,36 @@ class OpenApiDocsTest extends ApiTestSupport {
                 .body("paths", hasKey("/api/v1/version"))
                 .body("paths", hasKey("/api/v1/admin/login"))
                 .body("paths", hasKey("/api/v1/admin/version"))
+                .body("paths", hasKey("/api/v1/admin/letters/failed"))
+                .body("paths", hasKey("/api/v1/admin/letters/{letterId}/feedback/retry"))
                 .body("components.securitySchemes.bearerAuth.scheme", equalTo("bearer"));
+    }
+
+    @DisplayName("GET /v3/api-docs/admin : 관리자 API 는 관리자 그룹과 관리자 태그에 모인다")
+    @Test
+    void adminApisAreGroupedTogether() {
+        given()
+                .when().get("/v3/api-docs/admin")
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("paths", allOf(
+                        hasKey("/api/v1/admin/login"),
+                        hasKey("/api/v1/admin/version"),
+                        hasKey("/api/v1/admin/letters/failed"),
+                        hasKey("/api/v1/admin/letters/{letterId}/feedback/retry")))
+                .body("paths.'/api/v1/admin/letters/failed'.get.tags", contains("관리자"))
+                .body("paths.'/api/v1/admin/letters/{letterId}/feedback/retry'.post.tags", contains("관리자"));
+    }
+
+    @DisplayName("GET /v3/api-docs/letter : 관리자 편지 API 는 편지 그룹에 섞이지 않는다")
+    @Test
+    void adminLetterApisAreNotInLetterGroup() {
+        given()
+                .when().get("/v3/api-docs/letter")
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("paths", not(hasKey("/api/v1/admin/letters/failed")))
+                .body("paths", not(hasKey("/api/v1/admin/letters/{letterId}/feedback/retry")));
     }
 
     @DisplayName("GET /v3/api-docs : 도메인별 그룹 문서가 각각 열린다")

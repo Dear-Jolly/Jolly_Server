@@ -26,6 +26,8 @@ public enum ErrorCode {
     LETTER_CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "LETTER_003", "편지 내용은 500자를 초과할 수 없습니다."),
     LETTER_CONTENT_NOT_ENGLISH(HttpStatus.BAD_REQUEST, "LETTER_004", "편지는 영어로만 작성할 수 있습니다."),
     LETTER_WRITTEN_AT_INVALID(HttpStatus.BAD_REQUEST, "LETTER_005", "편지 작성 시각 정보가 올바르지 않습니다."),
+    LETTER_FEEDBACK_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "LETTER_006", "이미 피드백이 완료된 편지입니다."),
+    LETTER_FEEDBACK_IN_PROGRESS(HttpStatus.BAD_REQUEST, "LETTER_007", "피드백을 처리 중인 편지입니다."),
 
     APP_VERSION_INVALID(HttpStatus.BAD_REQUEST, "VERSION_001", "앱 버전은 x.y.z 형식이어야 합니다."),
     APP_VERSION_NOT_FOUND(HttpStatus.NOT_FOUND, "VERSION_002", "해당 플랫폼의 최소 지원 버전이 설정되어 있지 않습니다."),
