@@ -1,6 +1,7 @@
 package com.dearjolly.server.domain.letter.controller;
 
 import static io.restassured.RestAssured.given;
+import static org.awaitility.Awaitility.await;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
@@ -643,19 +644,19 @@ class LetterApiTest extends ApiTestSupport {
                 .extract().jsonPath().getLong("letterId");
 
         // when
-        given()
-                .header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
-                .when().get("/api/v1/letters/{letterId}", letterId)
-                // then
-                .then()
-                .statusCode(HttpStatus.OK.value())
-                .body("status", equalTo(Status.FEEDBACK_COMPLETED.name()))
-                .body("stampImage", equalTo("http://localhost:9000/dear-jolly-stamps/stamp/rose.png"))
-                .body("originalContent", equalTo(CONTENT))
-                .body("feedback.correctedContent",
-                        equalTo("I received flowers from a friend today. It really touched me."))
-                .body("feedback.tips", hasSize(1))
-                .body("feedback.correctionSegments.size()", greaterThan(0));
+        await().untilAsserted(() -> given()
+                        .header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                        .when().get("/api/v1/letters/{letterId}", letterId)
+                        // then
+                        .then()
+                        .statusCode(HttpStatus.OK.value())
+                        .body("status", equalTo(Status.FEEDBACK_COMPLETED.name()))
+                        .body("stampImage", equalTo("http://localhost:9000/dear-jolly-stamps/stamp/rose.png"))
+                        .body("originalContent", equalTo(CONTENT))
+                        .body("feedback.correctedContent",
+                                equalTo("I received flowers from a friend today. It really touched me."))
+                        .body("feedback.tips", hasSize(1))
+                        .body("feedback.correctionSegments.size()", greaterThan(0)));
     }
 
     private Map<String, Object> 편지_요청(String content, LocalDateTime writtenAt, String timeZone) {

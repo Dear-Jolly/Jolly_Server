@@ -36,7 +36,8 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "편지", description = """
         편지 작성 · 조회와 홈 헤더 조회 API. **온보딩 가드 대상**이라 미완료 유저가 호출하면 `USER_005`(400) 다.
 
-        편지는 전달 후 수정 · 삭제할 수 없다. 상태는 `SUBMITTED` → `FEEDBACK_IN_PROGRESS` → `FEEDBACK_COMPLETED` 로 진행되며 앱은 앞의 둘을 동일하게 렌더링한다.""")
+        편지는 전달 후 수정 · 삭제할 수 없다. 상태는 `SUBMITTED` → `FEEDBACK_IN_PROGRESS` → `FEEDBACK_COMPLETED` 로 진행된다.
+        자동 재시도와 보완 복구가 모두 실패하면 `FEEDBACK_FAILED`이며, 앱은 준비 중 상태와 구분해 실패 안내를 표시한다.""")
 @RestController
 @RequestMapping("/api/v1/letters")
 @RequiredArgsConstructor
@@ -117,11 +118,15 @@ public class LetterController {
                     - **피드백이 완료된 편지를 조회하면 읽음 처리된다.** 별도의 읽음 처리 API 는 없다.
                     - **본인 편지만** 조회할 수 있다. 없는 편지든 남의 편지든 똑같이 `LETTER_002`(404) 다.
                     - 피드백 완료 전에도 응답은 성공하며 이때 `feedback` 은 `null` 이다. 앱은 완료 전 카드의 진입을 막는다.
+                    - `FEEDBACK_FAILED`는 백그라운드 처리가 최종 실패한 상태다. HTTP 에러가 아니라 정상 200 응답이며
+                      `feedback` 은 `null` 이다. 앱은 자동 새로고침을 멈추고 실패 안내를 표시한다.
                     - 우표는 종류가 운영 중 바뀔 수 있다. 앱은 `stampImage` URL 을 그대로 표시하고 우표 종류로 분기하지 않는다.
                     - 교정문은 `correctionSegments` 를 `sequence` 순서대로 이어붙여 그린다.
                       `UNCHANGED` 는 그대로, `MODIFIED` 는 `originalText` 를 취소선으로 찍고 뒤에 `correctedText` 를 붙인다.""")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "조회 성공. 피드백 완료 전이면 feedback 이 null 이다"),
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "조회 성공. 준비 중 또는 FEEDBACK_FAILED 상태이면 feedback이 null이다"),
             @ApiResponse(
                     responseCode = "400",
                     description = "`USER_005` 온보딩 미완료",
@@ -155,7 +160,8 @@ public class LetterController {
                     - 편지를 쓰지 않은 날은 응답에 나타나지 않는다. 캘린더가 아니라 기록이 쌓이는 목록이다.
                     - 정렬은 서버가 처리하므로 앱은 받은 순서대로 그린다. 정렬 기준은 편지 날짜다.
                     - `FEEDBACK_COMPLETED` 이면서 `isRead == false` 면 날짜 앞에 빨간 점을 찍는다. 완료 전 편지에는 찍지 않는다.
-                    - 목록에 완료되지 않은 항목이 있으면 앱은 화면 재진입 · 새로고침 때 다시 조회한다.""")
+                    - 목록에 `SUBMITTED`·`FEEDBACK_IN_PROGRESS`가 있으면 앱은 화면 재진입 · 새로고침 때 다시 조회한다.
+                    - `FEEDBACK_FAILED`는 더 이상 자동 처리되지 않는다. 앱은 준비 중 표시를 끝내고 실패 안내를 표시한다.""")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 성공. 편지가 없으면 빈 배열이다"),
             @ApiResponse(

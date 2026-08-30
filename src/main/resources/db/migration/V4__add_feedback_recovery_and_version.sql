@@ -1,0 +1,5 @@
+ALTER TABLE letters
+    ADD COLUMN recovery_count INT NOT NULL DEFAULT 0;
+
+ALTER TABLE letters
+    ADD COLUMN version BIGINT NOT NULL DEFAULT 0;

@@ -127,6 +127,8 @@ DB·이미지 데이터는 컨테이너가 아니라 호스트의 `dear-jolly/mo
 ```bash
 ./gradlew test                        # 전체
 ./gradlew test --tests '*AuthApiTest' # 단건
+set -a; source infra/env/.env.local; set +a
+./gradlew openAiLiveTest              # 실제 OpenAI API 호출
 ```
 
 | 계층 | 방식 | 비고 |
@@ -135,6 +137,7 @@ DB·이미지 데이터는 컨테이너가 아니라 호스트의 `dear-jolly/mo
 | 서비스 단위 | Mockito | |
 | 레포지터리 | H2 | |
 | 스키마 대조 | Testcontainers + 실제 MySQL | `SchemaMigrationTest` 가 Flyway 결과와 엔티티 매핑을 대조한다 |
+| OpenAI 실호출 | `openAiLiveTest` | `.env.local`의 실제 키로 구조화 피드백을 검증하며 API 비용이 발생한다 |
 
 Testcontainers 는 **Docker 가 떠 있어야** 돈다. Docker Desktop 이든 Colima 든 띄워만 두면 `./gradlew test` 가 그대로 돈다 —
 `DOCKER_HOST` 가 비어 있고 `~/.colima/default/docker.sock` 이 있으면 `build.gradle` 이 소켓 경로 · API 버전 · Ryuk 비활성화를 자동으로 채운다.
@@ -180,12 +183,12 @@ export TESTCONTAINERS_RYUK_DISABLED=true
 | --- | --- | :---: | --- |
 | 우표 | `seed/stamps/*.png` 를 MinIO 에 올리고 `STAMPS` 행을 맞춘다 | 켜짐 | `STAMP_SEED_ENABLED=false` |
 | 앱 버전 | 플랫폼별 최소 지원 버전 행을 **비어 있을 때만** `1.0.0` 으로 채운다 | 켜짐 | `APP_VERSION_SEED_ENABLED=false` |
-| 시드 User | 관리자 권한 계정 하나 + 약관 동의 + 편지 6통 | **꺼짐** | `USER_SEED_ENABLED=true` 로 켠다 |
+| 시드 User | 관리자 권한 계정 하나 + 약관 동의 | **꺼짐** | `USER_SEED_ENABLED=true` 로 켠다 |
 
 ### 관리자 권한의 시드 User
 
 소셜 로그인을 거치지 않고 인증이 필요한 API 를 시험하기 위한 계정이다.
-약관 동의·닉네임 등록까지 끝난 평범한 계정이고 `role` 만 `ROLE_ADMIN` 이며, 피드백까지 완료된 편지가 함께 들어간다.
+약관 동의·닉네임 등록까지 끝난 평범한 계정이고 `role` 만 `ROLE_ADMIN` 이다. 편지는 시드하지 않는다.
 
 **관리자는 회원가입을 하지 않는다.** 이 시드가 유일한 생성 지점이라, 켜지 않으면 관리자 로그인도 되지 않는다.
 

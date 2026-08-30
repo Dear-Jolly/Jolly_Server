@@ -21,8 +21,11 @@ public record LetterSummaryResponse(
         String summary,
 
         @Schema(
-                description = "편지 상태",
-                allowableValues = {"SUBMITTED", "FEEDBACK_IN_PROGRESS", "FEEDBACK_COMPLETED"},
+                description = """
+                        피드백 상태. SUBMITTED·FEEDBACK_IN_PROGRESS는 준비 중,
+                        FEEDBACK_COMPLETED는 완료, FEEDBACK_FAILED는 자동 처리가 끝난 최종 실패다
+                        """,
+                allowableValues = {"SUBMITTED", "FEEDBACK_IN_PROGRESS", "FEEDBACK_COMPLETED", "FEEDBACK_FAILED"},
                 requiredMode = Schema.RequiredMode.REQUIRED)
         Status status,
 

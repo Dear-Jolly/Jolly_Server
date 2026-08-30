@@ -4,12 +4,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Order(SeedOrder.USER)
 @RequiredArgsConstructor
 public class UserSeeder implements ApplicationRunner {
     private final UserSeedProperties userSeedProperties;
@@ -22,10 +20,8 @@ public class UserSeeder implements ApplicationRunner {
             return;
         }
         try {
-            UserSeedResult result = userSeedWriter.write(
-                    userSeedProperties, UserSeedData.LETTERS);
-            log.info("시드 User 완료. userId={}, 편지 추가 {}건, 그중 피드백 완료 {}건",
-                    result.userId(), result.createdLetters(), result.completedLetters());
+            Long userId = userSeedWriter.write(userSeedProperties);
+            log.info("시드 User 완료. userId={}", userId);
         } catch (Exception e) {
             // 시드 실패로 기동을 막으면 무중단 배포가 통째로 멈춘다. 로그만 남기고 기동은 이어간다.
             log.error("시드 User 생성에 실패했다.", e);

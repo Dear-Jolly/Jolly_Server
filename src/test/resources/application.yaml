@@ -1,4 +1,12 @@
 spring:
+  profiles:
+    active: test
+  ai:
+    openai:
+      api-key: test-openai-api-key
+      chat:
+        options:
+          model: gpt-4o-mini
   datasource:
     url: jdbc:h2:mem:dearjolly;MODE=MySQL;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver

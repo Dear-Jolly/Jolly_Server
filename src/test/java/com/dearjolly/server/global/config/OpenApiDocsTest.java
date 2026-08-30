@@ -107,7 +107,7 @@ class OpenApiDocsTest extends ApiTestSupport {
                 .body("paths.'/api/v1/admin/version'.patch", not(hasKey("security")));
     }
 
-    @DisplayName("GET /v3/api-docs : 편지 상태에 내부 전용 FEEDBACK_FAILED 는 실리지 않는다")
+    @DisplayName("GET /v3/api-docs : 프론트가 처리할 편지 상태 네 가지가 모두 문서화된다")
     @Test
     void internalStatusIsNotDocumented() {
         given()
@@ -115,9 +115,9 @@ class OpenApiDocsTest extends ApiTestSupport {
                 .then()
                 .statusCode(HttpStatus.OK.value())
                 .body("components.schemas.LetterGetResponse.properties.status.enum",
-                        contains("SUBMITTED", "FEEDBACK_IN_PROGRESS", "FEEDBACK_COMPLETED"))
+                        contains("SUBMITTED", "FEEDBACK_IN_PROGRESS", "FEEDBACK_COMPLETED", "FEEDBACK_FAILED"))
                 .body("components.schemas.LetterSummaryResponse.properties.status.enum",
-                        contains("SUBMITTED", "FEEDBACK_IN_PROGRESS", "FEEDBACK_COMPLETED"));
+                        contains("SUBMITTED", "FEEDBACK_IN_PROGRESS", "FEEDBACK_COMPLETED", "FEEDBACK_FAILED"));
     }
 
     @DisplayName("GET /v3/api-docs/swagger-config : 그룹 선택 없이 열면 전체 문서가 뜬다")
