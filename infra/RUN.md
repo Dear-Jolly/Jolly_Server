@@ -5,7 +5,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 최종 갱신 | 2026-08-23 |
+| 최종 갱신 | 2026-08-30 |
 | 실행 방식 | Docker Compose (앱 · MySQL · MinIO · Caddy) |
 
 ---
@@ -40,6 +40,8 @@ git clone <repo> && cd server
 
 Caddy 가 자체 서명 인증서로 HTTPS 를 종단하므로 등록 전에는 브라우저 경고가 뜬다.
 앱·Postman 에서는 인증서 검증을 끄고 호출해도 된다.
+Swagger UI도 반드시 HTTPS 주소로 접속한다. HTTP 주소는 Caddy가 HTTPS로 리다이렉트하므로
+브라우저에서 `Failed to fetch`가 발생할 수 있다.
 
 ### run.sh 명령
 
@@ -69,7 +71,7 @@ docker compose -f infra/docker/compose.yaml --env-file infra/env/.env.local ps
 | 애플리케이션 | **https://localhost:8080** (Caddy 종단) | - |
 | HTTP 진입 | http://localhost → HTTPS 자동 리다이렉트 | - |
 | 앱 컨테이너 직접 | http://127.0.0.1:8081 (디버깅용, 루프백 전용) | - |
-| Swagger UI | https://localhost:8080/swagger-ui/index.html | - |
+| Swagger UI | https://localhost:8080/swagger-ui/index.html | 반드시 HTTPS 주소로 접속 |
 | 헬스체크 | https://localhost:8080/actuator/health | - |
 | MySQL | localhost:3306 (`dearjolly`) | `MYSQL_USER` / `MYSQL_PASSWORD` |
 | 우표 이미지 | https://localhost:8080/dear-jolly-stamps/... (Caddy 종단) | 공개 |

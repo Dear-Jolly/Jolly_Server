@@ -7,7 +7,7 @@
 | 인증 | `Authorization: Bearer {accessToken}` |
 | Content-Type | `application/json; charset=UTF-8` |
 | 날짜 포맷 | 날짜 → `yyyy-MM-dd` / 날짜+시각 → `yyyy-MM-dd'T'HH:mm:ss` |
-| Swagger UI | `/swagger-ui/index.html` — 이 문서와 같은 내용을 담고 직접 호출까지 된다. 우측 상단에서 전체 · 인증 · 사용자 · 편지 · 버전 · 관리자 그룹을 고른다 |
+| Swagger UI | `https://{host}/swagger-ui/index.html` — 반드시 HTTPS로 접속한다. 이 문서와 같은 내용을 담고 직접 호출까지 된다. 우측 상단에서 전체 · 인증 · 사용자 · 편지 · 버전 · 관리자 그룹을 고른다 |
 
 ---
 
