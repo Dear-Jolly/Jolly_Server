@@ -170,6 +170,10 @@ git push origin main                                 # CI 가 빌드·배포
 
 Caddy 가 TLS 를 종단한다. `SITE_ADDRESS` 값에 따라 인증서 방식이 자동으로 갈린다.
 
+Spring Boot에는 `server.forward-headers-strategy: framework`를 적용한다. Caddy가 전달하는
+`X-Forwarded-Proto: https`를 springdoc이 반영해 Swagger의 Try it out 요청도 HTTPS로 생성하게
+하는 설정이다. Swagger UI는 항상 `https://{SITE_ADDRESS}/swagger-ui/index.html`로 접속한다.
+
 | `SITE_ADDRESS` | 인증서 | 브라우저 경고 |
 | --- | --- | --- |
 | 도메인 (sslip.io 포함) | Let's Encrypt 자동 발급·갱신 | 없음 |

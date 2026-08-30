@@ -72,7 +72,9 @@ public class CorrectionSegments {
         this.sequence = sequence;
         this.originalText = originalText;
         this.correctedText = correctedText;
-        this.correctionType = Objects.equals(originalText, correctedText) ? UNCHANGED : MODIFIED;
+        // 쉼표·마침표 등 문장부호만 달라진 경우는 교정 대상으로 표시하지 않는다.
+        // correctedText에는 LLM이 만든 최종 문장부호를 유지해 렌더링 결과는 보존한다.
+        this.correctionType = meaningfullyDifferent(originalText, correctedText) ? MODIFIED : UNCHANGED;
     }
 
     private void validateSequence(int sequence) {
@@ -85,5 +87,30 @@ public class CorrectionSegments {
         if (text == null) {
             throw new IllegalArgumentException(fieldName + "은(는) null일 수 없습니다.");
         }
+    }
+
+    private boolean meaningfullyDifferent(String originalText, String correctedText) {
+        if (Objects.equals(originalText, correctedText)) {
+            return false;
+        }
+        return !stripPunctuation(originalText).equals(stripPunctuation(correctedText));
+    }
+
+    private String stripPunctuation(String text) {
+        return text.codePoints()
+                .filter(codePoint -> !isPunctuation(codePoint))
+                .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+                .toString();
+    }
+
+    private boolean isPunctuation(int codePoint) {
+        int type = Character.getType(codePoint);
+        return type == Character.CONNECTOR_PUNCTUATION
+                || type == Character.DASH_PUNCTUATION
+                || type == Character.START_PUNCTUATION
+                || type == Character.END_PUNCTUATION
+                || type == Character.INITIAL_QUOTE_PUNCTUATION
+                || type == Character.FINAL_QUOTE_PUNCTUATION
+                || type == Character.OTHER_PUNCTUATION;
     }
 }

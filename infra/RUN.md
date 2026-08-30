@@ -5,7 +5,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 최종 갱신 | 2026-08-23 |
+| 최종 갱신 | 2026-08-30 |
 | 실행 방식 | Docker Compose (앱 · MySQL · MinIO · Caddy) |
 
 ---
@@ -40,6 +40,8 @@ git clone <repo> && cd server
 
 Caddy 가 자체 서명 인증서로 HTTPS 를 종단하므로 등록 전에는 브라우저 경고가 뜬다.
 앱·Postman 에서는 인증서 검증을 끄고 호출해도 된다.
+Swagger UI도 반드시 HTTPS 주소로 접속한다. HTTP 주소는 Caddy가 HTTPS로 리다이렉트하므로
+브라우저에서 `Failed to fetch`가 발생할 수 있다.
 
 ### run.sh 명령
 
@@ -69,7 +71,7 @@ docker compose -f infra/docker/compose.yaml --env-file infra/env/.env.local ps
 | 애플리케이션 | **https://localhost:8080** (Caddy 종단) | - |
 | HTTP 진입 | http://localhost → HTTPS 자동 리다이렉트 | - |
 | 앱 컨테이너 직접 | http://127.0.0.1:8081 (디버깅용, 루프백 전용) | - |
-| Swagger UI | https://localhost:8080/swagger-ui/index.html | - |
+| Swagger UI | https://localhost:8080/swagger-ui/index.html | 반드시 HTTPS 주소로 접속 |
 | 헬스체크 | https://localhost:8080/actuator/health | - |
 | MySQL | localhost:3306 (`dearjolly`) | `MYSQL_USER` / `MYSQL_PASSWORD` |
 | 우표 이미지 | https://localhost:8080/dear-jolly-stamps/... (Caddy 종단) | 공개 |
@@ -195,8 +197,8 @@ export TESTCONTAINERS_RYUK_DISABLED=true
 ```bash
 # infra/env/.env.local
 USER_SEED_ENABLED=true
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=admin1234
+ADMIN_USERNAME=<관리자 아이디>
+ADMIN_PASSWORD=<관리자 비밀번호>
 ```
 
 `./run.sh restart` 로 시드를 돌린 뒤 아이디·비밀번호로 로그인해 토큰을 받는다.
@@ -205,7 +207,7 @@ ADMIN_PASSWORD=admin1234
 ```bash
 TOKEN=$(curl -sk -X POST https://localhost:8080/api/v1/admin/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"admin1234"}' | jq -r .accessToken)
+  -d '{"username":"<관리자 아이디>","password":"<관리자 비밀번호>"}' | jq -r .accessToken)
 
 curl -sk -H "Authorization: Bearer $TOKEN" https://localhost:8080/api/v1/home
 curl -sk -H "Authorization: Bearer $TOKEN" https://localhost:8080/api/v1/letters
