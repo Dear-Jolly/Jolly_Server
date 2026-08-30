@@ -196,7 +196,7 @@ erDiagram
 
 - INDEX `(user_id, letter_date DESC, letter_id DESC)` — 목록 정렬·페이징.
 - 중복 전달 판정(A17)의 "직전 편지 1건" 조회도 이 인덱스를 탄다. 편지는 append-only 이고 PK 가 AUTO_INCREMENT 라 `letter_id DESC` 가 곧 작성 역순이므로, `created_at` 정렬용 인덱스를 따로 두지 않는다.
-- INDEX `(status, next_retry_at)` — 매일 0시에 실행 시각이 지났지만 인메모리 예약이 유실된 작업을 찾는다.
+- INDEX `(status, next_retry_at)` — 기동 직후와 매일 0시에, 실행 시각이 지났지만 인메모리 예약이 유실된 작업을 찾는다.
 - INDEX `(status, updated_at)` — 15분 이상 `FEEDBACK_IN_PROGRESS`에 멈춘 작업을 찾는다.
 - 워커 픽업은 `status = 'SUBMITTED'` 인 행만 `FEEDBACK_IN_PROGRESS` 로 바꾸는 조건부 UPDATE 로 수행하며 `version`도 증가시킨다. 갱신 건수 0이면 다른 워커가 이미 집은 것이므로 처리를 건너뛴다.
 - OpenAI 호출 트랜잭션은 편지 행에 비관적 쓰기 잠금을 건다. 복구 배치는 상태·기준 시각을 다시 확인하므로 기존 워커가 먼저 완료했으면 아무것도 갱신하지 않고 새 이벤트도 발행하지 않는다.
@@ -204,7 +204,7 @@ erDiagram
 - **`time_zone` 을 저장하는 이유**는 `created_at` 때문이다. 저장은 서버 시각(KST)으로 하고 응답은 작성지 기준으로 내려주는데, 타임존을 남기지 않으면 그 변환이 **편지 작성 요청에서 단 한 번만** 가능하다. 이후의 모든 조회는 요청 바디가 없어 변환 근거를 잃고 KST 로 굳는다. 작성지 정보 자체도 편지의 맥락이라 함께 남긴다.
 - 우표 카운트(R4)는 `status = 'FEEDBACK_COMPLETED'` 인 행 수로 계산한다. `soon` · `fail` 우표가 붙은 편지는 세지 않는다.
 - **`retry_count >= 1` 이면 앱 응답의 `status` 는 완료 전까지 항상 `FEEDBACK_FAILED` 다.** 내부적으로는 `SUBMITTED` · `FEEDBACK_IN_PROGRESS` 를 오가며 재시도하지만 앱에는 노출하지 않는다 (A18).
-- 재시도 백오프는 `retry_count`와 `next_retry_at`으로 DB에 영속화한다. 평상시에는 인메모리 스케줄러가 실행하고, 매일 0시 복구 배치가 유실된 예약과 멈춘 작업을 처리한다.
+- 재시도 백오프는 `retry_count`와 `next_retry_at`으로 DB에 영속화한다. 평상시에는 인메모리 스케줄러가 실행하고, 기동 직후와 매일 0시에 도는 복구 배치가 유실된 예약과 멈춘 작업을 처리한다.
 
 ### 2.4 `STAMPS` — 우표 마스터
 
@@ -453,7 +453,7 @@ API 요청/응답의 `provider` 필드가 이 enum 이다. 문서 전체에서 �
 임시저장 상태는 두지 않으며, 편지는 항상 `SUBMITTED` 로 생성된다.
 
 - 컬럼 길이가 VARCHAR(30) 인 이유는 가장 긴 값 `FEEDBACK_IN_PROGRESS` 가 20자이기 때문이다. 여유를 포함해 30으로 잡는다.
-- `FEEDBACK_IN_PROGRESS` 는 워커 중복 실행 방지와 처리 유실 판별을 위한 상태다. 두 워커가 같은 편지를 집지 못하도록 진입을 조건부 UPDATE 로 막고, 15분 이상 이 상태에 멈춘 행은 매일 0시 복구 배치가 한 번의 실패로 처리해 재예약한다.
+- `FEEDBACK_IN_PROGRESS` 는 워커 중복 실행 방지와 처리 유실 판별을 위한 상태다. 두 워커가 같은 편지를 집지 못하도록 진입을 조건부 UPDATE 로 막고, 15분 이상 이 상태에 멈춘 행은 복구 배치가 한 번의 실패로 처리해 재예약한다.
 - 앱은 `SUBMITTED` 와 `FEEDBACK_IN_PROGRESS` 를 준비 중으로 동일하게 렌더링한다. `FEEDBACK_FAILED` 는 실패 안내를 띄우되, 서버가 재시도를 이어가므로 다시 조회하면 `FEEDBACK_COMPLETED` 로 바뀌어 있을 수 있다.
 - **실패 이후의 재시도를 앱에 노출하지 않는 이유**는 안내 문구가 번복되기 때문이다. 준비 중 ↔ 실패를 오가면 사용자는 서버가 무엇을 하고 있는지 알 수 없다. 실패로 한 번 고정하고, 성공했을 때만 조용히 갱신한다.
 
@@ -509,7 +509,7 @@ API 요청/응답의 `provider` 필드가 이 enum 이다. 문서 전체에서 �
 | A9-1 | LLM 이 반환한 우표 이름이 후보 목록에 없으면 저장하지 않고 재시도한다. 후보는 `soon` · `fail` 을 제외한 `STAMPS` 전 행이다 | — | 구조화 응답 검증 |
 | A10 | `FEEDBACKS` 행이 존재하면 `LETTERS.status` 는 `FEEDBACK_COMPLETED` | — | 피드백 저장 트랜잭션 |
 | A11 | `SUBMITTED → FEEDBACK_IN_PROGRESS` 전이는 조건부 UPDATE 로만 수행하고, 갱신 건수 0이면 처리를 중단한다 | 워커 중복 실행 방지 | 피드백 워커 |
-| A12 | OpenAI 호출은 최초 1회 뒤 최대 5회 재시도하고, 매일 0시 복구 배치도 같은 예산을 사용한다 | 편지 상태 전이 | 피드백 워커 · 복구 스케줄러 |
+| A12 | OpenAI 호출은 최초 1회 뒤 최대 5회 재시도하고, 복구 배치도 같은 예산을 사용한다 | 편지 상태 전이 | 피드백 워커 · 복구 스케줄러 |
 | A12-1 | 편지의 `version`이 달라지면 이전 워커의 늦은 저장을 거절한다. 복구 조건이 사라진 행은 새 이벤트를 발행하지 않는다 | 중복 OpenAI 호출·상태 역전 방지 | JPA 낙관적 락 · 조건부 UPDATE · 비관적 쓰기 잠금 |
 | A13 | `status = 'WITHDRAWN'` 이면 `deleted_at` NOT NULL, `refresh_token` · `oauth_refresh_token` NULL | R8 | 탈퇴 서비스 |
 | A14 | `refresh_token` 은 유저당 1개만 유지 (단일 세션) | — | 인증 서비스 |
@@ -533,7 +533,7 @@ API 요청/응답의 `provider` 필드가 이 enum 이다. 문서 전체에서 �
 | `SUBMITTED` → `FEEDBACK_IN_PROGRESS` | 워커 픽업 (조건부 UPDATE) | `version++`, `updated_at` |
 | `FEEDBACK_IN_PROGRESS` → `FEEDBACK_COMPLETED` | LLM 응답 저장 성공 | `stamp_id` 에 LLM 이 고른 우표, `updated_at` |
 | `FEEDBACK_IN_PROGRESS` → `SUBMITTED` | LLM 실패 재시도 (워커가 백오프 후 재예약) | `stamp_id` 에 `fail` 우표, `retry_count++`, `next_retry_at`, `updated_at` |
-| `FEEDBACK_IN_PROGRESS` → `SUBMITTED` | 매일 0시에 15분 이상 멈춘 작업 복구 | `stamp_id` 에 `fail` 우표, `retry_count++`, `next_retry_at`, `updated_at` |
+| `FEEDBACK_IN_PROGRESS` → `SUBMITTED` | 15분 이상 멈춘 작업 복구 (기동 직후 · 매일 0시) | `stamp_id` 에 `fail` 우표, `retry_count++`, `next_retry_at`, `updated_at` |
 | `FEEDBACK_IN_PROGRESS` → `FEEDBACK_FAILED` | 5차 재시도까지 실패 | `next_retry_at = null`, `updated_at` (우표는 `fail` 유지) |
 | `FEEDBACK_FAILED` → `SUBMITTED` | 운영자 수동 재처리 | `stamp_id` 에 기본 우표(`soon`), `retry_count = 0`, `next_retry_at = now`, `updated_at` |
 
