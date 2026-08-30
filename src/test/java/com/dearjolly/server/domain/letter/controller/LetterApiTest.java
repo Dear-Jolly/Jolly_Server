@@ -64,6 +64,7 @@ class LetterApiTest extends ApiTestSupport {
                 // then
                 .then()
                 .statusCode(HttpStatus.CREATED.value())
+                .header("X-Request-Id", matchesPattern("[0-9a-f-]{36}"))
                 .body("letterId", notNullValue())
                 .body("date", equalTo(writtenAt.toLocalDate().toString()))
                 .body("createdAt", matchesPattern("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"))

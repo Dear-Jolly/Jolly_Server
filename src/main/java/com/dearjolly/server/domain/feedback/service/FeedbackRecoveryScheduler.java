@@ -1,5 +1,6 @@
 package com.dearjolly.server.domain.feedback.service;
 
+import static com.dearjolly.server.global.logging.LogValueSanitizer.sanitize;
 import static com.dearjolly.server.domain.letter.enums.Status.FEEDBACK_FAILED;
 import static com.dearjolly.server.domain.letter.enums.Status.FEEDBACK_IN_PROGRESS;
 import static com.dearjolly.server.domain.letter.enums.Status.SUBMITTED;
@@ -44,7 +45,7 @@ public class FeedbackRecoveryScheduler {
                 .count();
 
         if (!submitted.isEmpty() || !inProgress.isEmpty()) {
-            log.warn("멈춘 피드백 작업을 복구했다. submitted={}, inProgress={}, failed={}",
+            log.warn("feedback_recovery_scan_completed submittedCount={} inProgressCount={} failedCount={}",
                     submitted.size(), inProgress.size(), failedCount);
         }
     }
@@ -56,12 +57,35 @@ public class FeedbackRecoveryScheduler {
                 letterId, expectedStatus, SUBMITTED, threshold, now, MAX_RECOVERY_COUNT
         );
         if (recovered == 1) {
+            FeedbackLogContext context = logContext(letterId);
+            log.warn(
+                    "feedback_job_recovered userId={} nickname={} letterId={} previousStatus={} retryCount={} "
+                            + "recoveryCount={}",
+                    context.userId(), sanitize(context.nickname()), letterId, expectedStatus,
+                    context.retryCount(), context.recoveryCount()
+            );
             eventPublisher.publishEvent(new LetterCreatedEvent(letterId));
             return false;
         }
         int failed = letterRepository.failExhaustedRecovery(
                 letterId, expectedStatus, FEEDBACK_FAILED, threshold, now, MAX_RECOVERY_COUNT
         );
-        return failed == 1;
+        if (failed == 1) {
+            FeedbackLogContext context = logContext(letterId);
+            log.error(
+                    "feedback_recovery_exhausted userId={} nickname={} letterId={} previousStatus={} "
+                            + "retryCount={} recoveryCount={} status={}",
+                    context.userId(), sanitize(context.nickname()), letterId, expectedStatus,
+                    context.retryCount(), context.recoveryCount(), context.status()
+            );
+            return true;
+        }
+        return false;
+    }
+
+    private FeedbackLogContext logContext(Long letterId) {
+        return letterRepository.findById(letterId)
+                .map(FeedbackLogContext::from)
+                .orElseGet(() -> FeedbackLogContext.unknown(letterId));
     }
 }

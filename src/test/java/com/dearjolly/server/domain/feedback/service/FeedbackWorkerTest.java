@@ -5,11 +5,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -17,7 +20,7 @@ import org.springframework.ai.retry.NonTransientAiException;
 import org.springframework.ai.retry.TransientAiException;
 import org.springframework.scheduling.TaskScheduler;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 class FeedbackWorkerTest {
     private static final Long LETTER_ID = 1L;
 
@@ -80,5 +83,30 @@ class FeedbackWorkerTest {
         // then
         verify(feedbackRequester, never()).requestFeedback(eq(LETTER_ID));
         verify(feedbackStateService, never()).handleFailure(eq(LETTER_ID), any(Boolean.class));
+    }
+
+    @DisplayName("피드백 실패 로그에 사용자와 실제 실패 메시지를 기록한다.")
+    @Test
+    void logFailureReason(CapturedOutput output) {
+        // given
+        when(feedbackStateService.getLogContext(LETTER_ID))
+                .thenReturn(new FeedbackLogContext(LETTER_ID, 7L, "jolly", "SUBMITTED", 0, 0))
+                .thenReturn(new FeedbackLogContext(LETTER_ID, 7L, "jolly", "FEEDBACK_FAILED", 0, 0));
+        when(feedbackStateService.start(LETTER_ID)).thenReturn(true);
+        org.mockito.Mockito.doThrow(new NonRetryableFeedbackException("선택 가능한 우표가 없습니다."))
+                .when(feedbackRequester).requestFeedback(LETTER_ID);
+        when(feedbackStateService.handleFailure(LETTER_ID, false))
+                .thenReturn(FeedbackFailureResult.failed(0));
+
+        // when
+        feedbackWorker.process(LETTER_ID);
+
+        // then
+        assertThat(output).contains(
+                "feedback_job_failed",
+                "userId=7",
+                "nickname=jolly",
+                "causeMessage=선택 가능한 우표가 없습니다."
+        );
     }
 }

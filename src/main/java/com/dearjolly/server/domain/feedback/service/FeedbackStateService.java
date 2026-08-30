@@ -17,6 +17,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class FeedbackStateService {
     private final LetterRepository letterRepository;
 
+    @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
+    public FeedbackLogContext getLogContext(Long letterId) {
+        return letterRepository.findById(letterId)
+                .map(FeedbackLogContext::from)
+                .orElseGet(() -> FeedbackLogContext.unknown(letterId));
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean start(Long letterId) {
         return letterRepository.startFeedback(

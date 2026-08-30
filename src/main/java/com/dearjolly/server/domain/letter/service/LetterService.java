@@ -61,7 +61,12 @@ public class LetterService {
 
         Optional<Letters> duplicated = findRecentDuplicate(userId, content);
         if (duplicated.isPresent()) {
-            return LetterCreateResult.duplicated(duplicated.get());
+            Letters letter = duplicated.get();
+            log.info(
+                    "letter_submission_deduplicated userId={} letterId={} contentLength={} status={}",
+                    userId, letter.getId(), content.codePointCount(0, content.length()), letter.getStatus()
+            );
+            return LetterCreateResult.duplicated(letter);
         }
 
         Users user = userRepository.findById(userId)
@@ -71,6 +76,11 @@ public class LetterService {
         );
 
         eventPublisher.publishEvent(new LetterCreatedEvent(letter.getId()));
+        log.info(
+                "letter_created userId={} letterId={} letterDate={} timeZone={} contentLength={} status={}",
+                userId, letter.getId(), letter.getLetterDate(), timeZone.getId(),
+                content.codePointCount(0, content.length()), letter.getStatus()
+        );
         return LetterCreateResult.created(letter);
     }
 
@@ -79,9 +89,14 @@ public class LetterService {
         Letters letter = letterRepository.findByIdAndUserId(letterId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.LETTER_NOT_FOUND, "letterId=" + letterId));
 
+        boolean markedAsRead = letter.isFeedbackCompleted() && !letter.isRead();
         if (letter.isFeedbackCompleted()) {
             letter.markAsRead();
         }
+        log.info(
+                "letter_detail_viewed userId={} letterId={} status={} markedAsRead={}",
+                userId, letterId, letter.getStatus(), markedAsRead
+        );
         return LetterGetResponse.of(letter, stampImageOf(letter));
     }
 
@@ -93,13 +108,19 @@ public class LetterService {
                 .map(letter -> LetterSummaryResponse.of(letter, stampImageOf(letter)))
                 .toList();
 
+        log.info(
+                "letter_list_viewed userId={} page={} size={} sort={} resultCount={} hasNext={}",
+                userId, page, size, sort, summaries.size(), letters.hasNext()
+        );
         return LetterListResponse.of(summaries, letters.hasNext());
     }
 
     public HomeGetResponse getHome(Long userId) {
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return HomeGetResponse.of(user.getNickname(), countStamps(userId));
+        long stampCount = countStamps(userId);
+        log.info("home_viewed userId={} stampCount={}", userId, stampCount);
+        return HomeGetResponse.of(user.getNickname(), stampCount);
     }
 
     private long countStamps(Long userId) {
