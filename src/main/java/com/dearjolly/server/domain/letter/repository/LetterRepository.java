@@ -60,6 +60,15 @@ public interface LetterRepository extends JpaRepository<Letters, Long> {
             @Param("now") LocalDateTime now
     );
 
+    // 앱에 실패로 보이는 편지의 정의와 같다. 내부 상태가 아니라 retry_count 로 가른다.
+    @Query("""
+            SELECT letter FROM Letters letter
+            JOIN FETCH letter.user
+            WHERE letter.retryCount >= 1 AND letter.status <> :completed
+            ORDER BY letter.updatedAt DESC, letter.id DESC
+            """)
+    Slice<Letters> findFailedLetters(@Param("completed") Status completed, Pageable pageable);
+
     @EntityGraph(attributePaths = {"stamp", "feedback"})
     Optional<Letters> findByIdAndUserId(Long id, Long userId);
 

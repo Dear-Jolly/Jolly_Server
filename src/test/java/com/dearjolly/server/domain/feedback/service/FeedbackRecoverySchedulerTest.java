@@ -11,9 +11,11 @@ import static org.mockito.Mockito.when;
 
 import com.dearjolly.server.domain.letter.repository.LetterRepository;
 import com.dearjolly.server.domain.letter.service.LetterCreatedEvent;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +33,9 @@ class FeedbackRecoverySchedulerTest {
     private LetterRepository letterRepository;
 
     @Mock
+    private FeedbackRetryPolicy retryPolicy;
+
+    @Mock
     private FeedbackStateService feedbackStateService;
 
     @Mock
@@ -44,6 +49,11 @@ class FeedbackRecoverySchedulerTest {
 
     @InjectMocks
     private FeedbackRecoveryScheduler feedbackRecoveryScheduler;
+
+    @BeforeEach
+    void setUpStalledThreshold() {
+        when(retryPolicy.stalledThreshold()).thenReturn(Duration.ofMinutes(15));
+    }
 
     @DisplayName("예약 시각이 지난 편지는 인메모리 예약을 잃었더라도 0시 배치가 다시 발행한다.")
     @Test
