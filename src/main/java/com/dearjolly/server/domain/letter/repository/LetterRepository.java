@@ -2,14 +2,85 @@ package com.dearjolly.server.domain.letter.repository;
 
 import com.dearjolly.server.domain.letter.entity.Letters;
 import com.dearjolly.server.domain.letter.enums.Status;
+import jakarta.persistence.LockModeType;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface LetterRepository extends JpaRepository<Letters, Long> {
     Optional<Letters> findFirstByUserIdOrderByIdDesc(Long userId);
+
+    @Query("SELECT letter.id FROM Letters letter WHERE letter.status = :status AND letter.updatedAt < :threshold")
+    List<Long> findIdsByStatusAndUpdatedAtBefore(
+            @Param("status") Status status,
+            @Param("threshold") LocalDateTime threshold
+    );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT letter FROM Letters letter WHERE letter.id = :letterId")
+    Optional<Letters> findByIdForFeedback(@Param("letterId") Long letterId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Letters letter
+            SET letter.status = :inProgress, letter.updatedAt = :now, letter.version = letter.version + 1
+            WHERE letter.id = :letterId AND letter.status = :submitted
+            """)
+    int startFeedback(
+            @Param("letterId") Long letterId,
+            @Param("submitted") Status submitted,
+            @Param("inProgress") Status inProgress,
+            @Param("now") LocalDateTime now
+    );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Letters letter
+            SET letter.status = :submitted,
+                letter.recoveryCount = letter.recoveryCount + 1,
+                letter.updatedAt = :now,
+                letter.version = letter.version + 1
+            WHERE letter.id = :letterId
+              AND letter.status = :expectedStatus
+              AND letter.updatedAt < :threshold
+              AND letter.recoveryCount < :maxRecoveryCount
+            """)
+    int recoverFeedback(
+            @Param("letterId") Long letterId,
+            @Param("expectedStatus") Status expectedStatus,
+            @Param("submitted") Status submitted,
+            @Param("threshold") LocalDateTime threshold,
+            @Param("now") LocalDateTime now,
+            @Param("maxRecoveryCount") int maxRecoveryCount
+    );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Letters letter
+            SET letter.status = :failed,
+                letter.updatedAt = :now,
+                letter.version = letter.version + 1
+            WHERE letter.id = :letterId
+              AND letter.status = :expectedStatus
+              AND letter.updatedAt < :threshold
+              AND letter.recoveryCount >= :maxRecoveryCount
+            """)
+    int failExhaustedRecovery(
+            @Param("letterId") Long letterId,
+            @Param("expectedStatus") Status expectedStatus,
+            @Param("failed") Status failed,
+            @Param("threshold") LocalDateTime threshold,
+            @Param("now") LocalDateTime now,
+            @Param("maxRecoveryCount") int maxRecoveryCount
+    );
 
     @EntityGraph(attributePaths = {"stamp", "feedback"})
     Optional<Letters> findByIdAndUserId(Long id, Long userId);

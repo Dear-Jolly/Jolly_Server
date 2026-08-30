@@ -5,6 +5,19 @@ spring:
   application:
     name: server
 
+  ai:
+    retry:
+      max-attempts: 1
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      max-retries: 0
+      timeout: 60s
+      chat:
+        options:
+          model: ${OPENAI_MODEL:gpt-4o-mini}
+          temperature: 0.2
+          max-tokens: 1400
+
   datasource:
     url: ${MYSQL_URL:jdbc:mysql://localhost:3306/dearjolly?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
     username: ${MYSQL_USER:jolly}

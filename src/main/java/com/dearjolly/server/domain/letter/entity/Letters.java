@@ -24,6 +24,7 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -42,13 +43,18 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Letters {
-    private static final int MAX_RETRY_COUNT = 3;
+    private static final int MAX_LLM_RETRY_COUNT = 3;
+    private static final int MAX_RECOVERY_COUNT = 2;
     private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "letter_id")
     private Long id;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -79,6 +85,9 @@ public class Letters {
 
     @Column(name = "retry_count", nullable = false)
     private int retryCount;
+
+    @Column(name = "recovery_count", nullable = false)
+    private int recoveryCount;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -129,7 +138,7 @@ public class Letters {
         this.retryCount++;
     }
 
-    public void requeueFeedback() {
+    public void awaitRecovery() {
         this.status = SUBMITTED;
     }
 
@@ -140,10 +149,15 @@ public class Letters {
     public void resetForReprocess() {
         this.status = SUBMITTED;
         this.retryCount = 0;
+        this.recoveryCount = 0;
     }
 
     public boolean isRetryExhausted() {
-        return this.retryCount >= MAX_RETRY_COUNT;
+        return this.retryCount >= MAX_LLM_RETRY_COUNT;
+    }
+
+    public boolean isRecoveryExhausted() {
+        return this.recoveryCount >= MAX_RECOVERY_COUNT;
     }
 
     public boolean isFeedbackCompleted() {
@@ -157,7 +171,7 @@ public class Letters {
     }
 
     public Status toResponseStatus() {
-        return this.status == FEEDBACK_FAILED ? SUBMITTED : this.status;
+        return this.status;
     }
 
     private Letters(Users user, String content, LocalDate letterDate, ZoneId timeZone, Stamps defaultStamp) {
@@ -173,6 +187,7 @@ public class Letters {
         this.status = SUBMITTED;
         this.isRead = false;
         this.retryCount = 0;
+        this.recoveryCount = 0;
     }
 
     private void validateContent(String content) {

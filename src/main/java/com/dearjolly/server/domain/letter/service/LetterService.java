@@ -6,7 +6,6 @@ import static com.dearjolly.server.domain.letter.constants.LetterValidationConst
 import static com.dearjolly.server.domain.letter.constants.LetterValidationConstants.WRITTEN_AT_TOLERANCE_HOURS;
 import static com.dearjolly.server.domain.letter.constants.StampConstants.DEFAULT_STAMP_NAME;
 
-import com.dearjolly.server.domain.feedback.service.FeedbackRequester;
 import com.dearjolly.server.domain.letter.dto.request.LetterCreateRequest;
 import com.dearjolly.server.domain.letter.dto.response.HomeGetResponse;
 import com.dearjolly.server.domain.letter.dto.response.LetterCreateResult;
@@ -35,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,7 +48,7 @@ public class LetterService {
     private final LetterRepository letterRepository;
     private final StampRepository stampRepository;
     private final UserRepository userRepository;
-    private final FeedbackRequester feedbackRequester;
+    private final ApplicationEventPublisher eventPublisher;
     private final FileUrlProvider fileUrlProvider;
 
     @Transactional
@@ -70,7 +70,7 @@ public class LetterService {
                 Letters.create(user, content, writtenAt.toLocalDate(), timeZone, defaultStamp())
         );
 
-        feedbackRequester.requestFeedback(letter.getId());
+        eventPublisher.publishEvent(new LetterCreatedEvent(letter.getId()));
         return LetterCreateResult.created(letter);
     }
 

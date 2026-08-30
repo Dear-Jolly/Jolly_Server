@@ -25,6 +25,9 @@ repositories {
 }
 
 dependencies {
+	implementation platform('org.springframework.ai:spring-ai-bom:1.1.8')
+	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
@@ -72,6 +75,7 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	exclude '**/SpringAiLlmClientLiveTest.class'
 
 	// SchemaMigrationTest 는 Testcontainers 로 실제 MySQL 을 띄운다.
 	// 쉘에 값이 있으면 그대로 쓰고, 없으면 Colima 소켓을 찾아 자동으로 채운다.
@@ -99,4 +103,17 @@ tasks.named('test') {
 	if (dockerEnv['DOCKER_API_VERSION']) {
 		systemProperty 'api.version', dockerEnv['DOCKER_API_VERSION']
 	}
+}
+
+tasks.register('openAiLiveTest', Test) {
+	description = 'Runs the real OpenAI API structured-feedback test.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform()
+	filter {
+		includeTestsMatching 'com.dearjolly.server.domain.feedback.service.SpringAiLlmClientLiveTest'
+	}
+	environment 'OPENAI_LIVE_TEST', 'true'
+	shouldRunAfter test
 }

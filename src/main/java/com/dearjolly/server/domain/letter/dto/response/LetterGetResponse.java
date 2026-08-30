@@ -21,8 +21,13 @@ public record LetterGetResponse(
         String originalContent,
 
         @Schema(
-                description = "편지 상태",
-                allowableValues = {"SUBMITTED", "FEEDBACK_IN_PROGRESS", "FEEDBACK_COMPLETED"},
+                description = """
+                        피드백 상태.
+                        SUBMITTED·FEEDBACK_IN_PROGRESS는 feedback이 null인 준비 중 상태,
+                        FEEDBACK_COMPLETED는 feedback이 있는 완료 상태,
+                        FEEDBACK_FAILED는 자동 처리가 끝난 최종 실패 상태이며 feedback이 null이다
+                        """,
+                allowableValues = {"SUBMITTED", "FEEDBACK_IN_PROGRESS", "FEEDBACK_COMPLETED", "FEEDBACK_FAILED"},
                 requiredMode = Schema.RequiredMode.REQUIRED)
         Status status,
 
@@ -32,7 +37,7 @@ public record LetterGetResponse(
                 requiredMode = Schema.RequiredMode.REQUIRED)
         String stampImage,
 
-        @Schema(description = "피드백 정보. 피드백 완료 전에는 null 이다")
+        @Schema(description = "피드백 정보. FEEDBACK_COMPLETED에서만 값이 있고 준비 중·최종 실패 상태에서는 null이다")
         FeedbackGetResponse feedback
 ) {
     public static LetterGetResponse of(Letters letter, String stampImage) {

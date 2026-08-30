@@ -127,6 +127,8 @@ DB·이미지 데이터는 컨테이너가 아니라 호스트의 `dear-jolly/mo
 ```bash
 ./gradlew test                        # 전체
 ./gradlew test --tests '*AuthApiTest' # 단건
+set -a; source infra/env/.env.local; set +a
+./gradlew openAiLiveTest              # 실제 OpenAI API 호출
 ```
 
 | 계층 | 방식 | 비고 |
@@ -135,6 +137,7 @@ DB·이미지 데이터는 컨테이너가 아니라 호스트의 `dear-jolly/mo
 | 서비스 단위 | Mockito | |
 | 레포지터리 | H2 | |
 | 스키마 대조 | Testcontainers + 실제 MySQL | `SchemaMigrationTest` 가 Flyway 결과와 엔티티 매핑을 대조한다 |
+| OpenAI 실호출 | `openAiLiveTest` | `.env.local`의 실제 키로 구조화 피드백을 검증하며 API 비용이 발생한다 |
 
 Testcontainers 는 **Docker 가 떠 있어야** 돈다. Docker Desktop 이든 Colima 든 띄워만 두면 `./gradlew test` 가 그대로 돈다 —
 `DOCKER_HOST` 가 비어 있고 `~/.colima/default/docker.sock` 이 있으면 `build.gradle` 이 소켓 경로 · API 버전 · Ryuk 비활성화를 자동으로 채운다.

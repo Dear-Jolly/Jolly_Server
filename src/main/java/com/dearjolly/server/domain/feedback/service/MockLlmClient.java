@@ -4,11 +4,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-// TODO: Spring AI 기반 실제 구현으로 교체한다. 지금은 LLM 을 붙이기 전까지
-//       프론트가 검토하기 화면을 그릴 수 있도록 고정 치환 규칙으로 mock 응답만 만든다.
 @Component
+@Profile("test")
 public class MockLlmClient implements LlmClient {
     private static final String MODEL = "mock-v1";
     private static final int MAX_TIP_COUNT = 3;

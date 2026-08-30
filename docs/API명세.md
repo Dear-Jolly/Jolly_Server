@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 최종 갱신 | 2026-08-23 |
+| 최종 갱신 | 2026-08-30 |
 | Base URL | `https://{host}` |
 | 인증 | `Authorization: Bearer {accessToken}` |
 | Content-Type | `application/json; charset=UTF-8` |
@@ -656,6 +656,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - 피드백 완료 전 편지는 조회해도 읽음 처리되지 않는다. **피드백이 도착한 뒤 목록의 빨간 점은 그대로 뜬다.**
 - **본인 편지만** 조회할 수 있다. 없는 편지든 남의 편지든 똑같이 `LETTER_002`(404) 다.
 - 피드백 완료 전에도 응답은 성공한다. 이때 `feedback` 은 `null` 이고 `stampImage` 는 `soon`(준비 중) 우표 URL 이다. 앱은 완료 전 카드의 진입 자체를 막는다.
+- `FEEDBACK_FAILED` 는 자동 재시도와 보완 복구가 모두 끝난 최종 실패 상태다. **HTTP 에러가 아니라 성공 Response 200으로 내려오며** `feedback` 은 `null` 이다. 앱은 자동 새로고침을 멈추고 실패 안내를 표시한다.
 - 팁은 편지마다 0~3개이며, `tips` 가 `[]` 면 팁 영역을 표시하지 않는다.
 - 우표는 AI 가 편지 내용에 맞춰 고르고 종류가 운영 중 늘거나 바뀔 수 있다. 앱은 **`stampImage` URL 을 그대로 표시하고 우표 종류로 분기하지 않는다.**
 - 교정문은 `correctionSegments` 를 `sequence` 순서대로 이어붙여 그린다. **`originalText` 를 모두 이으면 원문 전체와, `correctedText` 를 모두 이으면 `correctedContent` 전체와 정확히 일치**하므로 앱은 인덱스 계산 없이 순서대로 그리기만 하면 된다.
@@ -724,9 +725,9 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - [필수] `letterId` (Long): 편지 ID
 - [필수] `date` (LocalDate): 편지 날짜
 - [필수] `originalContent` (String): 원본 편지 내용
-- [필수] `status` (String): 편지 상태 (`SUBMITTED`, `FEEDBACK_IN_PROGRESS`, `FEEDBACK_COMPLETED`)
+- [필수] `status` (String): 편지 상태 (`SUBMITTED`, `FEEDBACK_IN_PROGRESS`, `FEEDBACK_COMPLETED`, `FEEDBACK_FAILED`)
 - [필수] `stampImage` (String): 우표 이미지 URL. 항상 값이 있으며, 피드백 완료 전에는 `soon`(준비 중) 우표다
-- [선택] `feedback` (Object): 피드백 정보 (**피드백 완료 전에는 `null`**)
+- [선택] `feedback` (Object): 피드백 정보 (**`FEEDBACK_COMPLETED`가 아니면 `null`**)
     - [필수] `feedbackId` (Long): 피드백 ID
     - [필수] `correctedContent` (String): 교정된 전체 내용
     - [필수] `tips` (Array&lt;String&gt;): 피드백 팁 목록 (0~3개, 없으면 `[]`)
@@ -770,8 +771,9 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - 편지가 한 통도 없으면 `letters` 는 빈 배열이고 `hasNext` 는 `false` 다.
 - 앱은 `SUBMITTED` 와 `FEEDBACK_IN_PROGRESS` 를 동일하게 처리한다. 이 상태의 카드는 **회색 `soon` 우표 · `ic_more_sm` 미노출 · 터치 불가**다. 우표는 상태와 무관하게 `stampImage` 를 그대로 표시한다.
 - `FEEDBACK_COMPLETED` 카드는 **`stampImage` 표시 · `ic_more_sm` 노출 · 카드 전체 영역 터치 시 상세 이동**이다.
+- `FEEDBACK_FAILED` 카드는 자동 처리가 끝난 상태다. **준비 중 애니메이션과 자동 새로고침을 멈추고 실패 안내를 표시하며 상세 진입은 막는다.**
 - `FEEDBACK_COMPLETED` 이면서 `isRead == false` 면 **날짜 앞에 빨간 점**을 찍는다. 완료 전 편지도 `isRead` 는 `false` 지만 빨간 점을 표시하지 않는다.
-- 목록에 `FEEDBACK_COMPLETED` 가 아닌 항목이 있으면, 앱은 화면 재진입 · 새로고침 때 다시 조회해 상태 변화를 확인한다. **상태 변화를 알리는 별도 폴링 API 는 없다.**
+- 목록에 `SUBMITTED` 또는 `FEEDBACK_IN_PROGRESS` 항목이 있으면 앱은 화면 재진입 · 새로고침 때 다시 조회해 상태 변화를 확인한다. `FEEDBACK_FAILED` 는 더 이상 자동으로 변하지 않는다. **상태 변화를 알리는 별도 폴링 API 는 없다.**
 
 ### [스펙]
 
@@ -831,7 +833,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
     - [필수] `letterId` (Long): 편지 ID
     - [필수] `date` (LocalDate): 편지 날짜
     - [필수] `summary` (String): 편지 미리보기 (**원문 앞 50자**, 말줄임은 앱에서 처리)
-    - [필수] `status` (String): 편지 상태 (`SUBMITTED`, `FEEDBACK_IN_PROGRESS`, `FEEDBACK_COMPLETED`)
+    - [필수] `status` (String): 편지 상태 (`SUBMITTED`, `FEEDBACK_IN_PROGRESS`, `FEEDBACK_COMPLETED`, `FEEDBACK_FAILED`)
     - [필수] `isRead` (Boolean): 피드백 열람 여부
     - [필수] `stampImage` (String): 우표 이미지 URL. 항상 값이 있으며, 피드백 완료 전에는 `soon`(준비 중) 우표다
 - [필수] `hasNext` (Boolean): 다음 페이지 존재 여부
@@ -1122,7 +1124,7 @@ POST /api/v1/admin/login
 | --- | --- | --- |
 | `OauthProvider` | `KAKAO`, `APPLE` | 로그인 수단 |
 | `TermsType` | `SERVICE`, `PRIVACY`, `MARKETING` | 약관 종류. `MARKETING` 만 선택 동의 |
-| `Status` (letter) | `SUBMITTED`, `FEEDBACK_IN_PROGRESS`, `FEEDBACK_COMPLETED` | 편지 상태. 앱은 앞의 두 값을 동일하게 렌더링한다 |
+| `Status` (letter) | `SUBMITTED`, `FEEDBACK_IN_PROGRESS`, `FEEDBACK_COMPLETED`, `FEEDBACK_FAILED` | 앱은 앞의 두 값을 준비 중으로, `FEEDBACK_FAILED` 를 자동 처리가 끝난 최종 실패로 렌더링한다 |
 | `CorrectionType` | `UNCHANGED`, `MODIFIED` | 교정 조각의 수정 여부 (응답 필드명은 `type`) |
 | `Sort` | `LATEST`, `OLDEST` | 편지 목록 정렬 기준 |
 | `Platform` | `IOS`, `AOS` | 버전 조회 · 변경의 `platform` 파라미터 |
