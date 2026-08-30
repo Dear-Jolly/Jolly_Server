@@ -1,5 +1,7 @@
 package com.dearjolly.server.global.exception.handler;
 
+import static com.dearjolly.server.global.logging.LogValueSanitizer.sanitize;
+
 import com.dearjolly.server.global.exception.exception.BusinessException;
 import com.dearjolly.server.global.exception.response.ErrorCode;
 import com.dearjolly.server.global.exception.response.ErrorResponse;
@@ -21,7 +23,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e) {
-        log.error("BusinessException: {}", e.getMessage());
+        log.warn(
+                "business_request_rejected code={} status={} message={}",
+                e.getErrorCode().getCode(), e.getErrorCode().getHttpStatus().value(), sanitize(e.getMessage())
+        );
         return ErrorResponse.toResponseEntity(e.getErrorCode(), e.getMessage());
     }
 
@@ -33,49 +38,52 @@ public class GlobalExceptionHandler {
                 .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
                 .collect(Collectors.joining(", "));
 
-        log.error("ValidationFail: {}", errorMessage);
+        log.warn("request_validation_failed message={}", sanitize(errorMessage));
         return ErrorResponse.toResponseEntity(ErrorCode.INVALID_REQUEST, errorMessage);
     }
 
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ResponseEntity<ErrorResponse> handleHandlerMethodValidationException(HandlerMethodValidationException e) {
-        log.error("ParameterValidationFail: {}", e.getMessage());
+        log.warn("request_parameter_validation_failed message={}", sanitize(e.getMessage()));
         return ErrorResponse.toResponseEntity(ErrorCode.INVALID_REQUEST);
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ErrorResponse> handleMissingParameterException(MissingServletRequestParameterException e) {
-        log.error("MissingParameter: {}", e.getMessage());
+        log.warn("request_parameter_missing parameter={} message={}", e.getParameterName(), sanitize(e.getMessage()));
         return ErrorResponse.toResponseEntity(ErrorCode.INVALID_REQUEST, e.getParameterName() + " 파라미터는 필수입니다.");
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatchException(MethodArgumentTypeMismatchException e) {
-        log.error("TypeMismatch: {}", e.getMessage());
+        log.warn("request_parameter_type_mismatch parameter={} message={}", e.getName(), sanitize(e.getMessage()));
         return ErrorResponse.toResponseEntity(ErrorCode.INVALID_REQUEST, "파라미터 타입이 올바르지 않습니다.");
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleJsonParseException(HttpMessageNotReadableException e) {
-        log.error("JsonParseFail: {}", e.getMessage());
+        log.warn("request_json_parse_failed causeType={}", e.getClass().getSimpleName());
         return ErrorResponse.toResponseEntity(ErrorCode.INVALID_REQUEST, "JSON 형식이 올바르지 않습니다.");
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ErrorResponse> handleMethodNotSupportedException(HttpRequestMethodNotSupportedException e) {
-        log.error("MethodNotAllowed: {}", e.getMessage());
+        log.warn("request_method_not_allowed method={} message={}", e.getMethod(), sanitize(e.getMessage()));
         return ErrorResponse.toResponseEntity(ErrorCode.METHOD_NOT_ALLOWED);
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ErrorResponse> handleNoResourceFoundException(NoResourceFoundException e) {
-        log.error("PathNotFound: {}", e.getResourcePath());
+        log.warn("request_path_not_found path={}", sanitize(e.getResourcePath()));
         return ErrorResponse.toResponseEntity(ErrorCode.PATH_NOT_FOUND);
     }
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException e) {
-        log.error("RuntimeException: ", e);
+        log.error(
+                "unexpected_request_failure causeType={} causeMessage={}",
+                e.getClass().getSimpleName(), sanitize(e.getMessage()), e
+        );
         return ErrorResponse.toResponseEntity(ErrorCode.INTERNAL_SERVER_ERROR);
     }
 }

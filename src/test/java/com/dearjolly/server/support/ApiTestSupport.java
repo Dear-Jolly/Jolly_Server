@@ -1,6 +1,7 @@
 package com.dearjolly.server.support;
 
 import static com.dearjolly.server.domain.letter.constants.StampConstants.DEFAULT_STAMP_NAME;
+import static com.dearjolly.server.domain.letter.constants.StampConstants.FAILED_STAMP_NAME;
 
 import com.dearjolly.server.domain.feedback.entity.CorrectionSegments;
 import com.dearjolly.server.domain.feedback.entity.FeedbackTips;
@@ -25,6 +26,7 @@ import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.PersistenceContext;
 import io.restassured.RestAssured;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import org.hibernate.SessionFactory;
@@ -98,6 +100,12 @@ public abstract class ApiTestSupport {
                         Stamps.create(DEFAULT_STAMP_NAME, "stamp/" + DEFAULT_STAMP_NAME + ".png")));
     }
 
+    protected Stamps 실패우표를_저장한다() {
+        return stampRepository.findByName(FAILED_STAMP_NAME)
+                .orElseGet(() -> stampRepository.save(
+                        Stamps.create(FAILED_STAMP_NAME, "stamp/" + FAILED_STAMP_NAME + ".png")));
+    }
+
     protected Letters 편지를_저장한다(Users user, String content, LocalDate letterDate) {
         return letterRepository.save(
                 Letters.create(user, content, letterDate, ZoneId.of("Asia/Seoul"), 기본우표를_저장한다()));
@@ -111,6 +119,22 @@ public abstract class ApiTestSupport {
             letter.completeFeedback(stamp);
             entityManager.persist(letter);
             return letter;
+        });
+    }
+
+    protected Letters 첫_실패후_재시도를_기다리는_편지를_저장한다(Users user, String content, LocalDate letterDate) {
+        Letters letter = 편지를_저장한다(user, content, letterDate);
+        letter.scheduleRetry(LocalDateTime.now().plusSeconds(30), 실패우표를_저장한다());
+        return letterRepository.save(letter);
+    }
+
+    protected Letters 피드백을_완료한다(Letters letter, String stampName) {
+        return transactionTemplate.execute(status -> {
+            Stamps stamp = stampRepository.findByName(stampName)
+                    .orElseGet(() -> stampRepository.save(Stamps.create(stampName, "stamps/" + stampName + ".png")));
+            Letters found = letterRepository.findById(letter.getId()).orElseThrow();
+            found.completeFeedback(stamp);
+            return found;
         });
     }
 

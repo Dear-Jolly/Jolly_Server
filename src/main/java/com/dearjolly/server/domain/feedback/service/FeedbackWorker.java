@@ -1,11 +1,13 @@
 package com.dearjolly.server.domain.feedback.service;
 
-import java.time.Duration;
+import static com.dearjolly.server.global.logging.LogValueSanitizer.sanitize;
+
 import java.time.Instant;
-import java.util.List;
+import java.time.ZoneId;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.retry.NonTransientAiException;
+import org.slf4j.MDC;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 
@@ -13,51 +15,103 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class FeedbackWorker {
-    private static final List<Duration> RETRY_DELAYS = List.of(
-            Duration.ofSeconds(30),
-            Duration.ofMinutes(2),
-            Duration.ofMinutes(10)
-    );
+    private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 
     private final FeedbackRequester feedbackRequester;
     private final FeedbackStateService feedbackStateService;
     private final TaskScheduler feedbackRetryScheduler;
 
     public void process(Long letterId) {
+        FeedbackLogContext context = contextOf(letterId);
         if (!feedbackStateService.start(letterId)) {
+            log.info(
+                    "feedback_job_skipped userId={} nickname={} letterId={} status={} reason=already_claimed_or_not_submitted",
+                    context.userId(), sanitize(context.nickname()), letterId, context.status()
+            );
             return;
         }
+        log.info(
+                "feedback_job_started userId={} nickname={} letterId={} attempt={} retryCount={}",
+                context.userId(), sanitize(context.nickname()), letterId, context.retryCount() + 1,
+                context.retryCount()
+        );
         try {
             feedbackRequester.requestFeedback(letterId);
         } catch (RuntimeException exception) {
-            handleFailure(letterId, exception);
+            handleFailure(letterId, context, exception);
         }
     }
 
-    private void handleFailure(Long letterId, RuntimeException exception) {
-        boolean retryable = !(exception instanceof NonTransientAiException)
-                && !(exception instanceof NonRetryableFeedbackException);
-        FeedbackFailureResult result = feedbackStateService.handleFailure(letterId, retryable);
-        if (!result.shouldRetry()) {
-            if (result.failed()) {
-                log.error("피드백 생성에 최종 실패했다. letterId={}, retryCount={}, cause={}",
-                        letterId, result.retryCount(), exception.getClass().getSimpleName(), exception);
-            } else {
-                log.warn("LLM 재시도를 소진해 보완 복구를 기다린다. letterId={}, retryCount={}, cause={}",
-                        letterId, result.retryCount(), exception.getClass().getSimpleName());
-            }
+    private void handleFailure(Long letterId, FeedbackLogContext context, RuntimeException exception) {
+        FeedbackFailureResult result = feedbackStateService.handleFailure(letterId);
+        FeedbackLogContext current = contextOf(letterId);
+        Throwable rootCause = rootCauseOf(exception);
+        if (result.failed()) {
+            log.error(
+                    "feedback_job_failed userId={} nickname={} letterId={} status={} retryCount={} "
+                            + "causeType={} causeMessage={} rootCauseType={} rootCauseMessage={}",
+                    context.userId(), sanitize(context.nickname()), letterId, current.status(), result.retryCount(),
+                    exception.getClass().getSimpleName(), sanitize(exception.getMessage()),
+                    rootCause.getClass().getSimpleName(), sanitize(rootCause.getMessage()), exception
+            );
             return;
         }
+        if (result.retryScheduled()) {
+            scheduleRetry(letterId, result.nextRetryAt());
+            log.warn(
+                    "feedback_retry_registered userId={} nickname={} letterId={} status={} retryCount={} "
+                            + "nextRetryAt={} delaySeconds={} causeType={} causeMessage={} rootCauseType={} "
+                            + "rootCauseMessage={}",
+                    context.userId(), sanitize(context.nickname()), letterId, current.status(), result.retryCount(),
+                    result.nextRetryAt(), result.delaySeconds(), exception.getClass().getSimpleName(),
+                    sanitize(exception.getMessage()), rootCause.getClass().getSimpleName(),
+                    sanitize(rootCause.getMessage())
+            );
+            return;
+        }
+        log.info("feedback_failure_ignored letterId={} reason=state_changed", letterId);
+    }
 
-        Duration delay = RETRY_DELAYS.get(result.retryCount() - 1);
+    private void scheduleRetry(Long letterId, java.time.LocalDateTime nextRetryAt) {
+        Map<String, String> mdcContext = MDC.getCopyOfContextMap();
+        Instant executionTime = nextRetryAt.atZone(SERVER_ZONE).toInstant();
         try {
-            feedbackRetryScheduler.schedule(() -> process(letterId), Instant.now().plus(delay));
-            log.warn("피드백 생성을 재시도한다. letterId={}, retryCount={}, delaySeconds={}, cause={}",
-                    letterId, result.retryCount(), delay.toSeconds(), exception.getClass().getSimpleName());
-        } catch (RuntimeException schedulingException) {
-            feedbackStateService.fail(letterId);
-            log.error("피드백 재시도 예약에 실패했다. letterId={}, retryCount={}",
-                    letterId, result.retryCount(), schedulingException);
+            feedbackRetryScheduler.schedule(
+                    () -> runWithMdc(mdcContext, () -> process(letterId)),
+                    executionTime
+            );
+        } catch (RuntimeException exception) {
+            log.error(
+                    "feedback_in_memory_retry_lost letterId={} nextRetryAt={} causeType={} causeMessage={} "
+                            + "recovery=next_midnight",
+                    letterId, nextRetryAt, exception.getClass().getSimpleName(), sanitize(exception.getMessage()),
+                    exception
+            );
         }
     }
+
+    private FeedbackLogContext contextOf(Long letterId) {
+        FeedbackLogContext context = feedbackStateService.getLogContext(letterId);
+        return context == null ? FeedbackLogContext.unknown(letterId) : context;
+    }
+
+    private Throwable rootCauseOf(Throwable exception) {
+        Throwable rootCause = exception;
+        while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
+            rootCause = rootCause.getCause();
+        }
+        return rootCause;
+    }
+
+    private void runWithMdc(Map<String, String> context, Runnable task) {
+        try {
+            if (context != null) {
+                MDC.setContextMap(context);
+            }
+            task.run();
+        } finally {
+            MDC.clear();
+        }
+    }
+
 }

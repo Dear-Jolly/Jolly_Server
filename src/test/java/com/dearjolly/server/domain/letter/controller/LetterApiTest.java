@@ -64,6 +64,7 @@ class LetterApiTest extends ApiTestSupport {
                 // then
                 .then()
                 .statusCode(HttpStatus.CREATED.value())
+                .header("X-Request-Id", matchesPattern("[0-9a-f-]{36}"))
                 .body("letterId", notNullValue())
                 .body("date", equalTo(writtenAt.toLocalDate().toString()))
                 .body("createdAt", matchesPattern("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"))
@@ -292,6 +293,24 @@ class LetterApiTest extends ApiTestSupport {
                 .body("letters[2].status", equalTo("FEEDBACK_COMPLETED"))
                 .body("letters[2].isRead", equalTo(true))
                 .body("letters[2].summary", equalTo("Hi! Jolly. I made a new friend."));
+    }
+
+    @DisplayName("GET /api/v1/letters : 첫 실패 이후의 편지는 목록에서도 FEEDBACK_FAILED 와 실패 우표로 보인다")
+    @Test
+    void getLettersShowsFailedStampAfterFirstFailure() {
+        // given
+        Users user = 온보딩을_마친_유저를_저장한다("kakao-list-fail", "jollyfail");
+        첫_실패후_재시도를_기다리는_편지를_저장한다(user, ORIGINAL_CONTENT, LETTER_DATE);
+
+        // when
+        given().header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                .when().get("/api/v1/letters")
+                // then
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("letters", hasSize(1))
+                .body("letters[0].status", equalTo("FEEDBACK_FAILED"))
+                .body("letters[0].stampImage", equalTo("http://localhost:9000/dear-jolly-stamps/stamp/fail.png"));
     }
 
     @DisplayName("GET /api/v1/letters : summary 는 원문 앞 50자다")
@@ -559,6 +578,48 @@ class LetterApiTest extends ApiTestSupport {
                 .body("feedback", nullValue());
 
         assertThat(letterRepository.findById(letter.getId()).orElseThrow().isRead()).isFalse();
+    }
+
+    @DisplayName("GET /api/v1/letters/{letterId} : 한 번이라도 실패하면 재시도 중이어도 FEEDBACK_FAILED 와 실패 우표를 내려준다")
+    @Test
+    void getLetterAfterFirstFailure() {
+        // given
+        Users user = 온보딩을_마친_유저를_저장한다("kakao-letter-16", "jolly16");
+        Letters letter = 첫_실패후_재시도를_기다리는_편지를_저장한다(user, ORIGINAL_CONTENT, LETTER_DATE);
+
+        // when
+        given()
+                .header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                .when().get("/api/v1/letters/{letterId}", letter.getId())
+                // then
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("status", equalTo(Status.FEEDBACK_FAILED.name()))
+                .body("stampImage", equalTo("http://localhost:9000/dear-jolly-stamps/stamp/fail.png"))
+                .body("feedback", nullValue());
+
+        Letters saved = letterRepository.findById(letter.getId()).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(Status.SUBMITTED);
+        assertThat(saved.isRead()).isFalse();
+    }
+
+    @DisplayName("GET /api/v1/letters/{letterId} : 재시도가 성공하면 FEEDBACK_COMPLETED 와 AI 우표로 바뀐다")
+    @Test
+    void getLetterAfterRetrySucceeded() {
+        // given
+        Users user = 온보딩을_마친_유저를_저장한다("kakao-letter-17", "jolly17");
+        Letters letter = 첫_실패후_재시도를_기다리는_편지를_저장한다(user, ORIGINAL_CONTENT, LETTER_DATE);
+        피드백을_완료한다(letter, "rose");
+
+        // when
+        given()
+                .header(HttpHeaders.AUTHORIZATION, 액세스토큰(user))
+                .when().get("/api/v1/letters/{letterId}", letter.getId())
+                // then
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("status", equalTo(Status.FEEDBACK_COMPLETED.name()))
+                .body("stampImage", equalTo("http://localhost:9000/dear-jolly-stamps/stamps/rose.png"));
     }
 
     @DisplayName("GET /api/v1/letters/{letterId} : 남의 편지는 LETTER_002")

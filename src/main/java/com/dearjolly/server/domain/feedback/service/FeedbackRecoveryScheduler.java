@@ -1,17 +1,19 @@
 package com.dearjolly.server.domain.feedback.service;
 
-import static com.dearjolly.server.domain.letter.enums.Status.FEEDBACK_FAILED;
 import static com.dearjolly.server.domain.letter.enums.Status.FEEDBACK_IN_PROGRESS;
 import static com.dearjolly.server.domain.letter.enums.Status.SUBMITTED;
+import static com.dearjolly.server.global.logging.LogValueSanitizer.sanitize;
 
-import com.dearjolly.server.domain.letter.enums.Status;
 import com.dearjolly.server.domain.letter.repository.LetterRepository;
 import com.dearjolly.server.domain.letter.service.LetterCreatedEvent;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,48 +22,60 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class FeedbackRecoveryScheduler {
-    private static final int MAX_RECOVERY_COUNT = 2;
+    private static final int STALLED_MINUTES = 15;
+    private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 
     private final LetterRepository letterRepository;
+    private final FeedbackStateService feedbackStateService;
+    private final FeedbackWorker feedbackWorker;
     private final ApplicationEventPublisher eventPublisher;
+    private final TaskScheduler feedbackRetryScheduler;
 
-    @Scheduled(fixedDelayString = "${dearjolly.feedback.recovery-interval-millis:600000}")
+    @Scheduled(cron = "${dearjolly.feedback.recovery-cron:0 0 0 * * *}", zone = "Asia/Seoul")
     @Transactional
-    public void recoverStalledFeedback() {
+    public void recoverLostFeedback() {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime submittedThreshold = now.minusHours(1);
-        LocalDateTime inProgressThreshold = now.minusMinutes(15);
-        List<Long> submitted = letterRepository.findIdsByStatusAndUpdatedAtBefore(SUBMITTED, submittedThreshold);
-        List<Long> inProgress = letterRepository.findIdsByStatusAndUpdatedAtBefore(
-                FEEDBACK_IN_PROGRESS, inProgressThreshold
+        List<Long> dueLetterIds = letterRepository.findDueFeedbackIds(
+                SUBMITTED, now
         );
+        dueLetterIds.forEach(letterId -> eventPublisher.publishEvent(new LetterCreatedEvent(letterId)));
 
-        long failedCount = submitted.stream()
-                .filter(letterId -> recoverAndCheckFailed(letterId, SUBMITTED, submittedThreshold, now))
-                .count();
-        failedCount += inProgress.stream()
-                .filter(letterId -> recoverAndCheckFailed(letterId, FEEDBACK_IN_PROGRESS, inProgressThreshold, now))
-                .count();
+        LocalDateTime stalledThreshold = now.minusMinutes(STALLED_MINUTES);
+        List<Long> stalledLetterIds = letterRepository.findStalledFeedbackIds(
+                FEEDBACK_IN_PROGRESS, stalledThreshold
+        );
+        stalledLetterIds.forEach(letterId -> recoverStalledFeedback(letterId, stalledThreshold, now));
 
-        if (!submitted.isEmpty() || !inProgress.isEmpty()) {
-            log.warn("멈춘 피드백 작업을 복구했다. submitted={}, inProgress={}, failed={}",
-                    submitted.size(), inProgress.size(), failedCount);
+        log.info(
+                "feedback_midnight_recovery_completed dueCount={} stalledCount={}",
+                dueLetterIds.size(), stalledLetterIds.size()
+        );
+    }
+
+    private void recoverStalledFeedback(Long letterId, LocalDateTime threshold, LocalDateTime now) {
+        FeedbackFailureResult result = feedbackStateService.recoverStalled(letterId, threshold, now);
+        FeedbackLogContext context = feedbackStateService.getLogContext(letterId);
+        if (result.retryScheduled()) {
+            scheduleRetry(letterId, result.nextRetryAt());
+            log.warn(
+                    "feedback_stalled_retry_registered userId={} nickname={} letterId={} retryCount={} "
+                            + "nextRetryAt={} delaySeconds={}",
+                    context.userId(), sanitize(context.nickname()), letterId, result.retryCount(),
+                    result.nextRetryAt(), result.delaySeconds()
+            );
+        } else if (result.failed()) {
+            log.error(
+                    "feedback_stalled_failed userId={} nickname={} letterId={} retryCount={} status={}",
+                    context.userId(), sanitize(context.nickname()), letterId, result.retryCount(), context.status()
+            );
         }
     }
 
-    private boolean recoverAndCheckFailed(
-            Long letterId, Status expectedStatus, LocalDateTime threshold, LocalDateTime now
-    ) {
-        int recovered = letterRepository.recoverFeedback(
-                letterId, expectedStatus, SUBMITTED, threshold, now, MAX_RECOVERY_COUNT
+    private void scheduleRetry(Long letterId, LocalDateTime nextRetryAt) {
+        Instant executionTime = nextRetryAt.atZone(SERVER_ZONE).toInstant();
+        feedbackRetryScheduler.schedule(
+                () -> feedbackWorker.process(letterId),
+                executionTime
         );
-        if (recovered == 1) {
-            eventPublisher.publishEvent(new LetterCreatedEvent(letterId));
-            return false;
-        }
-        int failed = letterRepository.failExhaustedRecovery(
-                letterId, expectedStatus, FEEDBACK_FAILED, threshold, now, MAX_RECOVERY_COUNT
-        );
-        return failed == 1;
     }
 }

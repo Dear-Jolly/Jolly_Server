@@ -37,14 +37,13 @@ import lombok.NoArgsConstructor;
         name = "LETTERS",
         indexes = {
                 @Index(name = "idx_letters_list", columnList = "user_id, letter_date DESC, letter_id DESC"),
-                @Index(name = "idx_letters_pending", columnList = "status, updated_at")
+                @Index(name = "idx_letters_retry", columnList = "status, next_retry_at"),
+                @Index(name = "idx_letters_stalled", columnList = "status, updated_at")
         }
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Letters {
-    private static final int MAX_LLM_RETRY_COUNT = 3;
-    private static final int MAX_RECOVERY_COUNT = 2;
     private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 
     @Id
@@ -86,8 +85,8 @@ public class Letters {
     @Column(name = "retry_count", nullable = false)
     private int retryCount;
 
-    @Column(name = "recovery_count", nullable = false)
-    private int recoveryCount;
+    @Column(name = "next_retry_at")
+    private LocalDateTime nextRetryAt;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -125,39 +124,40 @@ public class Letters {
 
     public void startFeedback() {
         this.status = FEEDBACK_IN_PROGRESS;
+        this.nextRetryAt = null;
     }
 
     public void completeFeedback(Stamps stamp) {
         validateStamp(stamp);
         this.stamp = stamp;
         this.status = FEEDBACK_COMPLETED;
+        this.nextRetryAt = null;
     }
 
-    public void retryFeedback() {
+    // 첫 실패부터 실패 우표를 붙인다. 재시도가 성공하면 completeFeedback 이 LLM 우표로 덮어쓴다.
+    // 우표 시드가 돌지 않은 환경에서는 우표를 그대로 두고 재시도 예약만 남긴다.
+    public void scheduleRetry(LocalDateTime nextRetryAt, Stamps failedStamp) {
+        if (nextRetryAt == null) {
+            throw new IllegalArgumentException("다음 재시도 시각은 필수입니다.");
+        }
+        if (failedStamp != null) {
+            this.stamp = failedStamp;
+        }
         this.status = SUBMITTED;
         this.retryCount++;
-    }
-
-    public void awaitRecovery() {
-        this.status = SUBMITTED;
+        this.nextRetryAt = nextRetryAt;
     }
 
     public void failFeedback() {
         this.status = FEEDBACK_FAILED;
+        this.nextRetryAt = null;
     }
 
-    public void resetForReprocess() {
+    public void resetForReprocess(Stamps defaultStamp) {
+        this.stamp = defaultStamp;
         this.status = SUBMITTED;
         this.retryCount = 0;
-        this.recoveryCount = 0;
-    }
-
-    public boolean isRetryExhausted() {
-        return this.retryCount >= MAX_LLM_RETRY_COUNT;
-    }
-
-    public boolean isRecoveryExhausted() {
-        return this.recoveryCount >= MAX_RECOVERY_COUNT;
+        this.nextRetryAt = LocalDateTime.now();
     }
 
     public boolean isFeedbackCompleted() {
@@ -170,7 +170,12 @@ public class Letters {
                 .toLocalDateTime();
     }
 
+    // 한 번이라도 실패했으면 내부적으로 재시도 중이어도 앱에는 실패로만 보인다.
+    // 재시도 성공 여부에 따라 준비 중 ↔ 실패를 오가면 앱이 안내 문구를 번복하게 된다.
     public Status toResponseStatus() {
+        if (this.retryCount > 0 && this.status != FEEDBACK_COMPLETED) {
+            return FEEDBACK_FAILED;
+        }
         return this.status;
     }
 
@@ -187,7 +192,7 @@ public class Letters {
         this.status = SUBMITTED;
         this.isRead = false;
         this.retryCount = 0;
-        this.recoveryCount = 0;
+        this.nextRetryAt = LocalDateTime.now();
     }
 
     private void validateContent(String content) {

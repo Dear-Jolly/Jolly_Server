@@ -72,7 +72,7 @@ erDiagram
         BIGINT stamp_id FK "편지에 붙은 우표"
         BOOLEAN is_read "피드백 열람 여부"
         INT retry_count "OpenAI 재시도 횟수"
-        INT recovery_count "보완 스케줄러 복구 횟수"
+        DATETIME next_retry_at "다음 재시도 예약 시각"
         BIGINT version "낙관적 락 버전"
         DATETIME created_at "작성 시각"
         DATETIME updated_at "상태 전이 시각 (유실 판별 기준)"
@@ -186,23 +186,25 @@ erDiagram
 | `letter_date` | DATE | NOT NULL | 요청 `writtenAt` 의 날짜 부분 (R9). API 의 `date`. 목록 정렬·표시 기준 |
 | `time_zone` | VARCHAR(64) | NOT NULL | 작성 시점 기기의 IANA 타임존 ID (예: `Asia/Seoul`). 요청의 `timeZone` 을 그대로 남긴다 |
 | `status` | VARCHAR(30) | NOT NULL | `SUBMITTED` / `FEEDBACK_IN_PROGRESS` / `FEEDBACK_COMPLETED` / `FEEDBACK_FAILED` |
-| `stamp_id` | BIGINT | FK → `STAMPS.stamp_id`, NULL | 편지에 붙은 우표. 등록 시 `soon` 이 들어가고, `FEEDBACK_COMPLETED` 전이 시 LLM 이 고른 우표가 된다 |
+| `stamp_id` | BIGINT | FK → `STAMPS.stamp_id`, NULL | 편지에 붙은 우표. 등록 시 `soon`, 첫 실패 시 `fail`, `FEEDBACK_COMPLETED` 전이 시 LLM 이 고른 우표가 된다 |
 | `is_read` | BOOLEAN | NOT NULL, DEFAULT `false` | 피드백 열람 여부 (R6). `FEEDBACK_COMPLETED` 편지를 상세 조회할 때만 `true` 로 전환 |
-| `retry_count` | INT | NOT NULL, DEFAULT `0` | OpenAI 재시도 횟수. 최초 호출은 제외하고 최대 3회 |
-| `recovery_count` | INT | NOT NULL, DEFAULT `0` | 보완 스케줄러 복구 횟수. 최대 2회 |
+| `retry_count` | INT | NOT NULL, DEFAULT `0` | OpenAI 재시도 횟수. 최초 호출은 제외하고 최대 5회 |
+| `next_retry_at` | DATETIME(6) | NULL | DB에 영속화한 다음 재시도 예약 시각 |
 | `version` | BIGINT | NOT NULL, DEFAULT `0` | JPA 낙관적 락 버전. 늦게 완료된 이전 워커의 상태·피드백 저장을 거절한다 |
 | `created_at` | DATETIME(6) | NOT NULL | 서버 저장 시각(KST). 응답의 `createdAt` 은 이 값을 요청 타임존으로 변환해 내려준다 |
 | `updated_at` | DATETIME(6) | NOT NULL | 상태 전이 시각. 이벤트 유실·처리 유실 판별의 기준이다 |
 
 - INDEX `(user_id, letter_date DESC, letter_id DESC)` — 목록 정렬·페이징.
 - 중복 전달 판정(A17)의 "직전 편지 1건" 조회도 이 인덱스를 탄다. 편지는 append-only 이고 PK 가 AUTO_INCREMENT 라 `letter_id DESC` 가 곧 작성 역순이므로, `created_at` 정렬용 인덱스를 따로 두지 않는다.
-- INDEX `(status, updated_at)` — 미처리 편지 스캔 배치. `SUBMITTED` 이벤트 유실(1시간 초과)과 `FEEDBACK_IN_PROGRESS` 처리 유실(15분 초과)을 이 인덱스로 찾는다.
+- INDEX `(status, next_retry_at)` — 매일 0시에 실행 시각이 지났지만 인메모리 예약이 유실된 작업을 찾는다.
+- INDEX `(status, updated_at)` — 15분 이상 `FEEDBACK_IN_PROGRESS`에 멈춘 작업을 찾는다.
 - 워커 픽업은 `status = 'SUBMITTED'` 인 행만 `FEEDBACK_IN_PROGRESS` 로 바꾸는 조건부 UPDATE 로 수행하며 `version`도 증가시킨다. 갱신 건수 0이면 다른 워커가 이미 집은 것이므로 처리를 건너뛴다.
-- OpenAI 호출 트랜잭션은 편지 행에 비관적 쓰기 잠금을 건다. 보완 복구는 상태·기준 시각·복구 횟수를 다시 확인하는 조건부 UPDATE 이므로 기존 워커가 먼저 완료하면 갱신 건수 0으로 끝나고 새 이벤트를 발행하지 않는다.
-- 편지는 append-only 다 (R1). 등록 후 `content` · `letter_date` · `time_zone` 은 변경되지 않으며, 사용자 요청으로 삭제되지도 않는다. 변경되는 컬럼은 `status` · `stamp_id` · `is_read` · `retry_count` · `recovery_count` · `version` · `updated_at` 뿐이다.
+- OpenAI 호출 트랜잭션은 편지 행에 비관적 쓰기 잠금을 건다. 복구 배치는 상태·기준 시각을 다시 확인하므로 기존 워커가 먼저 완료했으면 아무것도 갱신하지 않고 새 이벤트도 발행하지 않는다.
+- 편지는 append-only 다 (R1). 등록 후 본문은 변경하지 않으며, 처리 과정에서 `status`, `stamp_id`, `is_read`, `retry_count`, `next_retry_at`, `version`, `updated_at`이 변경된다.
 - **`time_zone` 을 저장하는 이유**는 `created_at` 때문이다. 저장은 서버 시각(KST)으로 하고 응답은 작성지 기준으로 내려주는데, 타임존을 남기지 않으면 그 변환이 **편지 작성 요청에서 단 한 번만** 가능하다. 이후의 모든 조회는 요청 바디가 없어 변환 근거를 잃고 KST 로 굳는다. 작성지 정보 자체도 편지의 맥락이라 함께 남긴다.
-- 우표 카운트(R4)는 `status = 'FEEDBACK_COMPLETED'` 인 행 수로 계산한다.
-- **재시도 백오프 상태는 DB 에 두지 않는다.** 워커가 인메모리 `TaskScheduler` 로 재호출을 예약하며, 예약이 유실된 경우 보완 스케줄러가 `updated_at` 기준으로 주워 담는다. OpenAI 재시도는 `retry_count`, 보완 복구는 `recovery_count`를 각각 소비한다.
+- 우표 카운트(R4)는 `status = 'FEEDBACK_COMPLETED'` 인 행 수로 계산한다. `soon` · `fail` 우표가 붙은 편지는 세지 않는다.
+- **`retry_count >= 1` 이면 앱 응답의 `status` 는 완료 전까지 항상 `FEEDBACK_FAILED` 다.** 내부적으로는 `SUBMITTED` · `FEEDBACK_IN_PROGRESS` 를 오가며 재시도하지만 앱에는 노출하지 않는다 (A18).
+- 재시도 백오프는 `retry_count`와 `next_retry_at`으로 DB에 영속화한다. 평상시에는 인메모리 스케줄러가 실행하고, 매일 0시 복구 배치가 유실된 예약과 멈춘 작업을 처리한다.
 
 ### 2.4 `STAMPS` — 우표 마스터
 
@@ -217,7 +219,7 @@ erDiagram
 **우표는 이름과 이미지가 전부다.** 컬럼을 이 둘로 좁힌 이유는 각각 분명하다.
 
 - **설명 컬럼을 두지 않는다.** 이름 자체가 이미 분위기를 담고 있어(`장미` · `초승달` · `네잎클로버`) LLM 이 편지에 어울리는 것을 고르는 데 부연이 필요 없고, 앱은 이미지만 렌더링하므로 설명이 노출될 지점도 없다. 아무도 읽지 않는 문구를 우표를 추가할 때마다 지어내야 하는 비용만 남는다.
-- **활성 여부 컬럼을 두지 않는다.** 후보에서 빠지는 행은 기본 우표 `soon` 하나뿐이고, 이름으로 걸러진다. "있지만 안 쓰는 우표" 라는 상태는 실체가 없어 플래그 컬럼을 둘 이유가 없다.
+- **활성 여부 컬럼을 두지 않는다.** 후보에서 빠지는 행은 서버가 상태에 따라 직접 붙이는 `soon` · `fail` 둘뿐이고, 이름으로 걸러진다. "있지만 안 쓰는 우표" 라는 상태는 실체가 없어 플래그 컬럼을 둘 이유가 없다.
 - `name` 이 UNIQUE 인 이유는 LLM 응답을 행으로 되돌리는 조회 키이기 때문이다.
 - **행을 지울 때는 `LETTERS.stamp_id` 가 참조하지 않는지 확인해야 한다.** FK 가 걸려 있어 참조 중이면 DB 가 거부한다. 우표를 바꾸고 싶을 때의 정상 경로는 삭제가 아니라 `image_key` 교체다 — 이미 그 우표를 받은 편지의 이미지까지 함께 바뀐다.
 - 이미지 교체는 `image_key` 갱신으로 처리한다. 앱 배포와 무관하다.
@@ -246,6 +248,7 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 | 재실행 | 같은 키에 같은 크기로 올라가 있으면 업로드를 건너뛰고, 같은 `name` 행이 있으면 `image_key` 가 다를 때만 갱신한다 |
 
 `soon` 은 편지 등록 시점에 붙는 "준비 중" 우표다. `stamp_id = 1` 에 고정되고 LLM 우표 선택 후보에서는 빠진다 (A9-1).
+`fail` 은 첫 실패 시점에 붙는 "실패" 우표다. 같은 폴더의 `fail.png` 로 시드되며 역시 후보에서 빠진다.
 편지가 실제로 받는 우표는 피드백이 완료되는 시점에 정해진다.
 
 파일명이 곧 `name` 이자 파일 키라서 **파일을 넣는 것 외에 채울 값이 없다.** 우표를 추가하려면 이미지를 이 폴더에 두고 배포하면 된다.
@@ -253,7 +256,7 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 
 #### 우표 부여 절차
 
-1. 피드백 워커가 `SELECT name FROM stamps WHERE name <> 'soon'` 으로 후보를 조회한다. `soon` 을 제외한 모든 행이 후보다.
+1. 피드백 워커가 `SELECT name FROM stamps WHERE name NOT IN ('soon', 'fail')` 으로 후보를 조회한다. 서버가 직접 붙이는 두 우표를 제외한 모든 행이 후보다.
 2. 조회한 **한글 이름 목록을 프롬프트에 동적으로 삽입**하고, 편지 내용에 가장 어울리는 우표 이름 하나를 고르게 한다. 우표 종류가 늘거나 줄어도 프롬프트 템플릿은 그대로다.
 3. LLM 이 반환한 이름을 `name` 으로 조회해 `LETTERS.stamp_id` 에 채운다.
 4. 반환값이 후보 목록에 없으면 응답을 저장하지 않고 OpenAI 재시도 대상으로 처리한다.
@@ -436,13 +439,23 @@ API 요청/응답의 `provider` 필드가 이 enum 이다. 문서 전체에서 �
 | `SUBMITTED` | 제출됨, 워커 픽업 대기 | 서버가 내려준 `soon` 우표, 상세 진입 불가 (R5) |
 | `FEEDBACK_IN_PROGRESS` | 워커가 픽업해 LLM 호출 중 | 서버가 내려준 `soon` 우표, 상세 진입 불가 (`SUBMITTED` 와 동일) |
 | `FEEDBACK_COMPLETED` | 피드백 완료 | 컬러 우표, 상세 진입 가능 |
-| `FEEDBACK_FAILED` | 자동 재시도와 보완 복구가 모두 끝난 최종 실패 | 실패 안내, 자동 새로고침 중단, 상세 진입 불가 |
+| `FEEDBACK_FAILED` | 한 번 이상 실패 | 서버가 내려준 `fail` 우표, 실패 안내, 상세 진입 불가 |
+
+**컬럼 값과 응답 값은 다르다.** `LETTERS.status` 는 내부 상태를 그대로 담고, 앱 응답의 `status` 는 여기에 `retry_count` 를 얹어 계산한다.
+
+| 컬럼 `status` | `retry_count` | 응답 `status` |
+| --- | :---: | --- |
+| `SUBMITTED` · `FEEDBACK_IN_PROGRESS` | `0` | 컬럼 값 그대로 |
+| `SUBMITTED` · `FEEDBACK_IN_PROGRESS` | `>= 1` | `FEEDBACK_FAILED` |
+| `FEEDBACK_FAILED` | — | `FEEDBACK_FAILED` |
+| `FEEDBACK_COMPLETED` | — | `FEEDBACK_COMPLETED` |
 
 임시저장 상태는 두지 않으며, 편지는 항상 `SUBMITTED` 로 생성된다.
 
 - 컬럼 길이가 VARCHAR(30) 인 이유는 가장 긴 값 `FEEDBACK_IN_PROGRESS` 가 20자이기 때문이다. 여유를 포함해 30으로 잡는다.
-- `FEEDBACK_IN_PROGRESS` 는 워커 중복 실행 방지와 처리 유실 판별을 위한 상태다. 두 워커가 같은 편지를 집지 못하도록 진입을 조건부 UPDATE 로 막고, 이 상태로 15분 이상 머문 편지는 호출 도중 종료된 것으로 보고 `SUBMITTED` 로 되돌려 재큐잉한다.
-- 네 상태는 API 응답에 그대로 내려간다. 앱은 `SUBMITTED` 와 `FEEDBACK_IN_PROGRESS` 를 준비 중으로 동일하게 렌더링하고, `FEEDBACK_FAILED` 는 더 이상 자동으로 변하지 않는 최종 실패로 구분한다.
+- `FEEDBACK_IN_PROGRESS` 는 워커 중복 실행 방지와 처리 유실 판별을 위한 상태다. 두 워커가 같은 편지를 집지 못하도록 진입을 조건부 UPDATE 로 막고, 15분 이상 이 상태에 멈춘 행은 매일 0시 복구 배치가 한 번의 실패로 처리해 재예약한다.
+- 앱은 `SUBMITTED` 와 `FEEDBACK_IN_PROGRESS` 를 준비 중으로 동일하게 렌더링한다. `FEEDBACK_FAILED` 는 실패 안내를 띄우되, 서버가 재시도를 이어가므로 다시 조회하면 `FEEDBACK_COMPLETED` 로 바뀌어 있을 수 있다.
+- **실패 이후의 재시도를 앱에 노출하지 않는 이유**는 안내 문구가 번복되기 때문이다. 준비 중 ↔ 실패를 오가면 사용자는 서버가 무엇을 하고 있는지 알 수 없다. 실패로 한 번 고정하고, 성공했을 때만 조용히 갱신한다.
 
 ### 4.6 `CorrectionType` — `CORRECTION_SEGMENTS.correction_type`
 
@@ -473,8 +486,8 @@ API 요청/응답의 `provider` 필드가 이 enum 이다. 문서 전체에서 �
 | PRIMARY KEY | `USERS.user_id`, `TERMS_AGREEMENTS.terms_agreement_id`, `LETTERS.letter_id`, `STAMPS.stamp_id`, `FEEDBACKS.feedback_id`, `CORRECTION_SEGMENTS.correction_segment_id`, `FEEDBACK_TIPS.feedback_tip_id` |
 | FOREIGN KEY | `TERMS_AGREEMENTS.user_id` → `USERS`, `LETTERS.user_id` → `USERS`, `LETTERS.stamp_id` → `STAMPS`, `FEEDBACKS.letter_id` → `LETTERS`, `CORRECTION_SEGMENTS.feedback_id` → `FEEDBACKS`, `FEEDBACK_TIPS.feedback_id` → `FEEDBACKS` |
 | UNIQUE | `USERS (oauth_provider, oauth_id)`, `STAMPS.name`, `FEEDBACKS.letter_id`, `CORRECTION_SEGMENTS (feedback_id, sequence)`, `FEEDBACK_TIPS (feedback_id, sort_order)` |
-| INDEX | `LETTERS (user_id, letter_date DESC, letter_id DESC)`, `LETTERS (status, updated_at)`, `TERMS_AGREEMENTS (user_id, type, agreed_at DESC)` |
-| DEFAULT | `LETTERS.is_read = false`, `LETTERS.retry_count = 0`, `LETTERS.recovery_count = 0`, `LETTERS.version = 0` |
+| INDEX | `LETTERS (user_id, letter_date DESC, letter_id DESC)`, `LETTERS (status, next_retry_at)`, `LETTERS (status, updated_at)`, `TERMS_AGREEMENTS (user_id, type, agreed_at DESC)` |
+| DEFAULT | `LETTERS.is_read = false`, `LETTERS.retry_count = 0`, `LETTERS.version = 0` |
 | NULL 허용 | `USERS.email`, `USERS.nickname`, `USERS.refresh_token`, `USERS.oauth_refresh_token`, `USERS.deleted_at`, `LETTERS.stamp_id` — 나머지 전 컬럼 NOT NULL |
 
 `TERMS_AGREEMENTS` 에는 UNIQUE 를 두지 않는다. 이력 테이블이므로 같은 `(user_id, type)` 조합이 여러 번 나타나는 것이 정상이다.
@@ -492,17 +505,18 @@ API 요청/응답의 `provider` 필드가 이 enum 이다. 문서 전체에서 �
 | A6 | `concat(original_text ORDER BY sequence)` == `LETTERS.content` | 교정 세그먼트 생성 규칙 | 피드백 저장 트랜잭션 |
 | A7 | `concat(corrected_text ORDER BY sequence)` == `FEEDBACKS.corrected_content` | 교정 세그먼트 생성 규칙 | 피드백 저장 트랜잭션 |
 | A8 | `FEEDBACK_TIPS` 는 피드백당 최대 3행이며 각 팁은 한국어를 포함한다. 조건을 어긴 LLM 응답은 저장하지 않고 재시도한다 | LLM 응답 계약 | 구조화 응답 검증 · 엔티티 개수 검사 |
-| A9 | `stamp_id` 는 등록 시 `soon`, `FEEDBACK_COMPLETED` 전이 시 LLM 이 고른 우표다 | R3 | 상태 전이 메서드 |
-| A9-1 | LLM 이 반환한 우표 이름이 후보 목록에 없으면 저장하지 않고 재시도한다. 후보는 `soon` 을 제외한 `STAMPS` 전 행이다 | — | 구조화 응답 검증 |
+| A9 | `stamp_id` 는 등록 시 `soon`, 첫 실패 시 `fail`, `FEEDBACK_COMPLETED` 전이 시 LLM 이 고른 우표다 | R3 | 상태 전이 메서드 |
+| A9-1 | LLM 이 반환한 우표 이름이 후보 목록에 없으면 저장하지 않고 재시도한다. 후보는 `soon` · `fail` 을 제외한 `STAMPS` 전 행이다 | — | 구조화 응답 검증 |
 | A10 | `FEEDBACKS` 행이 존재하면 `LETTERS.status` 는 `FEEDBACK_COMPLETED` | — | 피드백 저장 트랜잭션 |
 | A11 | `SUBMITTED → FEEDBACK_IN_PROGRESS` 전이는 조건부 UPDATE 로만 수행하고, 갱신 건수 0이면 처리를 중단한다 | 워커 중복 실행 방지 | 피드백 워커 |
-| A12 | OpenAI 호출은 최초 1회 뒤 최대 3회 재시도하고, 보완 스케줄러는 별도로 최대 2회 복구한다. 두 예산을 모두 소진하면 `FEEDBACK_FAILED` 로 확정한다 | 편지 상태 전이 | 피드백 워커 · 보완 스케줄러 |
-| A12-1 | 편지의 `version`이 달라지면 이전 워커의 늦은 저장을 거절한다. 보완 복구 조건이 사라진 행은 새 이벤트를 발행하지 않는다 | 중복 OpenAI 호출·상태 역전 방지 | JPA 낙관적 락 · 조건부 UPDATE · 비관적 쓰기 잠금 |
+| A12 | OpenAI 호출은 최초 1회 뒤 최대 5회 재시도하고, 매일 0시 복구 배치도 같은 예산을 사용한다 | 편지 상태 전이 | 피드백 워커 · 복구 스케줄러 |
+| A12-1 | 편지의 `version`이 달라지면 이전 워커의 늦은 저장을 거절한다. 복구 조건이 사라진 행은 새 이벤트를 발행하지 않는다 | 중복 OpenAI 호출·상태 역전 방지 | JPA 낙관적 락 · 조건부 UPDATE · 비관적 쓰기 잠금 |
 | A13 | `status = 'WITHDRAWN'` 이면 `deleted_at` NOT NULL, `refresh_token` · `oauth_refresh_token` NULL | R8 | 탈퇴 서비스 |
 | A14 | `refresh_token` 은 유저당 1개만 유지 (단일 세션) | — | 인증 서비스 |
 | A15 | 온보딩 완료 = `SERVICE` · `PRIVACY` 의 최신 행이 모두 `agreed = true` **그리고** `nickname IS NOT NULL` | 온보딩 규칙 | 온보딩 가드 (`USER_005`) |
 | A16 | `TERMS_AGREEMENTS` 는 UPDATE 하지 않고 INSERT 만 한다 | 약관 동의 이력 | 약관 동의 서비스 |
 | A17 | 동일 유저가 60초 이내에 같은 `content` 를 다시 보내면 새 행을 만들지 않고 최초 편지를 반환한다 | 중복 전달 방지 | 편지 작성 서비스 |
+| A18 | `retry_count >= 1` 이고 완료 전이면 응답 `status` 는 `FEEDBACK_FAILED` 로 내린다. 내부 재시도는 앱에 노출하지 않는다 | 실패 안내 번복 방지 | `Letters.toResponseStatus()` |
 
 ---
 
@@ -510,18 +524,18 @@ API 요청/응답의 `provider` 필드가 이 enum 이다. 문서 전체에서 �
 
 ### 6.1 편지
 
-편지는 append-only 다. 작성되면 `SUBMITTED` 로 저장되고, 워커가 픽업하면 `FEEDBACK_IN_PROGRESS`, 저장에 성공하면 `FEEDBACK_COMPLETED` 로 전이한다. OpenAI 재시도 3회와 보완 복구 2회를 별도 카운트하며, 두 예산을 모두 소진하면 `FEEDBACK_FAILED` 로 확정한다. 사용자에게 노출되는 삭제 경로는 회원탈퇴뿐이다.
+편지는 append-only 다. 작성되면 `SUBMITTED`, 워커가 픽업하면 `FEEDBACK_IN_PROGRESS`, 저장에 성공하면 `FEEDBACK_COMPLETED`로 전이한다. 5회의 단일 재시도 예산을 소진하면 `FEEDBACK_FAILED`로 확정한다.
+첫 실패 시점에 `stamp_id` 가 `fail` 로 바뀌고, 그때부터 앱 응답 상태는 `FEEDBACK_FAILED` 로 고정된다 (A18).
 
 | 전이 | 트리거 | 함께 갱신되는 컬럼 |
 | --- | --- | --- |
-| → `SUBMITTED` | 편지 작성 | `stamp_id` 에 기본 우표(`soon`) 부여, `is_read = false`, `retry_count = 0`, `recovery_count = 0`, `version = 0` |
+| → `SUBMITTED` | 편지 작성 | `stamp_id` 에 기본 우표(`soon`) 부여, `is_read = false`, `retry_count = 0`, `next_retry_at = now`, `version = 0` |
 | `SUBMITTED` → `FEEDBACK_IN_PROGRESS` | 워커 픽업 (조건부 UPDATE) | `version++`, `updated_at` |
 | `FEEDBACK_IN_PROGRESS` → `FEEDBACK_COMPLETED` | LLM 응답 저장 성공 | `stamp_id` 에 LLM 이 고른 우표, `updated_at` |
-| `FEEDBACK_IN_PROGRESS` → `SUBMITTED` | LLM 실패 재시도 (워커가 백오프 후 재예약) | `retry_count++`, `updated_at` |
-| `SUBMITTED` → `SUBMITTED` | 1시간 이상 대기한 작업 복구 | `recovery_count++`, `version++`, `updated_at` |
-| `FEEDBACK_IN_PROGRESS` → `SUBMITTED` | 15분 이상 멈춘 작업 복구 | `recovery_count++`, `version++`, `updated_at` |
-| `SUBMITTED` · `FEEDBACK_IN_PROGRESS` → `FEEDBACK_FAILED` | OpenAI 재시도 3회와 보완 복구 2회 소진 또는 복구 불가 오류 | `version++`, `updated_at` |
-| `FEEDBACK_FAILED` → `SUBMITTED` | 운영자 수동 재처리 | `retry_count = 0`, `recovery_count = 0`, `updated_at` |
+| `FEEDBACK_IN_PROGRESS` → `SUBMITTED` | LLM 실패 재시도 (워커가 백오프 후 재예약) | `stamp_id` 에 `fail` 우표, `retry_count++`, `next_retry_at`, `updated_at` |
+| `FEEDBACK_IN_PROGRESS` → `SUBMITTED` | 매일 0시에 15분 이상 멈춘 작업 복구 | `stamp_id` 에 `fail` 우표, `retry_count++`, `next_retry_at`, `updated_at` |
+| `FEEDBACK_IN_PROGRESS` → `FEEDBACK_FAILED` | 5차 재시도까지 실패 | `next_retry_at = null`, `updated_at` (우표는 `fail` 유지) |
+| `FEEDBACK_FAILED` → `SUBMITTED` | 운영자 수동 재처리 | `stamp_id` 에 기본 우표(`soon`), `retry_count = 0`, `next_retry_at = now`, `updated_at` |
 
 ### 6.2 회원탈퇴 — soft delete 후 지연 삭제
 
@@ -600,7 +614,7 @@ CREATE TABLE letters (
     status      VARCHAR(30)  NOT NULL,
     is_read     BOOLEAN      NOT NULL DEFAULT FALSE,
     retry_count INT          NOT NULL DEFAULT 0,
-    recovery_count INT       NOT NULL DEFAULT 0,
+    next_retry_at DATETIME(6) NULL,
     version     BIGINT       NOT NULL DEFAULT 0,
     created_at  DATETIME(6)  NOT NULL,
     updated_at  DATETIME(6)  NOT NULL,
@@ -608,7 +622,8 @@ CREATE TABLE letters (
     CONSTRAINT fk_letters_user FOREIGN KEY (user_id) REFERENCES users (user_id),
     CONSTRAINT fk_letters_stamp FOREIGN KEY (stamp_id) REFERENCES stamps (stamp_id),
     KEY idx_letters_list (user_id, letter_date DESC, letter_id DESC),
-    KEY idx_letters_pending (status, updated_at)
+    KEY idx_letters_retry (status, next_retry_at),
+    KEY idx_letters_stalled (status, updated_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 CREATE TABLE feedbacks (

@@ -1,19 +1,25 @@
 package com.dearjolly.server.domain.feedback.service;
 
-public record FeedbackFailureResult(
-        boolean shouldRetry,
-        boolean failed,
-        int retryCount
-) {
-    public static FeedbackFailureResult retry(int retryCount) {
-        return new FeedbackFailureResult(true, false, retryCount);
-    }
+import java.time.LocalDateTime;
 
-    public static FeedbackFailureResult awaitingRecovery(int retryCount) {
-        return new FeedbackFailureResult(false, false, retryCount);
+public record FeedbackFailureResult(
+        boolean retryScheduled,
+        boolean failed,
+        int retryCount,
+        LocalDateTime nextRetryAt,
+        long delaySeconds
+) {
+    public static FeedbackFailureResult retryScheduled(
+            int retryCount, LocalDateTime nextRetryAt, long delaySeconds
+    ) {
+        return new FeedbackFailureResult(true, false, retryCount, nextRetryAt, delaySeconds);
     }
 
     public static FeedbackFailureResult failed(int retryCount) {
-        return new FeedbackFailureResult(false, true, retryCount);
+        return new FeedbackFailureResult(false, true, retryCount, null, 0);
+    }
+
+    public static FeedbackFailureResult ignored(int retryCount) {
+        return new FeedbackFailureResult(false, false, retryCount, null, 0);
     }
 }
