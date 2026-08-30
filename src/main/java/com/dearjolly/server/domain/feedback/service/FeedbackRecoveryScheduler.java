@@ -30,18 +30,22 @@ public class FeedbackRecoveryScheduler {
     @Transactional
     public void recoverStalledFeedback() {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime submittedThreshold = now.minusHours(1);
-        LocalDateTime inProgressThreshold = now.minusMinutes(15);
-        List<Long> submitted = letterRepository.findIdsByStatusAndUpdatedAtBefore(SUBMITTED, submittedThreshold);
-        List<Long> inProgress = letterRepository.findIdsByStatusAndUpdatedAtBefore(
-                FEEDBACK_IN_PROGRESS, inProgressThreshold
+        LocalDateTime firstRecoveryThreshold = now.minusMinutes(30);
+        LocalDateTime secondRecoveryThreshold = now.minusHours(1);
+        List<Long> submitted = letterRepository.findIdsForFeedbackRecovery(
+                SUBMITTED, firstRecoveryThreshold, secondRecoveryThreshold
+        );
+        List<Long> inProgress = letterRepository.findIdsForFeedbackRecovery(
+                FEEDBACK_IN_PROGRESS, firstRecoveryThreshold, secondRecoveryThreshold
         );
 
         long failedCount = submitted.stream()
-                .filter(letterId -> recoverAndCheckFailed(letterId, SUBMITTED, submittedThreshold, now))
+                .filter(letterId -> recoverAndCheckFailed(
+                        letterId, SUBMITTED, firstRecoveryThreshold, secondRecoveryThreshold, now))
                 .count();
         failedCount += inProgress.stream()
-                .filter(letterId -> recoverAndCheckFailed(letterId, FEEDBACK_IN_PROGRESS, inProgressThreshold, now))
+                .filter(letterId -> recoverAndCheckFailed(
+                        letterId, FEEDBACK_IN_PROGRESS, firstRecoveryThreshold, secondRecoveryThreshold, now))
                 .count();
 
         if (!submitted.isEmpty() || !inProgress.isEmpty()) {
@@ -51,10 +55,15 @@ public class FeedbackRecoveryScheduler {
     }
 
     private boolean recoverAndCheckFailed(
-            Long letterId, Status expectedStatus, LocalDateTime threshold, LocalDateTime now
+            Long letterId,
+            Status expectedStatus,
+            LocalDateTime firstRecoveryThreshold,
+            LocalDateTime secondRecoveryThreshold,
+            LocalDateTime now
     ) {
         int recovered = letterRepository.recoverFeedback(
-                letterId, expectedStatus, SUBMITTED, threshold, now, MAX_RECOVERY_COUNT
+                letterId, expectedStatus, SUBMITTED,
+                firstRecoveryThreshold, secondRecoveryThreshold, now, MAX_RECOVERY_COUNT
         );
         if (recovered == 1) {
             FeedbackLogContext context = logContext(letterId);
@@ -68,7 +77,7 @@ public class FeedbackRecoveryScheduler {
             return false;
         }
         int failed = letterRepository.failExhaustedRecovery(
-                letterId, expectedStatus, FEEDBACK_FAILED, threshold, now, MAX_RECOVERY_COUNT
+                letterId, expectedStatus, FEEDBACK_FAILED, secondRecoveryThreshold, now, MAX_RECOVERY_COUNT
         );
         if (failed == 1) {
             FeedbackLogContext context = logContext(letterId);

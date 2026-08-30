@@ -40,13 +40,15 @@ class FeedbackRecoverySchedulerTest {
     @Test
     void recoverStalledFeedbackWithinRecoveryLimit() {
         // given
-        when(letterRepository.findIdsByStatusAndUpdatedAtBefore(eq(SUBMITTED), any(LocalDateTime.class)))
+        when(letterRepository.findIdsForFeedbackRecovery(
+                eq(SUBMITTED), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of(LETTER_ID));
-        when(letterRepository.findIdsByStatusAndUpdatedAtBefore(eq(FEEDBACK_IN_PROGRESS), any(LocalDateTime.class)))
+        when(letterRepository.findIdsForFeedbackRecovery(
+                eq(FEEDBACK_IN_PROGRESS), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
         when(letterRepository.recoverFeedback(
                 eq(LETTER_ID), eq(SUBMITTED), eq(SUBMITTED),
-                any(LocalDateTime.class), any(LocalDateTime.class), eq(2)
+                any(LocalDateTime.class), any(LocalDateTime.class), any(LocalDateTime.class), eq(2)
         )).thenReturn(1);
 
         // when
@@ -65,13 +67,15 @@ class FeedbackRecoverySchedulerTest {
     @Test
     void skipWhenExistingWorkerAlreadyCompleted() {
         // given
-        when(letterRepository.findIdsByStatusAndUpdatedAtBefore(eq(SUBMITTED), any(LocalDateTime.class)))
+        when(letterRepository.findIdsForFeedbackRecovery(
+                eq(SUBMITTED), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
-        when(letterRepository.findIdsByStatusAndUpdatedAtBefore(eq(FEEDBACK_IN_PROGRESS), any(LocalDateTime.class)))
+        when(letterRepository.findIdsForFeedbackRecovery(
+                eq(FEEDBACK_IN_PROGRESS), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of(LETTER_ID));
         when(letterRepository.recoverFeedback(
                 eq(LETTER_ID), eq(FEEDBACK_IN_PROGRESS), eq(SUBMITTED),
-                any(LocalDateTime.class), any(LocalDateTime.class), eq(2)
+                any(LocalDateTime.class), any(LocalDateTime.class), any(LocalDateTime.class), eq(2)
         )).thenReturn(0);
         when(letterRepository.failExhaustedRecovery(
                 eq(LETTER_ID), eq(FEEDBACK_IN_PROGRESS), eq(FEEDBACK_FAILED),

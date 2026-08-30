@@ -196,7 +196,7 @@ erDiagram
 
 - INDEX `(user_id, letter_date DESC, letter_id DESC)` — 목록 정렬·페이징.
 - 중복 전달 판정(A17)의 "직전 편지 1건" 조회도 이 인덱스를 탄다. 편지는 append-only 이고 PK 가 AUTO_INCREMENT 라 `letter_id DESC` 가 곧 작성 역순이므로, `created_at` 정렬용 인덱스를 따로 두지 않는다.
-- INDEX `(status, updated_at)` — 미처리 편지 스캔 배치. `SUBMITTED` 이벤트 유실(1시간 초과)과 `FEEDBACK_IN_PROGRESS` 처리 유실(15분 초과)을 이 인덱스로 찾는다.
+- INDEX `(status, updated_at)` — 미처리 편지 스캔 배치. 첫 복구는 마지막 상태 변경 후 30분, 두 번째 복구는 첫 복구 후 1시간이 지난 작업을 이 인덱스로 찾는다.
 - 워커 픽업은 `status = 'SUBMITTED'` 인 행만 `FEEDBACK_IN_PROGRESS` 로 바꾸는 조건부 UPDATE 로 수행하며 `version`도 증가시킨다. 갱신 건수 0이면 다른 워커가 이미 집은 것이므로 처리를 건너뛴다.
 - OpenAI 호출 트랜잭션은 편지 행에 비관적 쓰기 잠금을 건다. 보완 복구는 상태·기준 시각·복구 횟수를 다시 확인하는 조건부 UPDATE 이므로 기존 워커가 먼저 완료하면 갱신 건수 0으로 끝나고 새 이벤트를 발행하지 않는다.
 - 편지는 append-only 다 (R1). 등록 후 `content` · `letter_date` · `time_zone` 은 변경되지 않으며, 사용자 요청으로 삭제되지도 않는다. 변경되는 컬럼은 `status` · `stamp_id` · `is_read` · `retry_count` · `recovery_count` · `version` · `updated_at` 뿐이다.
@@ -441,7 +441,7 @@ API 요청/응답의 `provider` 필드가 이 enum 이다. 문서 전체에서 �
 임시저장 상태는 두지 않으며, 편지는 항상 `SUBMITTED` 로 생성된다.
 
 - 컬럼 길이가 VARCHAR(30) 인 이유는 가장 긴 값 `FEEDBACK_IN_PROGRESS` 가 20자이기 때문이다. 여유를 포함해 30으로 잡는다.
-- `FEEDBACK_IN_PROGRESS` 는 워커 중복 실행 방지와 처리 유실 판별을 위한 상태다. 두 워커가 같은 편지를 집지 못하도록 진입을 조건부 UPDATE 로 막고, 이 상태로 15분 이상 머문 편지는 호출 도중 종료된 것으로 보고 `SUBMITTED` 로 되돌려 재큐잉한다.
+- `FEEDBACK_IN_PROGRESS` 는 워커 중복 실행 방지와 처리 유실 판별을 위한 상태다. 두 워커가 같은 편지를 집지 못하도록 진입을 조건부 UPDATE 로 막고, 첫 복구는 마지막 상태 변경 후 30분, 두 번째 복구는 첫 복구 후 1시간을 기준으로 `SUBMITTED` 로 되돌려 재큐잉한다.
 - 네 상태는 API 응답에 그대로 내려간다. 앱은 `SUBMITTED` 와 `FEEDBACK_IN_PROGRESS` 를 준비 중으로 동일하게 렌더링하고, `FEEDBACK_FAILED` 는 더 이상 자동으로 변하지 않는 최종 실패로 구분한다.
 
 ### 4.6 `CorrectionType` — `CORRECTION_SEGMENTS.correction_type`
@@ -518,8 +518,8 @@ API 요청/응답의 `provider` 필드가 이 enum 이다. 문서 전체에서 �
 | `SUBMITTED` → `FEEDBACK_IN_PROGRESS` | 워커 픽업 (조건부 UPDATE) | `version++`, `updated_at` |
 | `FEEDBACK_IN_PROGRESS` → `FEEDBACK_COMPLETED` | LLM 응답 저장 성공 | `stamp_id` 에 LLM 이 고른 우표, `updated_at` |
 | `FEEDBACK_IN_PROGRESS` → `SUBMITTED` | LLM 실패 재시도 (워커가 백오프 후 재예약) | `retry_count++`, `updated_at` |
-| `SUBMITTED` → `SUBMITTED` | 1시간 이상 대기한 작업 복구 | `recovery_count++`, `version++`, `updated_at` |
-| `FEEDBACK_IN_PROGRESS` → `SUBMITTED` | 15분 이상 멈춘 작업 복구 | `recovery_count++`, `version++`, `updated_at` |
+| `SUBMITTED` → `SUBMITTED` | 첫 복구는 30분, 두 번째 복구는 1시간 이상 대기한 작업 | `recovery_count++`, `version++`, `updated_at` |
+| `FEEDBACK_IN_PROGRESS` → `SUBMITTED` | 첫 복구는 30분, 두 번째 복구는 1시간 이상 멈춘 작업 | `recovery_count++`, `version++`, `updated_at` |
 | `SUBMITTED` · `FEEDBACK_IN_PROGRESS` → `FEEDBACK_FAILED` | OpenAI 재시도 3회와 보완 복구 2회 소진 또는 복구 불가 오류 | `version++`, `updated_at` |
 | `FEEDBACK_FAILED` → `SUBMITTED` | 운영자 수동 재처리 | `retry_count = 0`, `recovery_count = 0`, `updated_at` |
 

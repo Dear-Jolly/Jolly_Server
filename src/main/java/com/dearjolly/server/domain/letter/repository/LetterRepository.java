@@ -18,10 +18,17 @@ import org.springframework.data.repository.query.Param;
 public interface LetterRepository extends JpaRepository<Letters, Long> {
     Optional<Letters> findFirstByUserIdOrderByIdDesc(Long userId);
 
-    @Query("SELECT letter.id FROM Letters letter WHERE letter.status = :status AND letter.updatedAt < :threshold")
-    List<Long> findIdsByStatusAndUpdatedAtBefore(
+    @Query("""
+            SELECT letter.id
+            FROM Letters letter
+            WHERE letter.status = :status
+              AND ((letter.recoveryCount = 0 AND letter.updatedAt < :firstRecoveryThreshold)
+                OR (letter.recoveryCount >= 1 AND letter.updatedAt < :secondRecoveryThreshold))
+            """)
+    List<Long> findIdsForFeedbackRecovery(
             @Param("status") Status status,
-            @Param("threshold") LocalDateTime threshold
+            @Param("firstRecoveryThreshold") LocalDateTime firstRecoveryThreshold,
+            @Param("secondRecoveryThreshold") LocalDateTime secondRecoveryThreshold
     );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -50,14 +57,16 @@ public interface LetterRepository extends JpaRepository<Letters, Long> {
                 letter.version = letter.version + 1
             WHERE letter.id = :letterId
               AND letter.status = :expectedStatus
-              AND letter.updatedAt < :threshold
+              AND ((letter.recoveryCount = 0 AND letter.updatedAt < :firstRecoveryThreshold)
+                OR (letter.recoveryCount >= 1 AND letter.updatedAt < :secondRecoveryThreshold))
               AND letter.recoveryCount < :maxRecoveryCount
             """)
     int recoverFeedback(
             @Param("letterId") Long letterId,
             @Param("expectedStatus") Status expectedStatus,
             @Param("submitted") Status submitted,
-            @Param("threshold") LocalDateTime threshold,
+            @Param("firstRecoveryThreshold") LocalDateTime firstRecoveryThreshold,
+            @Param("secondRecoveryThreshold") LocalDateTime secondRecoveryThreshold,
             @Param("now") LocalDateTime now,
             @Param("maxRecoveryCount") int maxRecoveryCount
     );
@@ -70,14 +79,14 @@ public interface LetterRepository extends JpaRepository<Letters, Long> {
                 letter.version = letter.version + 1
             WHERE letter.id = :letterId
               AND letter.status = :expectedStatus
-              AND letter.updatedAt < :threshold
+              AND letter.updatedAt < :secondRecoveryThreshold
               AND letter.recoveryCount >= :maxRecoveryCount
             """)
     int failExhaustedRecovery(
             @Param("letterId") Long letterId,
             @Param("expectedStatus") Status expectedStatus,
             @Param("failed") Status failed,
-            @Param("threshold") LocalDateTime threshold,
+            @Param("secondRecoveryThreshold") LocalDateTime secondRecoveryThreshold,
             @Param("now") LocalDateTime now,
             @Param("maxRecoveryCount") int maxRecoveryCount
     );

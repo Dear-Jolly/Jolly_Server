@@ -311,9 +311,9 @@ JVM 힙은 `compose.prod.yaml` 의 `JAVA_OPTS` 가 `MaxRAMPercentage=35` 로 묶
 | `OPENAI_API_KEY` | 없음 | 필수. OpenAI API 키 |
 | `OPENAI_MODEL` | `gpt-4o-mini` | 요청 모델. 실제 응답 모델 ID 는 `FEEDBACKS.model` 에 기록된다 |
 
-일시적인 OpenAI 오류는 30초, 2분, 10분 간격으로 최대 3회 재시도한다. 인증·권한·잘못된 모델처럼
-재시도할 수 없는 오류는 즉시 실패 처리한다. 1시간 넘게 대기하거나 15분 넘게 처리 중인 작업은 10분 주기의
-보완 작업이 최대 2회 다시 큐에 넣는다. OpenAI 재시도는 `retry_count`, 보완 복구는 `recovery_count`로 분리한다.
+일시적인 OpenAI 오류는 30초, 2분, 5분 간격으로 최대 3회 재시도한다. 인증·권한·잘못된 모델처럼
+재시도할 수 없는 오류는 즉시 실패 처리한다. 보완 작업은 직전 실패 후 30분, 첫 복구 실패 후 1시간이 지난
+작업을 10분 주기로 확인해 최대 2회 다시 큐에 넣는다. OpenAI 재시도는 `retry_count`, 보완 복구는 `recovery_count`로 분리한다.
 두 예산을 모두 소진하면 `FEEDBACK_FAILED`이며 이후에는 관리자가 명시적으로 재처리할 때만 횟수를 초기화한다.
 같은 편지의 OpenAI 호출은 DB 쓰기 잠금으로 직렬화하고, 조건부 복구와 JPA 낙관적 락으로 늦은 워커의 저장과
 새 복구 이벤트를 차단한다.

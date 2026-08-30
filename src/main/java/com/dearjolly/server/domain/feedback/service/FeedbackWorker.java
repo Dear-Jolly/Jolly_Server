@@ -20,7 +20,7 @@ public class FeedbackWorker {
     private static final List<Duration> RETRY_DELAYS = List.of(
             Duration.ofSeconds(30),
             Duration.ofMinutes(2),
-            Duration.ofMinutes(10)
+            Duration.ofMinutes(5)
     );
 
     private final FeedbackRequester feedbackRequester;
