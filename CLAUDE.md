@@ -38,4 +38,7 @@ Dear Jolly 백엔드 서버. Java 21 / Spring Boot 3.5.7 / Spring Data JPA / MyS
 - `infra/RUN.md` — 로컬·원격 실행 방법 · 테스트
 - `docs/API명세.md` — API 명세
 - `docs/ERD.md` — 데이터베이스 ERD
+- `docs/AI로직.md` — 피드백 생성·재시도·복구 동작
+- `docs/로그체계.md` — 비즈니스 로그 이벤트와 장애 추적
+- `docs/프론트변경사항.md` — 앱에 영향을 주는 변경 사항 (요청/응답이 바뀌면 여기도 갱신한다)
 - `infra/README.md` — 설정값 · 구축 · 배포 (설정·배포 관련 내용은 전부 여기에만 둔다)
