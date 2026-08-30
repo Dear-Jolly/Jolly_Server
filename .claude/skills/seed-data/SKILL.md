@@ -26,7 +26,7 @@ src/main/resources/seed/        # 코드에 담을 수 없는 원본 (우표 이
 |---|---|---|
 | `StampSeeder` | `STAMPS` 행 + MinIO 우표 이미지 | `STAMPS.name` |
 | `AppVersionSeeder` | `APP_VERSIONS` 행 (플랫폼별 최소 지원 버전) | `APP_VERSIONS.platform` |
-| `UserSeeder` | 관리자 권한의 시드 User + 약관 동의 + 편지 | `(oauth_provider, oauth_id)`, `LETTERS.content` |
+| `UserSeeder` | 관리자 권한의 시드 User + 약관 동의 | `(oauth_provider, oauth_id)` |
 
 - 시드는 도메인이 아니라 `global/seed` 에 모은다. 여러 도메인의 엔티티를 가로질러 만들기 때문이다.
 - **Seeder 와 Writer 를 반드시 나눈다.** `ApplicationRunner` 는 트랜잭션 밖에서 돌기 때문에,
@@ -42,7 +42,6 @@ src/main/resources/seed/        # 코드에 담을 수 없는 원본 (우표 이
   - 우표: `STAMPS.name`
   - 앱 버전: `APP_VERSIONS.platform`
   - 시드 User: `(oauth_provider, oauth_id)`
-  - 시드 User 의 편지: `LETTERS.content`
 - 이미 있는 행은 **필요한 필드만 갱신**한다 (예: 우표 이미지 키가 바뀌었을 때).
 - 자연키를 바꾸면 예전 행이 남고 새 행이 하나 더 생긴다. 시드 원본을 고칠 때 이 점을 명시한다.
 
@@ -74,15 +73,14 @@ try {
 `ApplicationRunner` 가 여러 개면 실행 순서가 정해져 있지 않다. 한 시더가 다른 시더의 결과를 읽어야 하면
 `@Order` 로 고정하고 **왜 그 순서인지 주석으로 남긴다.** 의존이 없으면 붙이지 않는다.
 
-`UserSeeder` 는 완료된 편지에 붙일 우표를 `STAMPS` 에서 찾으므로 `StampSeeder` 뒤에 돌아야 한다.
-그래서 이 둘만 `SeedOrder` 로 순서를 고정한다. `AppVersionSeeder` 는 누구와도 얽히지 않아 지정하지 않는다.
+현재 시더끼리는 서로의 결과를 읽지 않으므로 실행 순서를 지정하지 않는다.
 
 ## 시드 원본을 어디에 둘지
 
 | 원본 | 위치 | 이유 |
 |---|---|---|
 | 바이너리 (이미지 등) | `src/main/resources/seed/` | 코드에 담을 수 없다 |
-| 텍스트 (편지 본문 등) | `{대상}SeedData.java` 의 `List` 상수 | 컴파일 시점에 깨지고, 어차피 재기동해야 반영된다 |
+| 텍스트 목록 | `{대상}SeedData.java` 의 `List` 상수 | 컴파일 시점에 깨지고, 어차피 재기동해야 반영된다 |
 | 환경마다 달라지는 값 | `{대상}SeedProperties` | `.env` 로 덮어쓸 수 있어야 한다 |
 
 ## 값의 주인이 따로 있는 시드
@@ -110,6 +108,7 @@ appVersionRepository.save(AppVersions.create(platform, DEFAULT_MIN_SUPPORTED_VER
   시드가 만들어 둔 계정을 찾아 토큰만 발급한다. 계정이 없으면 로그인도 실패한다.
 - 발급되는 토큰은 소셜 로그인 토큰과 형식·수명이 같다. 그래서 편지·홈 API 까지 같은 토큰으로 호출된다.
 - 온보딩 가드를 통과해야 쓸모가 있으므로, 약관 동의와 닉네임까지 채운 상태로 만든다.
+- 사용자 편지는 시드하지 않는다. 편지 API 는 인증된 사용자가 직접 작성해 저장한 데이터만 조회한다.
 
 ## 하지 말 것
 

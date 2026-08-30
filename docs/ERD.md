@@ -327,8 +327,8 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 관리자는 **별도 테이블이 아니라 `USERS` 행 하나**다. 일반 사용자와 같은 행이고 `role` 만 `ROLE_ADMIN` 이다.
 
 - 소셜 회원가입을 거치지 않으므로 **`global/seed/UserSeeder` 가 만든다.** 관리자 로그인은 이 계정에 로그인만 한다.
-- 약관 동의(`TERMS_AGREEMENTS`)와 닉네임까지 채워 온보딩을 마친 상태로 넣고, 편지 몇 통도 함께 넣는다.
-- `(oauth_provider, oauth_id)` 와 `LETTERS.content` 를 자연키로 삼아 재기동해도 행이 불어나지 않는다.
+- 약관 동의(`TERMS_AGREEMENTS`)와 닉네임까지 채워 온보딩을 마친 상태로 넣는다. 편지는 시드하지 않는다.
+- `(oauth_provider, oauth_id)` 를 자연키로 삼아 재기동해도 행이 불어나지 않는다.
 - 실제 계정처럼 보이는 행이 생기므로 기본값은 꺼짐이고, 켜는 환경에서만 만들어진다.
 
 ---

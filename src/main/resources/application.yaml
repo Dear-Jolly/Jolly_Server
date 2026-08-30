@@ -71,7 +71,7 @@ dearjolly:
     app-version:
       enabled: ${APP_VERSION_SEED_ENABLED:true}
 
-    # 관리자 권한의 시드 User. 약관 동의·닉네임까지 끝난 ROLE_ADMIN 계정 하나와 편지 몇 통을 넣는다.
+    # 관리자 권한의 시드 User. 약관 동의·닉네임까지 끝난 ROLE_ADMIN 계정 하나를 넣는다.
     # 관리자는 회원가입을 하지 않으므로 이 계정이 있어야 아이디·비밀번호로 로그인할 수 있다.
     # 실제 계정처럼 보이는 행이 생기므로 기본값은 꺼짐이다.
     user:

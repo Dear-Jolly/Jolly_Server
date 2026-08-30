@@ -180,12 +180,12 @@ export TESTCONTAINERS_RYUK_DISABLED=true
 | --- | --- | :---: | --- |
 | 우표 | `seed/stamps/*.png` 를 MinIO 에 올리고 `STAMPS` 행을 맞춘다 | 켜짐 | `STAMP_SEED_ENABLED=false` |
 | 앱 버전 | 플랫폼별 최소 지원 버전 행을 **비어 있을 때만** `1.0.0` 으로 채운다 | 켜짐 | `APP_VERSION_SEED_ENABLED=false` |
-| 시드 User | 관리자 권한 계정 하나 + 약관 동의 + 편지 6통 | **꺼짐** | `USER_SEED_ENABLED=true` 로 켠다 |
+| 시드 User | 관리자 권한 계정 하나 + 약관 동의 | **꺼짐** | `USER_SEED_ENABLED=true` 로 켠다 |
 
 ### 관리자 권한의 시드 User
 
 소셜 로그인을 거치지 않고 인증이 필요한 API 를 시험하기 위한 계정이다.
-약관 동의·닉네임 등록까지 끝난 평범한 계정이고 `role` 만 `ROLE_ADMIN` 이며, 피드백까지 완료된 편지가 함께 들어간다.
+약관 동의·닉네임 등록까지 끝난 평범한 계정이고 `role` 만 `ROLE_ADMIN` 이다. 편지는 시드하지 않는다.
 
 **관리자는 회원가입을 하지 않는다.** 이 시드가 유일한 생성 지점이라, 켜지 않으면 관리자 로그인도 되지 않는다.
 

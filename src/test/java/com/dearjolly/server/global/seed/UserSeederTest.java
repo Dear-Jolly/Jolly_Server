@@ -19,17 +19,17 @@ class UserSeederTest {
     @Mock
     private UserSeedWriter userSeedWriter;
 
-    @DisplayName("시드가 켜져 있으면 편지 시드 데이터를 그대로 넘긴다.")
+    @DisplayName("시드가 켜져 있으면 관리자 계정을 생성한다.")
     @Test
     void seed() {
         // given
-        given(userSeedWriter.write(any(), any())).willReturn(new UserSeedResult(1L, 6, 4));
+        given(userSeedWriter.write(any())).willReturn(1L);
 
         // when
         seeder(true).run(new DefaultApplicationArguments());
 
         // then
-        verify(userSeedWriter).write(properties(true), UserSeedData.LETTERS);
+        verify(userSeedWriter).write(properties(true));
     }
 
     @DisplayName("시드가 비활성화되어 있으면 DB 를 건드리지 않는다.")
@@ -46,7 +46,7 @@ class UserSeederTest {
     @Test
     void seedSwallowsFailure() {
         // given
-        given(userSeedWriter.write(any(), any())).willThrow(new IllegalStateException("boom"));
+        given(userSeedWriter.write(any())).willThrow(new IllegalStateException("boom"));
 
         // when & then
         assertThatCode(() -> seeder(true).run(new DefaultApplicationArguments()))
