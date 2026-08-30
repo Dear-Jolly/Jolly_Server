@@ -61,7 +61,9 @@ management:
 
 logging:
   pattern:
-    level: "%5p requestId=%X{requestId:-none} userId=%X{userId:-none} nickname=%X{nickname:-none}"
+    # 요청 문맥이 없는 프레임워크 로그까지 requestId=none 이 붙으면 노이즈만 는다.
+    # 세 값이 모두 비면 구획 자체를 지운다.
+    level: "%5p%replace( requestId=%X{requestId} userId=%X{userId} nickname=%X{nickname}){' requestId= userId= nickname=', ''}"
 
 # Swagger UI 는 그룹 목록의 첫 문서를 먼저 띄운다. 지정하지 않으면 도메인 그룹 하나가 열려
 # 전체 API 를 보려면 매번 드롭다운을 만져야 한다.

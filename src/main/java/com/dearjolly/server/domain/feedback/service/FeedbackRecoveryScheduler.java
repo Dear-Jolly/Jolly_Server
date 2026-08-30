@@ -12,7 +12,9 @@ import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class FeedbackRecoveryScheduler {
     private static final int STALLED_MINUTES = 15;
+    private static final String SCHEDULED_TRIGGER = "scheduled";
+    private static final String STARTUP_TRIGGER = "startup";
     private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 
     private final LetterRepository letterRepository;
@@ -34,6 +38,18 @@ public class FeedbackRecoveryScheduler {
     @Scheduled(cron = "${dearjolly.feedback.recovery-cron:0 0 0 * * *}", zone = "Asia/Seoul")
     @Transactional
     public void recoverLostFeedback() {
+        recover(SCHEDULED_TRIGGER);
+    }
+
+    // 재시도 예약은 인메모리라 배포·재기동으로 사라진다. 기동 직후 한 번 훑지 않으면
+    // 예약을 잃은 편지가 다음 0시까지 아무에게도 집히지 않는다.
+    @EventListener(ApplicationReadyEvent.class)
+    @Transactional
+    public void recoverOnStartup() {
+        recover(STARTUP_TRIGGER);
+    }
+
+    private void recover(String trigger) {
         LocalDateTime now = LocalDateTime.now();
         List<Long> dueLetterIds = letterRepository.findDueFeedbackIds(
                 SUBMITTED, now
@@ -47,8 +63,8 @@ public class FeedbackRecoveryScheduler {
         stalledLetterIds.forEach(letterId -> recoverStalledFeedback(letterId, stalledThreshold, now));
 
         log.info(
-                "feedback_midnight_recovery_completed dueCount={} stalledCount={}",
-                dueLetterIds.size(), stalledLetterIds.size()
+                "feedback_recovery_completed trigger={} dueCount={} stalledCount={}",
+                trigger, dueLetterIds.size(), stalledLetterIds.size()
         );
     }
 

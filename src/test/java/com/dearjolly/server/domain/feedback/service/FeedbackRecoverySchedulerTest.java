@@ -62,6 +62,23 @@ class FeedbackRecoverySchedulerTest {
                 event instanceof LetterCreatedEvent created && created.letterId().equals(LETTER_ID)));
     }
 
+    @DisplayName("기동 직후에도 예약을 잃은 편지를 다시 발행한다.")
+    @Test
+    void publishDueLetterOnStartup() {
+        // given
+        when(letterRepository.findDueFeedbackIds(eq(SUBMITTED), any(LocalDateTime.class)))
+                .thenReturn(List.of(LETTER_ID));
+        when(letterRepository.findStalledFeedbackIds(eq(FEEDBACK_IN_PROGRESS), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+
+        // when
+        feedbackRecoveryScheduler.recoverOnStartup();
+
+        // then
+        verify(eventPublisher).publishEvent(argThat((Object event) ->
+                event instanceof LetterCreatedEvent created && created.letterId().equals(LETTER_ID)));
+    }
+
     @DisplayName("오래 멈춰 있던 편지는 재시도 예산을 써서 다시 예약한다.")
     @Test
     void rescheduleStalledLetter() {
