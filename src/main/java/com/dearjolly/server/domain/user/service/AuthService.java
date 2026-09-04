@@ -53,7 +53,11 @@ public class AuthService {
         String accessToken = jwtProvider.createAccessToken(user.getId(), user.getRole());
         String refreshToken = jwtProvider.createRefreshToken(user.getId(), user.getRole());
         user.updateRefreshToken(refreshToken);
-        user.updateOauthRefreshToken(userInfo.oauthRefreshToken());
+        // provider 가 이번 로그인에서 refresh token 을 주지 않았다면 기존 값을 그대로 둔다.
+        // null 로 덮으면 탈퇴 때 revoke 할 수단이 영영 사라진다.
+        if (userInfo.oauthRefreshToken() != null && !userInfo.oauthRefreshToken().isBlank()) {
+            user.updateOauthRefreshToken(userInfo.oauthRefreshToken());
+        }
 
         return OauthLoginResult.of(user, accessToken, refreshToken, isNewUser, isRequiredTermsAgreed(user.getId()));
     }
