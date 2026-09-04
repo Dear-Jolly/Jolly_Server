@@ -82,8 +82,20 @@ public class AppleOauthClient implements OauthClient {
             throw new BusinessException(ErrorCode.OAUTH_AUTHENTICATION_FAILED);
         }
         JWTClaimsSet claims = verifyIdToken(idToken);
-        AppleTokenResponse token = requestToken(code);
-        return new OauthUserInfo(APPLE, claims.getSubject(), extractEmail(claims), token.refreshToken());
+        return new OauthUserInfo(APPLE, claims.getSubject(), extractEmail(claims), resolveRefreshToken(code));
+    }
+
+    // 회원 식별은 서명을 검증한 id_token 만으로 끝난다.
+    // 여기서 받는 refresh token 은 탈퇴 시 Apple revoke 에만 쓰이므로 못 받아오더라도 로그인을 막지 않는다.
+    // client_secret 설정이 비어 있거나 애플 토큰 엔드포인트가 흔들려도 사용자는 앱에 들어갈 수 있어야 한다.
+    // 값이 없는 계정은 unlink 단계에서 revoke 를 건너뛴다.
+    private String resolveRefreshToken(String code) {
+        try {
+            return requestToken(code).refreshToken();
+        } catch (Exception e) {
+            log.warn("애플 refresh token 을 받지 못했다. 로그인은 진행하되 이 계정은 탈퇴 시 revoke 를 건너뛴다.", e);
+            return null;
+        }
     }
 
     @Override
@@ -184,10 +196,6 @@ public class AppleOauthClient implements OauthClient {
             throw e;
         } catch (RestClientException e) {
             throw new BusinessException(ErrorCode.OAUTH_SERVER_ERROR);
-        } catch (Exception e) {
-            log.warn("애플 client_secret 생성에 실패했다. private key · key id · team id 조합을 확인한다. keyId={}, teamId={}",
-                    properties.keyId(), properties.teamId(), e);
-            throw new BusinessException(ErrorCode.OAUTH_AUTHENTICATION_FAILED);
         }
     }
 
@@ -212,7 +220,17 @@ public class AppleOauthClient implements OauthClient {
         }
     }
 
-    private String createClientSecret() throws Exception {
+    private String createClientSecret() {
+        try {
+            return signClientSecret();
+        } catch (Exception e) {
+            log.warn("애플 client_secret 생성에 실패했다. private key · key id · team id 조합을 확인한다. keyId={}, teamId={}",
+                    properties.keyId(), properties.teamId(), e);
+            throw new BusinessException(ErrorCode.OAUTH_AUTHENTICATION_FAILED);
+        }
+    }
+
+    private String signClientSecret() throws Exception {
         byte[] keyBytes = Base64.getDecoder().decode(
                 properties.privateKey()
                         .replace("-----BEGIN PRIVATE KEY-----", "")
