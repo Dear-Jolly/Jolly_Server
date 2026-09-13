@@ -1,5 +1,7 @@
 package com.dearjolly.server.domain.feedback.service;
 
+import static com.dearjolly.server.domain.feedback.entity.Feedbacks.MAX_TIP_COUNT;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,7 +13,6 @@ import org.springframework.stereotype.Component;
 @Profile("test")
 public class MockLlmClient implements LlmClient {
     private static final String MODEL = "mock-v1";
-    private static final int MAX_TIP_COUNT = 3;
 
     private static final Map<String, String> CORRECTIONS = new LinkedHashMap<>();
 
@@ -27,7 +28,9 @@ public class MockLlmClient implements LlmClient {
     private static final List<String> TIPS = List.of(
             "문장에 동사에 따라 to 부정사와 동명사가 오는 경우가 달라요! 그 부분을 확인해보세요!",
             "'that'은 선행사를 한정하는 필수 정보를, 'which'는 추가 정보를 제공하는 데 쓰여요! 또 'that'은 사람/사물 모두 가능하지만 'which'는 보통 사물에 쓰인답니다!",
-            "이 문맥에서는 'got'보다 'received'가 더 자연스러워요."
+            "이 문맥에서는 'got'보다 'received'가 더 자연스러워요.",
+            "관사는 뒤에 오는 발음에 맞춰 고릅니다. 모음 소리로 시작하는 단어 앞에서는 'a'가 아니라 'an'을 써요!",
+            "지난 일을 적을 때는 동사를 과거형으로 바꿔요. 'make'는 'made'가 됩니다!"
     );
 
     @Override

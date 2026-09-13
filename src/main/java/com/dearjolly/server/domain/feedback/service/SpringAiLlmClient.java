@@ -47,7 +47,7 @@ public class SpringAiLlmClient implements LlmClient {
             8. If meaning is ambiguous, make only corrections justified by the context. Preserve the ambiguity rather than inventing an intended meaning. A Korean tip may briefly explain an unresolved ambiguity when it is important. For an isolated Korean word within an English diary, use an English equivalent only when the context clearly supports it; transliterate proper names if needed, without adding an explanation to the diary.
 
             KOREAN LEARNING TIPS
-            - For every valid English diary, return one to three Korean learning tips: exactly one expression-learning tip and zero to two grammar tips. Never omit the expression tip, even when the diary is already correct and natural.
+            - For every valid English diary, return one to five Korean learning tips: exactly one expression-learning tip and zero to four grammar tips. Never omit the expression tip, even when the diary is already correct and natural.
             - Ground all tips in the diary and arrange them by where the relevant sentence or expression first appears in the original text. Do not place the expression tip last automatically.
             - Write explanations directly. Do not output a separate original-to-corrected comparison line, arrows, headings, or labels such as "내 표현", "교정 표현", or "설명". You may quote a short phrase within an explanation when it helps identify the point.
             - Each grammar tip must contain at least three nonempty explanation lines, preferably three to four. Explain the specific grammar rule, why it applies to this sentence, and how the learner should use the correct form. Each line should add useful information rather than repeat the same point. Do not count a title or quotation-only line as an explanation line.
@@ -55,15 +55,15 @@ public class SpringAiLlmClient implements LlmClient {
             - The expression tip must teach one reusable expression or collocation from the diary or a justified natural rewrite: explain its meaning and when it is used. It must be a vocabulary or usage lesson, not a grammar correction relabeled as an expression tip. A short usage example may help, but must not be added to correctedContent as a diary event.
             - If no expression needs correction, teach an expression already used correctly, such as "take a short walk" or "no matter what" when present. Do not invent an error or rewrite natural wording just to create this mandatory tip. Do not introduce an unrelated expression absent from both the original and corrected diary.
             - Keep every tip within 500 characters including spaces and line breaks. Encode line breaks correctly inside JSON strings. Use friendly Korean in polite 해요-style language and avoid generic advice, shaming, duplicate lessons, and unnecessary jargon.
-            - If there are more than two grammar issues, select the most useful grammar lessons while reserving one tip for expression learning, then sort all selected tips by original position. Correct all identifiable errors in correctedContent regardless of which issues receive tips.
-            - If the diary has no grammar errors, return only the expression tip and preserve already natural writing. Do not invent grammar errors to reach three tips.
+            - If there are more than four grammar issues, select the most useful grammar lessons while reserving one tip for expression learning, then sort all selected tips by original position. Correct all identifiable errors in correctedContent regardless of which issues receive tips.
+            - If the diary has no grammar errors, return only the expression tip and preserve already natural writing. Do not invent grammar errors to reach five tips.
 
             OUTPUT CONTRACT
             - Return only one JSON object matching the supplied schema, with exactly stampName, correctedContent, and tips. No Markdown fences, headings, commentary, extra fields, or correction segments.
             - stampName: one candidate copied verbatim from the supplied list, keeping every character and underscore. Never translate, shorten, split, merge, or invent an identifier.
             - correctedContent: the complete corrected diary in English, nonempty and at most 1000 characters, including spaces and line breaks. No Korean explanations, correction markers, alternative versions, or added titles. Preserve nonverbal content such as existing emoji when possible.
             - Keep wording concise enough to fit the limit without truncating the diary or dropping facts. Never silently omit a sentence to meet the limit.
-            - tips: an array of one to three nonempty Korean explanation strings, including exactly one expression-learning tip. Grammar tips must each have at least three nonempty explanation lines. Each tip must be at most 500 characters. Do not return an empty tips array for a valid English diary.
+            - tips: an array of one to five nonempty Korean explanation strings, including exactly one expression-learning tip. Grammar tips must each have at least three nonempty explanation lines. Each tip must be at most 500 characters. Do not return an empty tips array for a valid English diary.
             - Before returning, check meaning preservation, consistency between the tips and corrected diary, JSON validity, length limits, and exact candidate membership. Do not output this check.
             """;
     private static final String USER_PROMPT = """
@@ -139,7 +139,7 @@ public class SpringAiLlmClient implements LlmClient {
         properties.put("tips", Map.of(
                 "type", "array",
                 "items", Map.of("type", "string"),
-                "description", "Zero to three learning tips written in Korean."
+                "description", "Zero to five learning tips written in Korean."
         ));
 
         Map<String, Object> schema = new LinkedHashMap<>();
