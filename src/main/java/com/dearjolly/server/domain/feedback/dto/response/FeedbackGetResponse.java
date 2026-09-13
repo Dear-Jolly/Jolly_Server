@@ -16,7 +16,7 @@ public record FeedbackGetResponse(
         String correctedContent,
 
         @Schema(
-                description = "피드백 팁 목록 (0~3개). 비어 있으면 앱은 팁 영역을 표시하지 않는다",
+                description = "피드백 팁 목록 (0~5개). 비어 있으면 앱은 팁 영역을 표시하지 않는다",
                 requiredMode = Schema.RequiredMode.REQUIRED)
         List<String> tips,
 

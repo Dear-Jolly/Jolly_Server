@@ -1,5 +1,6 @@
 package com.dearjolly.server.domain.feedback.service;
 
+import static com.dearjolly.server.domain.feedback.entity.Feedbacks.MAX_TIP_COUNT;
 import static com.dearjolly.server.domain.letter.constants.StampConstants.DEFAULT_STAMP_NAME;
 import static com.dearjolly.server.domain.letter.constants.StampConstants.FAILED_STAMP_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,7 +40,7 @@ class SpringAiLlmClientLiveTest {
                 .isNotBlank()
                 .hasSizeLessThanOrEqualTo(1000)
                 .isNotEqualTo(content);
-        assertThat(feedback.tips()).hasSizeLessThanOrEqualTo(3);
+        assertThat(feedback.tips()).hasSizeLessThanOrEqualTo(MAX_TIP_COUNT);
         assertThat(feedback.tips()).allSatisfy(tip -> assertThat(tip).containsPattern("[가-힣]"));
         assertThat(feedback.stampName()).isIn(STAMP_NAMES);
         assertThat(feedback.model()).startsWith("gpt-4o-mini");

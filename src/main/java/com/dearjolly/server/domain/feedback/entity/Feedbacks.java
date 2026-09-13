@@ -27,7 +27,7 @@ import org.hibernate.annotations.BatchSize;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Feedbacks {
-    public static final int MAX_TIP_COUNT = 3;
+    public static final int MAX_TIP_COUNT = 5;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

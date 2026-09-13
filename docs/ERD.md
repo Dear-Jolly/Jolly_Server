@@ -127,7 +127,7 @@ erDiagram
 | `USERS` → `LETTERS` | 1 : 0..N | 한 유저가 편지를 여러 통 작성한다 |
 | `LETTERS` → `FEEDBACKS` | 1 : 0..1 | 편지 한 통당 피드백은 최대 1건이다 |
 | `FEEDBACKS` → `CORRECTION_SEGMENTS` | 1 : 1..N | 피드백은 원문을 나눈 교정 조각을 순서대로 가진다 |
-| `FEEDBACKS` → `FEEDBACK_TIPS` | 1 : 0..3 | 피드백은 학습 팁을 최대 3개까지 가진다 |
+| `FEEDBACKS` → `FEEDBACK_TIPS` | 1 : 0..5 | 피드백은 학습 팁을 최대 5개까지 가진다 |
 
 ---
 
@@ -307,7 +307,7 @@ stampImage = ${MINIO_PUBLIC_ENDPOINT} + "/" + ${MINIO_BUCKET} + "/" + image_key
 | `sort_order` | INT | NOT NULL | 표시 순서. 1부터 연속 증가 |
 
 - UNIQUE `(feedback_id, sort_order)` — `CORRECTION_SEGMENTS` 와 동일한 순서 보장 규칙을 적용한다.
-- 한 피드백당 0~3행이다. 디자인의 팁없음 / 팁단일 / 팁여러개 세 가지 상태에 대응한다.
+- 한 피드백당 0~5행이다. 디자인의 팁없음 / 팁단일 / 팁여러개 세 가지 상태에 대응한다.
 - 조회 시 `ORDER BY sort_order ASC` 로 정렬하고, API 응답에서는 `feedback.tips` 문자열 배열로 평탄화한다.
 
 ### 2.8 `APP_VERSIONS` — 플랫폼별 최소 지원 버전
@@ -504,7 +504,7 @@ API 요청/응답의 `provider` 필드가 이 enum 이다. 문서 전체에서 �
 | A5 | `correction_type` 은 `original_text.equals(corrected_text)` 이면 `UNCHANGED`, 아니면 `MODIFIED` | — | `CorrectionSegments` 생성자 |
 | A6 | `concat(original_text ORDER BY sequence)` == `LETTERS.content` | 교정 세그먼트 생성 규칙 | 피드백 저장 트랜잭션 |
 | A7 | `concat(corrected_text ORDER BY sequence)` == `FEEDBACKS.corrected_content` | 교정 세그먼트 생성 규칙 | 피드백 저장 트랜잭션 |
-| A8 | `FEEDBACK_TIPS` 는 피드백당 최대 3행이며 각 팁은 한국어를 포함한다. 조건을 어긴 LLM 응답은 저장하지 않고 재시도한다 | LLM 응답 계약 | 구조화 응답 검증 · 엔티티 개수 검사 |
+| A8 | `FEEDBACK_TIPS` 는 피드백당 최대 5행이며 각 팁은 한국어를 포함한다. 조건을 어긴 LLM 응답은 저장하지 않고 재시도한다 | LLM 응답 계약 | 구조화 응답 검증 · 엔티티 개수 검사 |
 | A9 | `stamp_id` 는 등록 시 `soon`, 첫 실패 시 `fail`, `FEEDBACK_COMPLETED` 전이 시 LLM 이 고른 우표다 | R3 | 상태 전이 메서드 |
 | A9-1 | LLM 이 반환한 우표 이름이 후보 목록에 없으면 저장하지 않고 재시도한다. 후보는 `soon` · `fail` 을 제외한 `STAMPS` 전 행이다 | — | 구조화 응답 검증 |
 | A10 | `FEEDBACKS` 행이 존재하면 `LETTERS.status` 는 `FEEDBACK_COMPLETED` | — | 피드백 저장 트랜잭션 |

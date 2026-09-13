@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 최종 갱신 | 2026-08-30 |
+| 최종 갱신 | 2026-09-13 |
 | Base URL | `https://{host}` |
 | 인증 | `Authorization: Bearer {accessToken}` |
 | Content-Type | `application/json; charset=UTF-8` |
@@ -661,7 +661,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - 피드백 완료 전에도 응답은 성공한다. 이때 `feedback` 은 `null` 이고 `stampImage` 는 `soon`(준비 중) 우표 URL 이다. 앱은 완료 전 카드의 진입 자체를 막는다.
 - `FEEDBACK_FAILED` 는 피드백 생성이 **한 번이라도 실패한** 상태다. **HTTP 에러가 아니라 성공 Response 200으로 내려오며** `feedback` 은 `null` 이고 `stampImage` 는 `fail`(실패) 우표 URL 이다.
 - **`FEEDBACK_FAILED` 는 최종 상태가 아니다.** 서버가 뒤에서 계속 다시 시도하므로, 다시 조회하면 `FEEDBACK_COMPLETED` 와 편지에 맞는 우표로 바뀌어 있을 수 있다. 앱은 실패 안내를 표시하되 다음 조회에서 완료로 바뀌는 경우를 처리한다.
-- 팁은 편지마다 0~3개이며, `tips` 가 `[]` 면 팁 영역을 표시하지 않는다.
+- 팁은 편지마다 0~5개이며, `tips` 가 `[]` 면 팁 영역을 표시하지 않는다.
 - 우표는 AI 가 편지 내용에 맞춰 고르고 종류가 운영 중 늘거나 바뀔 수 있다. 앱은 **`stampImage` URL 을 그대로 표시하고 우표 종류로 분기하지 않는다.**
 - 교정문은 `correctionSegments` 를 `sequence` 순서대로 이어붙여 그린다. **`originalText` 를 모두 이으면 원문 전체와, `correctedText` 를 모두 이으면 `correctedContent` 전체와 정확히 일치**하므로 앱은 인덱스 계산 없이 순서대로 그리기만 하면 된다.
 - `type == "UNCHANGED"` 는 검은 글씨 그대로, `type == "MODIFIED"` 는 `originalText` 를 빨간 취소선으로 찍고 바로 뒤에 `correctedText` 를 초록 하이라이트로 찍는다.
@@ -734,7 +734,7 @@ Bearer eyJhbGciOiJIUzI1NiJ9...
 - [선택] `feedback` (Object): 피드백 정보 (**`FEEDBACK_COMPLETED`가 아니면 `null`**)
     - [필수] `feedbackId` (Long): 피드백 ID
     - [필수] `correctedContent` (String): 교정된 전체 내용
-    - [필수] `tips` (Array&lt;String&gt;): 피드백 팁 목록 (0~3개, 없으면 `[]`)
+    - [필수] `tips` (Array&lt;String&gt;): 피드백 팁 목록 (0~5개, 없으면 `[]`)
     - [필수] `correctionSegments` (Array): 교정 조각 목록 (1개 이상)
         - [필수] `sequence` (Integer): 순서 (1부터 시작)
         - [필수] `originalText` (String): 원본 텍스트 조각
